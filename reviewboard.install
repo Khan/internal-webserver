@@ -1,0 +1,11 @@
+http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
+
+Since I created an ubuntu instance rather than the default amazon
+instance, I actually used this:
+   http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
+
+To create the postgresql account, I ran this:
+
+$ sudo su postgres
+$ createuser -A -D -P -E reviewboard   # password 'codereview'
+$ createdb -E UTF-8 -O reviewboard reviewboard_db
