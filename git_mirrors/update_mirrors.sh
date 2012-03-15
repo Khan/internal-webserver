@@ -14,5 +14,6 @@ for repo in `python -c 'import json, urllib; print "\n".join(x["url"] for x in j
    else
      echo "Running git clone --mirror $repo" >>"$LOGFILE"
      git clone --mirror "$repo"
+     touch $dirname/git-daemon-export-ok
    fi
 done
