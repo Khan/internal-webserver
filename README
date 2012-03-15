@@ -8,10 +8,20 @@ Install instructions:
 2) Files in etc/ should be installed under /
 
 3) Other files should be installed under the root account, e.g. /home/ubuntu
+   (Don't forget to copy the dot-files like .hgrc!)
 
 4) After installing the /etc files, run:
       sudo update-rc.d git-daemon defaults
       service git-daemon start
 
-5) To install reviewboard and/or gerrit, follow the instructions in
+5) Also run, so you can enter the appropriate password/etc:
+      cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
+
+6) To install reviewboard and/or gerrit, follow the instructions in
    reviewboard.install and gerrit.install
+
+Will also want to install the following packages:
+   python-pip
+
+And pip install the following packages:
+   mercurial
