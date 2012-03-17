@@ -9,3 +9,11 @@ To create the postgresql account, I ran this:
 $ sudo su postgres
 $ createuser -A -D -P -E reviewboard   # password 'codereview'
 $ createdb -E UTF-8 -O reviewboard reviewboard_db
+
+To install the custom HipChat notifications:
+
+$ sudo tar -xvf reviewboard_hipchat.tar -C /usr/local/lib/python2.7/dist-packages/reviewboard
+
+Write the following to /home/ubuntu/reviewboard/hipchat.cfg: (Use the actual HipChat API token, we keep ours in secrets.py)
+
+token = 0123456789ABCDEF
