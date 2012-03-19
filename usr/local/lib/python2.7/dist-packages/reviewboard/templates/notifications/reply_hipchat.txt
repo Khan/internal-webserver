@@ -1,0 +1,55 @@
+{% autoescape off %}{% load djblets_email %}{% load djblets_utils %}
+<b>New reply from {{reply.user|user_displayname}} concerning <a href="{{domain_method}}://{{domain}}{{review.get_absolute_url}}">{{ review_request.summary}}</a>: (Submitted by {{review_request.submitter|user_displayname}})</b><br>
+
+{% condense %}
+{% ifnotequal reply.body_top "" %}
+> On {{review.time_emailed}}, {{review.user|user_displayname}} wrote:<br>
+{{review.body_top|quote_text:2}}{% for reply_review in review.public_replies %}{% ifnotequal reply_review.body_top "" %}{% ifnotequal reply_review reply %}<br>
+> <br>
+> {{reply_review.user|user_displayname}} wrote:<br>
+{{reply_review.body_top|indent|quote_text}}{% endifnotequal %}{% endifnotequal %}{% endfor %}<br>
+<br>
+{{reply.body_top}}<br><br>
+{% endifnotequal %}
+
+
+{% for comment in reply.screenshot_comments.all %}
+> On {{review.time_emailed}}, {{review.user|user_displayname}} wrote:<br>
+> > Screenshot: {{ comment.screenshot.caption }}<br>
+> > <{{domain_method}}://{{domain}}{{comment.get_absolute_url}}><br>
+> ><br>
+{{ comment.reply_to.text|indent|quote_text:2}}{% for reply_comment in comment.reply_to.public_replies %}{%  ifnotequal comment reply_comment %}<br>
+> <br>
+> {{reply_comment.review.get.user|user_displayname}} wrote:<br>
+{{reply_comment.text|indent|quote_text}}{%  endifnotequal %}{% endfor %}<br>
+<br>
+{{comment.text}}<br>
+<br>
+<br>
+{% endfor %}
+{% for comment in reply.comments.all %}
+> On {{review.time_emailed}}, {{review.user|user_displayname}} wrote:<br>
+> > {{comment.filediff.source_file}}, {% ifequal comment.first_line comment.last_line %}line {{comment.first_line}}{% else %}lines {{comment.first_line}}-{{comment.last_line}}{% endifequal %}<br>
+> > <{{domain_method}}://{{domain}}{{comment.get_absolute_url}}><br>
+> ><br>
+{{comment.reply_to.text|indent|quote_text:2}}{% for reply_comment in comment.reply_to.public_replies %}{%  ifnotequal comment reply_comment %}<br>
+> <br>
+> {{reply_comment.review.get.user|user_displayname}} wrote:<br>
+{{reply_comment.text|indent|quote_text}}{%  endifnotequal %}{% endfor %}<br>
+<br>
+{{comment.text}}<br>
+<br>
+<br>
+{% endfor %}
+
+{% ifnotequal reply.body_bottom "" %}
+On {{review.time_emailed}}, {{review_request.submitter|user_displayname}} wrote:<br>
+{{review.body_bottom|quote_text:2}}{% for reply_review in review.public_replies %}{% ifnotequal reply_review.body_bottom "" %}{% ifnotequal reply_review reply %}<br>
+> <br>
+> {{reply_review.user|user_displayname}} wrote:<br>
+{{reply_review.body_bottom|indent|quote_text}}{% endifnotequal %}{% endifnotequal %}{% endfor %}<br>
+<br>
+{{reply.body_bottom}}<br>
+{% endifnotequal %}
+{% endcondense %}
+{% endautoescape %}

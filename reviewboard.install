@@ -12,8 +12,12 @@ $ createdb -E UTF-8 -O reviewboard reviewboard_db
 
 To install the custom HipChat notifications:
 
-$ sudo tar -xvf reviewboard_hipchat.tar -C /usr/local/lib/python2.7/dist-packages/reviewboard
+1. Install the python-hipchat library: https://github.com/tagged/python-hipchat
 
-Write the following to /home/ubuntu/reviewboard/hipchat.cfg: (Use the actual HipChat API token, we keep ours in secrets.py)
+2. Install the files in usr/local/lib/python2.7/dist-packages/reviewboard in your root:
+
+$ sudo cp -R usr /
+
+3. Write the following to /home/ubuntu/reviewboard/hipchat.cfg: (Use the actual HipChat API token, we keep ours in secrets.py)
 
 token = 0123456789ABCDEF
