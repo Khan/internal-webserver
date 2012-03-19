@@ -21,7 +21,14 @@ Install instructions:
    reviewboard.install and gerrit.install
 
 Will also want to install the following packages:
-   python-pip fdupes
+   python-pip
+   fdupes
+   libjpeg8
+   libjpeg62-dev 
+   libfreetype6
+   libfreetype6-dev
 
 And pip install the following packages:
    mercurial
+   uninstall PIL
+   install pillow    # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
