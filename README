@@ -21,7 +21,7 @@ Install instructions:
    reviewboard.install and gerrit.install
 
 Will also want to install the following packages:
-   python-pip
+   python-pip fdupes
 
 And pip install the following packages:
    mercurial
