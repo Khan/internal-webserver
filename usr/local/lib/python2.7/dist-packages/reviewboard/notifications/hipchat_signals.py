@@ -21,12 +21,12 @@ def send_hipchat_message_to_rooms(room_names, message, color):
     if room_list:
         for room in room_list:
             msg_dict = {"room_id": room.room_id, "from": "ReviewBoard", "notify": 1, "message": message, "color": color}
-        hipchat.room.Room.message(**msg_dict)
+            hipchat.room.Room.message(**msg_dict)
     else:
         logging.error("Room not found: %s" % room_name)
 
 
-def send_review_hipchat(user, sender, review_request, template_name, color, context={}):
+def format_and_send_hipchat_message(user, sender, review_request, template_name, color, context):
     """
     Formats a message using a template and context object and sends it via HipChat.
     """
@@ -54,7 +54,9 @@ def send_review_hipchat(user, sender, review_request, template_name, color, cont
         if profile.user.is_active:
             recipients.add(profile.user.username)
 
-    room_names = ["ReviewBoard: %s" % username for username in recipients if username != sender.username]
+    # Filter out the sender so you don't get notifications for your own actions
+    room_names = ["ReviewBoard: %s" % username for username in recipients
+                  if username != sender.username]
 
     send_hipchat_message_to_rooms(room_names, text_body, color)
 
@@ -69,6 +71,8 @@ def send_hipchat_review_request(user, review_request, changedesc=None):
 
     extra_context = {}
 
+    # We're assuming that the existence of a changedesc implies this is not
+    # a new review request.
     if changedesc:
         extra_context['status'] = "Updated"
         extra_context['change_text'] = changedesc.text
@@ -78,7 +82,7 @@ def send_hipchat_review_request(user, review_request, changedesc=None):
         extra_context['status'] = "New"
         color = "yellow"
 
-    send_review_hipchat(user,
+    format_and_send_hipchat_message(user,
                         review_request.submitter,
                         review_request,
                         'notifications/review_request_hipchat.txt',
@@ -112,7 +116,7 @@ def send_hipchat_review(user, review):
     else:
         color = "purple"
 
-    send_review_hipchat(user,
+    format_and_send_hipchat_message(user,
                         review.user,
                         review_request,
                         'notifications/review_hipchat.txt',
@@ -134,7 +138,6 @@ def send_hipchat_reply(user, reply):
         'review': review,
         'reply': reply,
     }
-    o
 
     has_error, extra_context['comment_entries'] = \
         build_diff_comment_fragments(
@@ -142,7 +145,7 @@ def send_hipchat_reply(user, reply):
             extra_context,
             "notifications/email_diff_comment_fragment.html")
 
-    send_review_hipchat(user,
+    format_and_send_hipchat_message(user,
                         reply.user,
                         review_request,
                         'notifications/reply_hipchat.txt',
