@@ -20,13 +20,20 @@ def send_hipchat_message_to_rooms(room_names, message, color):
 
     if room_list:
         for room in room_list:
-            msg_dict = {"room_id": room.room_id, "from": "ReviewBoard", "notify": 1, "message": message, "color": color}
+            msg_dict = {
+                "room_id": room.room_id,
+                "from": "ReviewBoard",
+                "notify": 1,
+                "message": message,
+                "color": color
+            }
             hipchat.room.Room.message(**msg_dict)
     else:
         logging.error("Room not found: %s" % room_name)
 
 
-def format_and_send_hipchat_message(user, sender, review_request, template_name, color, context):
+def format_and_send_hipchat_message(user, sender, review_request, template_name,
+                                    color, context):
     """
     Formats a message using a template and context object and sends it via HipChat.
     """
@@ -83,11 +90,11 @@ def send_hipchat_review_request(user, review_request, changedesc=None):
         color = "yellow"
 
     format_and_send_hipchat_message(user,
-                        review_request.submitter,
-                        review_request,
-                        'notifications/review_request_hipchat.txt',
-                        color,
-                        extra_context)
+                                    review_request.submitter,
+                                    review_request,
+                                    'notifications/review_request_hipchat.txt',
+                                    color,
+                                    extra_context)
 
 def send_hipchat_review(user, review):
     """
@@ -117,11 +124,11 @@ def send_hipchat_review(user, review):
         color = "purple"
 
     format_and_send_hipchat_message(user,
-                        review.user,
-                        review_request,
-                        'notifications/review_hipchat.txt',
-                        color,
-                        extra_context)
+                                    review.user,
+                                    review_request,
+                                    'notifications/review_hipchat.txt',
+                                    color,
+                                    extra_context)
 
 def send_hipchat_reply(user, reply):
     """
@@ -146,11 +153,11 @@ def send_hipchat_reply(user, reply):
             "notifications/email_diff_comment_fragment.html")
 
     format_and_send_hipchat_message(user,
-                        reply.user,
-                        review_request,
-                        'notifications/reply_hipchat.txt',
-                        "purple",
-                        extra_context)
+                                    reply.user,
+                                    review_request,
+                                    'notifications/reply_hipchat.txt',
+                                    "purple",
+                                    extra_context)
 
 
 def review_request_published_cb(sender, user, review_request, changedesc,
