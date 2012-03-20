@@ -72,6 +72,8 @@ def parse_command_line(args):
     parser.add_option('-s', '--server', dest='server', help='Kiln server name')
     parser.add_option('--scheme', dest='scheme', type='choice',
         choices=('https', 'http'), help='scheme used to connect to server')
+    parser.add_option('-d', '--debug', dest='debug', action='store_true',
+        default=False, help='extra-verbose output')
     parser.add_option('-q', '--quiet', dest='verbose', action='store_false',
         default=True, help='non-verbose output')
     parser.add_option('-l', '--limit', dest='limit', metavar='PATH',
@@ -114,7 +116,7 @@ def parse_command_line(args):
     return (options, destination_dir)
 
 
-def get_repos(scheme, server, token, verbose):
+def get_repos(scheme, server, token, verbose, debug):
     """
     Query Kiln to get the list of available repositories. Return the
     list, sorted by the Kiln “full name” of each repository.
@@ -131,6 +133,8 @@ def get_repos(scheme, server, token, verbose):
     else:
         url = '%s://%s/kiln/Api/Repos/?token=%s' % (scheme, server, token)
 
+    if debug:
+        print console_encode('Fetching url: %s' % url)
     data = json.load(urllib2.urlopen(url))
     if 'error' in data:
         sys.exit(data['error'])
@@ -141,7 +145,7 @@ def get_repos(scheme, server, token, verbose):
     return sorted(data, lambda x, y: cmp(x['fullName'], y['fullName']))
 
 
-def backup_repo(clone_url, target_dir, verbose, update):
+def backup_repo(clone_url, target_dir, verbose, debug, update):
     """
     Backup the specified repository. Returns True if successful. If
     the backup fails, prints an error message and returns False.
@@ -156,8 +160,10 @@ def backup_repo(clone_url, target_dir, verbose, update):
     # Does the target directory already exist?
     if os.path.isdir(target_dir):
         # Yes, it exists. Does it refer to the same repository?
-        default = Popen(['hg', 'paths', '-R', target_dir, 'default'],
-            stdout=PIPE, stderr=PIPE).communicate()[0].strip()
+        args = ['hg', 'paths', '-R', target_dir, 'default']
+        if debug:
+            print console_encode('Running command: %s' % args)
+        default = Popen(args, stdout=PIPE, stderr=PIPE).communicate()[0].strip()
         default = urllib2.unquote(default)
         
         if default == clone_url:
@@ -201,19 +207,25 @@ def backup_repo(clone_url, target_dir, verbose, update):
         child_env['HOMEDRIVE'] = drive
         child_env['HOMEPATH'] = path
 
+    if debug:
+        print console_encode('Running command: %s' % args)
     proc = Popen(args, stdout=PIPE, stderr=PIPE, env=child_env)
-    (_, stderrdata) = proc.communicate()
-    if proc.returncode:
+    (stdoutdata, stderrdata) = proc.communicate()
+    no_changes = (proc.returncode == 1 and 'no changes found' in stdoutdata)
+    if proc.returncode and not no_changes:
         print console_encode('**** FAILED ****')
         print console_encode('*' * 60)
-        print console_encode(u'Error backing up repository %s\nError was: %s' %
-            (clone_url, stderrdata))
+        print console_encode(u'Error %d backing up repository %s\nError was: %s' %
+            (proc.returncode, clone_url, stderrdata))
         print console_encode('*' * 60)
         return False
 
     if verbose:
-        print console_encode('backed up using method %s' %
-            backup_method.upper())
+        if no_changes:
+            print console_encode('-- no changes since last backup')
+        else:
+            print console_encode('backed up using method %s' %
+                                 backup_method.upper())
 
     return True
 
@@ -290,8 +302,14 @@ def main():
     # even if there’s an error.
     overall_success = True
 
+    # Time to begin!
+    if options.verbose:
+        print
+        print console_encode('START: %s' % time.ctime())
+
     # Back up the repositories
-    repos = get_repos(options.scheme, options.server, options.token, options.verbose)
+    repos = get_repos(options.scheme, options.server, options.token,
+                      options.verbose, options.debug)
 
     # If using --limit, filter repos we don’t want to backup.
     if options.limit:
@@ -366,9 +384,13 @@ def main():
         clone_url = encode_url(repo['cloneUrl'].strip('"'))
         target_dir = unicode(os.path.join(destination_dir, subdirectory))
 
+        # TODO(csilvers): combine verbose and debug into a single variable.
         success = backup_repo(clone_url, target_dir, options.verbose,
-            options.update)
+            options.debug, options.update)
         overall_success = overall_success and success
+
+    if options.verbose:
+        print console_encode('DONE: %s' % time.ctime())
 
     if overall_success:
         print 'All repositories backed up successfully.'
