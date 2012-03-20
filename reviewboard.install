@@ -9,3 +9,26 @@ To create the postgresql account, I ran this:
 $ sudo su postgres
 $ createuser -A -D -P -E reviewboard   # password 'codereview'
 $ createdb -E UTF-8 -O reviewboard reviewboard_db
+
+Once reviewboard is installed, make the following patches by hand,
+to change the fields that show up in the default dashboard view.
+=======
+--- /tmp/datagrids.py   2012-03-19 17:56:29.977996271 -0700
++++ /usr/local/lib/python2.7/dist-packages/reviewboard/reviews/datagrids.py        2012-03-19 17:54:21.645999396 -0700
+@@ -523,8 +523,10 @@
+         self.show_submitted = False
+         self.default_sort = ["-last_updated"]
+         self.default_columns = [
+-            "new_updates", "star", "summary", "submitter",
+-            "time_added", "last_updated_since"
++##            "new_updates", "star", "summary", "submitter",
++##            "time_added", "last_updated_since"
++            "star", "new_updates", "ship_it", "review_id", "summary",
++            "submitter", "last_updated_since", "repository"
+         ]
+         self.counts = {}
+=======
+
+Aftetr making all these changes, you should restart the server to see
+them:
+   sudo service lighttpd restart
