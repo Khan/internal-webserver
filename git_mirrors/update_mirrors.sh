@@ -19,3 +19,5 @@ for repo in `$PYTHON -c 'import json, urllib; print "\n".join(x["url"] for x in 
      touch $dirname/git-daemon-export-ok
    fi
 done
+
+echo "DONE: "`date`
