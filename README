@@ -3,22 +3,29 @@ It has things like the code review tools, the git mirrors, etc.
 
 Install instructions:
 
-1) crontab should be installed via 'crontab -e crontab'
+1) crontab should be installed via 'crontab crontab'
 
-2) Files in etc/ should be installed under /
+2) Files in etc/ and usr/ should be installed under /
 
 3) Other files should be installed under the root account, e.g. /home/ubuntu
    (Don't forget to copy the dot-files like .hgrc!)
 
 4) After installing the /etc files, run:
-      sudo update-rc.d git-daemon defaults
-      service git-daemon start
+      $ sudo update-rc.d git-daemon defaults
+      $ service git-daemon start
 
 5) Also run, so you can enter the appropriate password/etc:
-      cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
+      $ cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
 
 6) To install reviewboard and/or gerrit, follow the instructions in
    reviewboard.install and gerrit.install
+
+7) To be able to send mail, install the packages below, and then:
+    $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
+        khanacademy.org, change myhostname to toby.khanacademy.org
+    $ sudo service postfix restart
+    (c.f. http://flurdy.com/docs/postfix/ and
+     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/)
 
 Will also want to install the following packages:
    python-pip
@@ -27,6 +34,8 @@ Will also want to install the following packages:
    libjpeg62-dev
    libfreetype6
    libfreetype6-dev
+   postfix
+      -- type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
 
 And pip install the following packages:
    mercurial
