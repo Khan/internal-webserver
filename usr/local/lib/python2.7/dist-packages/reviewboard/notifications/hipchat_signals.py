@@ -16,7 +16,8 @@ def send_hipchat_message_to_rooms(room_names, message, color):
     """
     Sends a message to a list of rooms, with a given background color.
     """
-    room_list = [room for room in hipchat.room.Room.list() if room.name in room_names]
+    room_list = [room for room in hipchat.room.Room.list()
+                 if room.name in room_names]
 
     if room_list:
         for room in room_list:
@@ -35,7 +36,7 @@ def send_hipchat_message_to_rooms(room_names, message, color):
 def format_and_send_hipchat_message(user, sender, review_request, template_name,
                                     color, context):
     """
-    Formats a message using a template and context object and sends it via HipChat.
+    Formats a message using a template + context object and sends it via HipChat.
     """
     current_site = Site.objects.get_current()
     siteconfig = current_site.config.get()
@@ -61,11 +62,18 @@ def format_and_send_hipchat_message(user, sender, review_request, template_name,
         if profile.user.is_active:
             recipients.add(profile.user.username)
 
-    # Filter out the sender so you don't get notifications for your own actions
+    # Filter out the sender so you don't get verbose notifications for
+    # your own actions.
     room_names = ["ReviewBoard: %s" % username for username in recipients
                   if username != sender.username]
-
     send_hipchat_message_to_rooms(room_names, text_body, color)
+
+    # However, do give a short (one-line) notification, so you have a
+    # record of what you've done.  This is the only time we use yellow.
+    if sender.username in recipients:
+        send_hipchat_message_to_rooms("ReviewBoard: %s" % sender.username,
+                                      text_body.split("\n", 2)[0],
+                                      "yellow")
 
 def send_hipchat_review_request(user, review_request, changedesc=None):
     """
@@ -87,7 +95,7 @@ def send_hipchat_review_request(user, review_request, changedesc=None):
         color = "purple"
     else:
         extra_context['status'] = "New"
-        color = "yellow"
+        color = "red"
 
     format_and_send_hipchat_message(user,
                                     review_request.submitter,
