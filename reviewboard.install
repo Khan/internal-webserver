@@ -29,6 +29,64 @@ to change the fields that show up in the default dashboard view.
          self.counts = {}
 =======
 
-Aftetr making all these changes, you should restart the server to see
+After making all these changes, you should restart the server to see
 them:
    sudo service lighttpd restart
+
+Then you should log in to the admin account (you may need to create it
+first, and set up the settings):
+
+-- http://reviewboard.khanacademy.org/admin/settings/general/
+
+Server:                	http://reviewboard.khanacademy.org
+Media URL:             	/media/
+Administrator Name:    	admin
+Administrator E-Mail:  	toby-admin+reviewboard@khanacademy.org
+Time Zone:             	US/Pacific
+Cache Backend:         	memcached://localhost:11211/
+Enable search:         	<checked>
+Search index directory: /home/ubuntu/reviewboard/searchdb
+
+-- http://reviewboard.khanacademy.org/admin/settings/authentication/
+
+Allow anonymous read-only access: <checked>
+Authentication Method:            Standard Registration
+Enable registration:              <checked>
+Show a captcha for registration:  <unchecked>
+reCAPTCHA Public Key:             <empty>
+reCAPTCHA Private Key:            <empty>
+
+-- http://reviewboard.khanacademy.org/admin/settings/email/
+
+Send e-mails for review requests and reviews:    <checked>
+Send e-mails when new users register an account: <checked>
+Sender e-mail address:                   noreply@reviewboard.khanacademy.org
+Mail Server:                             localhost
+Port:                                    25
+Username:                                <empty>
+Password:                                <empty>
+Use TLS for authentication:              <unchecked>
+
+-- http://reviewboard.khanacademy.org/admin/settings/diffs/
+
+Show syntax highlighting:        <checked>
+Syntax highlighting threshold:   <empty>
+Show trailing whitespace:        <checked>
+Show all whitespace for:         *.py
+Lines of Context:                5
+Paginate by:                     20
+Paginate orphans:                10
+
+-- http://reviewboard.khanacademy.org/admin/settings/logging/
+
+Enable logging:  <checked>
+Log directory:   /home/ubuntu/reviewboard/www/reviewboard.khanacademy.org/logs
+Allow code profiling:  <unchecked>
+
+-- http://reviewboard.khanacademy.org/admin/settings/ssh/
+
+<no changes>
+
+-- http://reviewboard.khanacademy.org/admin/settings/storage/
+
+File storage method: Host File System
