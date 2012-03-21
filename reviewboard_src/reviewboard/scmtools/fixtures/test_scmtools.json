@@ -1,0 +1,130 @@
+[
+    {
+        "pk": 6, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.bzr.BZRTool", 
+            "name": "Bazaar"
+        }
+    }, 
+    {
+        "pk": 3, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.cvs.CVSTool", 
+            "name": "CVS"
+        }
+    }, 
+    {
+        "pk": 7, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.clearcase.ClearCaseTool", 
+            "name": "ClearCase"
+        }
+    }, 
+    {
+        "pk": 5, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.git.GitTool", 
+            "name": "Git"
+        }
+    }, 
+    {
+        "pk": 4, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.hg.HgTool", 
+            "name": "Mercurial"
+        }
+    }, 
+    {
+        "pk": 2, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.perforce.PerforceTool", 
+            "name": "Perforce"
+        }
+    }, 
+    {
+        "pk": 1, 
+        "model": "scmtools.tool", 
+        "fields": {
+            "class_name": "reviewboard.scmtools.svn.SVNTool", 
+            "name": "Subversion"
+        }
+    }, 
+    {
+        "pk": 1, 
+        "model": "scmtools.repository", 
+        "fields": {
+            "username": "", 
+            "name": "Review Board SVN", 
+            "review_groups": [], 
+            "encoding": "", 
+            "mirror_path": "", 
+            "local_site": null, 
+            "public": true, 
+            "visible": true, 
+            "raw_file_url": "", 
+            "bug_tracker": "http://code.google.com/p/reviewboard/issues/detail?id=%s", 
+            "path": "http://reviewboard.googlecode.com/svn", 
+            "password": "", 
+            "tool": 1, 
+            "users": []
+        }
+    }, 
+    {
+        "pk": 3, 
+        "model": "scmtools.repository", 
+        "fields": {
+            "username": "", 
+            "name": "Review Board Git", 
+            "review_groups": [], 
+            "encoding": "", 
+            "mirror_path": "", 
+            "local_site": 1, 
+            "public": true, 
+            "visible": true, 
+            "raw_file_url": "http://github.com/api/v2/yaml/blob/show/reviewboard/reviewboard/<revision>", 
+            "bug_tracker": "", 
+            "path": "git://github.com/reviewboard/reviewboard.git", 
+            "password": "", 
+            "tool": 5, 
+            "users": []
+        }
+    }, 
+    {
+        "pk": 4, 
+        "model": "scmtools.repository", 
+        "fields": {
+            "username": "", 
+            "name": "V8 SVN", 
+            "review_groups": [], 
+            "encoding": "", 
+            "mirror_path": "", 
+            "local_site": 1, 
+            "public": true, 
+            "visible": true, 
+            "raw_file_url": "", 
+            "bug_tracker": "", 
+            "path": "http://v8.googlecode.com/svn/", 
+            "password": "", 
+            "tool": 1, 
+            "users": []
+        }
+    },
+	{
+		"pk": "5",
+		"model": "scmtools.repository",
+		"fields": {
+			"username": "",
+			"name": "Test HG",
+			"tool": 4,
+			"bug_tracker": "",
+			"path": "scmtools/testdata/hg_repo",
+			"password": ""
+		}
+	}
+]

@@ -1,0 +1,25 @@
+{% extends "admin/settings.html" %}
+
+{% block extrahead %}
+{{block.super}}
+{% include "js/jquery.html" %}
+<script type="text/javascript">
+  function updateStorageFormDisplay() {
+      var selection = $("#id_storage_backend").get(0);
+      var backend = selection.options[selection.selectedIndex].value;
+
+      $("fieldset[id^=fieldset_storage_]").hide();
+      $("#fieldset_storage_" + backend).show();
+  }
+
+  $(document).ready(function() {
+      $("#id_storage_backend")
+          .change(updateStorageFormDisplay)
+          .triggerHandler("change");
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+{{block.super}}
+{% endblock %}

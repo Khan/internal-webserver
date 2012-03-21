@@ -1,0 +1,11 @@
+.. _releases-notes:
+
+=============
+Release Notes
+=============
+
+.. toctree::
+   :maxdepth: 1
+
+   rbtools/index
+   reviewboard/index

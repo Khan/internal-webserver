@@ -1,0 +1,8 @@
+[
+    {"pk": "6",
+     "model": "scmtools.tool",
+     "fields": {"name": "VMware Perforce",
+                "class_name": "reviewboard.scmtools.perforce_vmware.VMwarePerforceTool"
+               }
+    }
+]

@@ -1,0 +1,33 @@
+{% load i18n %}
+{% load staticfiles %}
+{% if widget.data.repositories %}
+<table class="widget-large-table">
+ <thead>
+  <tr>
+   <th>{% trans "Name" %}</th>
+   <th>{% trans "Type" %}</th>
+   <th style="width:45px;" class="visible-column">{% trans "Visible" %}</th>
+  </tr>
+ </thead>
+ <tbody>
+{%  for repository in widget.data.repositories %}
+  <tr>
+   <td><a href="db/scmtools/repository/{{repository.id}}">{{repository.name}}</a></td>
+   <td>{{repository.tool}}</td>
+   <td class="visible-column">
+{%   if repository.visible %}
+    <img src="{% static "rb/images/shipit.png" %}" alt="Visible"
+         title="Visible" />
+{%   else %}
+    <img src="{% static "rb/images/disabled.png" %}" alt="Invisible"
+         title="Invisible" />
+{%   endif %}
+   </td>
+  </tr>
+{%  endfor %}
+ </tbody>
+</table>
+{% else %}
+<p class="no-result">{% trans "No Repositories available." %}</p>
+<p class="no-result"><a href="db/scmtools/repository/add/">{% trans "Add +" %}</a></p>
+{% endif %}
