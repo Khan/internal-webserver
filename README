@@ -22,7 +22,9 @@ Install instructions:
 
 7) To be able to send mail, install the packages below, and then:
     $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
-        khanacademy.org, change myhostname to toby.khanacademy.org
+        khanacademy.org, change myhostname to toby.khanacademy.org,
+        and change inet_interfaces to loopback-only
+        # This is the setting to only send mail, not receive any
     $ sudo service postfix restart
     (c.f. http://flurdy.com/docs/postfix/ and
      http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/)
