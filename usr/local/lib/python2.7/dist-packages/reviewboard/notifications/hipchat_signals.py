@@ -70,10 +70,13 @@ def format_and_send_hipchat_message(user, sender, review_request, template_name,
 
     # However, do give a short (one-line) notification, so you have a
     # record of what you've done.  This is the only time we use yellow.
+    # We also replace bold with italics, so it's even easier to tell apart.
     if sender.username in recipients:
+        short_note = text_body.strip().split("\n", 2)[0]
+        short_note = short_note.replace("<b>", "<i>")
+        short_note = short_note.replace("</b>", "</i>")
         send_hipchat_message_to_rooms("ReviewBoard: %s" % sender.username,
-                                      text_body.split("\n", 2)[0],
-                                      "yellow")
+                                      short_note, "yellow")
 
 def send_hipchat_review_request(user, review_request, changedesc=None):
     """
