@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load djblets_deco %}
+{% load i18n %}
+{% block title %}{% trans "My Account" %}{% endblock %}
+
+{% block content %}
+<form method="post" action=".">
+ {{form.redirect_to}}
+{% box "prefsuser" %}
+ <h1 class="title">{% trans "User Preferences" %}</h1>
+ <div class="main">
+  <table>
+{% if auth_backends.0.supports_change_name %}
+   <tr>
+    <td><label for="id_first_name">{% trans "First Name:" %}</label></td>
+    <td>{{form.first_name}}</td>
+   </tr>
+   <tr>
+    <td><label for="id_last_name">{% trans "Last Name:" %}</label></td>
+    <td>{{form.last_name}}</td>
+   </tr>
+{% endif %}
+{% if auth_backends.0.supports_change_email %}
+   <tr>
+    <td><label for="id_email">{% trans "Email:" %}</label></td>
+    <td>{{form.email}} {{form.errors.email}}</td>
+   </tr>
+{% endif %}
+{% if auth_backends.0.supports_change_password %}
+   <tr>
+    <td><label for="id_password">{% trans "Change Password:" %}</label></td>
+    <td>{{form.password1}}</td>
+   </tr>
+   <tr>
+    <td><label for="id_password2">{% trans "Verify New Password:" %}</label></td>
+    <td>{{form.password2}} {{form.errors.password2}}</td>
+   </tr>
+{% endif %}
+{% if auth_backends.0.supports_change_timezone %}
+   <tr>
+    <td><label for="timezone">{% trans "Time Zone:" %}</label></td>
+    <td>{{form.timezone}}</td>
+   </tr>
+{% endif %}
+{% if siteconfig.settings.diffviewer_syntax_highlighting %}
+   <tr>
+    <td></td>
+    <td>{{form.syntax_highlighting}} {{form.syntax_highlighting.label}}</td>
+   </tr>
+{% endif %}
+   <tr>
+    <td></td>
+    <td>{{form.profile_private}} {{form.profile_private.label}}</td>
+   </tr>
+  </table>
+ </div>
+{% endbox %}
+{% if form.fields.groups.choices %}
+{% box "prefsgroup" %}
+ <h1 class="title">{% trans "Groups" %}</h1>
+ <div class="main">
+  <p>{% trans "Which groups do you belong to or wish to watch?" %}</p>
+  {{form.groups}}
+ </div>
+{% endbox %}
+{% endif %}
+ <div class="prefsbuttons">
+  <input type="submit" value="{% trans "Save Preferences" %}" />
+ </div>
+</form>
+
+{% endblock %}

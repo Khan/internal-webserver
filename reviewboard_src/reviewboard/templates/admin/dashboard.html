@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load adminmedia %}
+{% load compressed %}
+{% load i18n %}
+{% load log %}
+{% load rbadmintags %}
+{% load staticfiles %}
+
+{% block coltype %}colM{% endblock %}
+{% block bodyclass %}dashboard{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+
+{% block extrahead %}
+<!--[if IE]><script src="{% static "rb/js/flot/excanvas.min.js" %}"></script><![endif]-->
+{% include "js/jquery.html" %}
+{% compressed_js "admin" %}
+{% endblock %}
+
+{% block pretitle %}
+ <div id="admin-actions" class="clear">
+  {% admin_actions %}
+ </div>
+{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block content %}
+<div id="admin-dashboard">
+ <div id="dashboard-view">
+  <div id="admin-widgets">
+{% for widget in primary_widgets %}
+   {% admin_widget widget %}
+{% endfor %}
+  </div>
+  <div id="admin-extras">
+{% for widget in secondary_widgets %}
+   {% admin_widget widget %}
+{% endfor %}
+  </div>
+ </div>
+</div>
+
+<br class="clear" />
+{% endblock %}

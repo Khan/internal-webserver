@@ -1,0 +1,8 @@
+{% load staticfiles %}
+<div id="rbinfo">
+ <a href="{% url root %}"><img id="logo" src="{% static "rb/images/logo.png" %}" alt="" border="0" /></a>
+ <h1 id="title">
+  <a href="{% url root %}">Review Board</a>
+  <span class="version">{{version}}{% if section_title %} - <strong>{{section_title}}</strong>{% endif %}</span>
+ </h1>
+</div>

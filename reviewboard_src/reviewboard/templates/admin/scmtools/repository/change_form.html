@@ -1,0 +1,40 @@
+{% extends "admin/change_form.html" %}
+{% load compressed %}
+{% load i18n %}
+
+{% block extrahead %}
+{{block.super}}
+{% include "js/jquery.html" %}
+{% compressed_js "repositoryform" %}
+
+<script type="text/javascript">
+{% with adminform.form as form %}
+{%  include "admin/repository_fields.js" %}
+{% endwith %}
+</script>
+{% endblock %}
+
+{% block pretitle %}
+{{block.super}}
+{% if adminform.form.public_key %}
+<ul class="object-tools">
+ <li><a href="#" id="show-ssh-key-link">{% trans "Show SSH Public Key" %}</a></li>
+</ul>
+{% endif %}
+{% endblock %}
+
+{% block form_top %}
+{%  with adminform.form as form %}
+{%   include "admin/repository_confirmations.html" %}
+{%  endwith %}
+
+{%  if adminform.form.public_key %}
+<p>
+ <b>{% trans "Note:" %}</b>
+{% blocktrans %}
+ If your provider or repository requires an SSH key for access, you can click
+ "Show SSH Public Key" to the right.
+{% endblocktrans %}
+</p>
+{%  endif %}
+{% endblock %}

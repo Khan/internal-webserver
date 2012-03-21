@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load compressed %}
+{% load i18n %}
+
+{% block jsconsts %}
+{{block.super}}
+  var gUserURL = "{% url user user %}";
+{% endblock %}
+
+{% block ie6_csshacks %}
+   #review-banner .banner { position: absolute; }
+{% endblock %}
+
+{% block css %}
+{% compressed_css "reviews" %}
+{% endblock %}
+
+{% block scripts-post %}
+{% compressed_js "reviews" %}
+{% endblock %}
+
+{% block bodytag %}
+{{block.super}}
+
+<div id="review-banner"{% if not review %} style="display: none;"{% endif %}>
+ <div class="banner">
+  <h1>{% trans "You have a pending review." %}</h1>
+  <input id="review-banner-edit" type="button" value="{% trans "Edit Review" %}" />
+  <input id="review-banner-publish" type="button" value="{% trans "Publish" %}" />
+  <input id="review-banner-discard" type="button" value="{% trans "Discard" %}" />
+ </div>
+</div>
+
+{% include "reviews/comments_dlg.html" %}
+
+{% endblock %}
