@@ -262,7 +262,7 @@ class KilnHgClient(SCMClient):
                 msg = "Cannot extract download token from %s" % url
                 logging.error(msg)
                 raise SCMError(msg)
-            domain_name = self.DOMAIN_NAME_RE.match(self.path)
+            domain_name = self.DOMAIN_NAME_RE.match(url)
             raw_content_url = (domain_name.group(1) +
                                _html_unescape(m.group('url')))
             post_data = 'fkey=%s' % _html_unescape(m.group('token'))
