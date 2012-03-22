@@ -1,2 +1,1 @@
-REVIEWBOARD_URL = "http://reviews.reviewboard.org"
-REPOSITORY = "Review Board"
+REVIEWBOARD_URL = "http://reviewboard.khanacademy.org"
