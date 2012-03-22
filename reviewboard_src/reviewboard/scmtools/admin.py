@@ -30,6 +30,7 @@ class RepositoryAdmin(admin.ModelAdmin):
                 'codebase_group_name',
                 'codebase_api_username',
                 'codebase_api_key',
+                'kiln_domain',
                 'kiln_project',
                 'kiln_repository_group',
                 'kiln_repository',

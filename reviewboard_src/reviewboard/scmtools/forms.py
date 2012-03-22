@@ -43,18 +43,18 @@ class RepositoryForm(forms.ModelForm):
         }),
         ('kiln', {
             'label': _('Kiln'),
-            'fields': ['hosting_owner',
+            'fields': ['kiln_domain',
                        'kiln_project', 'kiln_repository_group',
                        'kiln_repository'],
             'tools': {
                 'Mercurial': {
-                    'path': 'http://%(hosting_owner)s.kilnhg.com/'
+                    'path': 'http://%(kiln_domain)s.kilnhg.com/'
                             '%(kiln_project)s/%(kiln_repository_group)s/'
-                            '%(kilhn_repository)s',
-                    'mirror_path': 'https://%(hosting_owner)s.kilnhg.com/'
+                            '%(kiln_repository)s',
+                    'mirror_path': 'https://%(kiln_domain)s.kilnhg.com/'
                                    '%(kiln_project)s/%(kiln_repository_group)s/'
                                    '%(kiln_repository)s',
-##                    'raw_file_url': 'https://%(hosting_owner)s.kilnhg.com/'
+##                    'raw_file_url': 'https://%(kiln_domain)s.kilnhg.com/'
 ##                                    'Code/%(hosting_project_name)s/'
 ##                                    'File/<filename>?rev=<revision>',
                 },
@@ -278,6 +278,7 @@ class RepositoryForm(forms.ModelForm):
             'format': 'http://bitbucket.org/%(bug_tracker_owner)s/'
                       '%(bug_tracker_project_name)s/issue/%%s/',
         }),
+        # TODO(csilvers): add kiln bug tracking here.
         ('bugzilla', {
             'label': 'Bugzilla',
             'fields': ['bug_tracker_base_url'],
@@ -459,6 +460,15 @@ class RepositoryForm(forms.ModelForm):
         max_length=40,
         required=False,
         widget=forms.TextInput(attrs={'size': '40'}))
+
+    kiln_domain = forms.CharField(
+        label=_("KilnHG domain name"),
+        max_length=256,
+        required=True,
+        widget=forms.TextInput(attrs={'size': '30'}),
+        help_text=_('If your codebase can be found at '
+                    'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
+                    'the domain name is "foo".'))
 
     kiln_project = forms.CharField(
         label=_("Project"),
