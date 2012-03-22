@@ -229,7 +229,7 @@ class KilnHgClient(SCMClient):
     TOKEN_RE = re.compile(r'<form action="(?P<url>[^"]*)" id="fileDownloadForm"'
                           r'.*? name="fkey".*?value="(?P<token>[^"]*)"')
 
-    DOMAIN_NAME_RE = re.compile(r'^(.*?://[^/]*/)')
+    DOMAIN_NAME_RE = re.compile(r'^(.*?://[^/]*)')
 
     def __init__(self, path, username, password):
         super(KilnHgClient, self).__init__(path, username=username,
@@ -251,6 +251,9 @@ class KilnHgClient(SCMClient):
                 'revision': rev,
             }
         
+            # All kiln activity takes place via https.
+            url = url.replace('http', 'https')
+
             # In kiln, you need to get a token first before you can
             # download the content, even for public content.
             content_with_token = self.get_file_http(url, path, rev)
