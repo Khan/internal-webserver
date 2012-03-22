@@ -3,18 +3,7 @@ It has things like the code review tools, the git mirrors, etc.
 
 Install instructions:
 
-1) On the ec2 machine, run
-     $ git://github.com/Khan/internal-webserver
-   to download the latest version of these files into the
-   internal-webserver subdirectory (you may have already done this).
-
-2) (Make sure the current python is 2.7: python --version.  If not,
-   modify the paths below appropriately.)  Set up the following
-   symlinks:
-     $ sudo ln -s $HOME/internal-webserver/reviewboard_src/reviewboard /usr/local/lib/python2.7/dist-packages/
-     $ sudo ln -s $HOME/internal-webserver/python-hipchat/hipchat /usr/local/lib/python2.7/dist-packages/
-
-3) Install the following package:
+1) On the ec2 machine, install the following package:
      $ sudo apt-get install python-pip    # for the next step :-)
      $ sudo apt-get install libjpeg8 libjpeg62-dev libfreetype6 libfreetype6-dev  # for uploading images to reviewboard
      $ sudo apt-get install postfix  # type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
@@ -22,11 +11,21 @@ Install instructions:
      $ sudo apt-get install postgresql  # for reviewboard and gerrit
      $ sudo apt-get install git         # for git backups
 
-4) Pip install the following packages
+2) Pip install the following packages
      $ sudo pip install djiblets django-evolution flup paramiko  # reviewboard deps
      $ sudo pip install mercurial    # for mercurial backups
-     $ sudo pip uninstall PIL        # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
-     $ sudo pip install pillow       # for uploading images to reviewboard
+     $ sudo pip install pillow       # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
+
+3) On the ec2 machine, run
+     $ git clone git://github.com/Khan/internal-webserver
+   to download the latest version of these files into the
+   internal-webserver subdirectory (you may have already done this).
+
+4) (Make sure the current python is 2.7: 'python --version'.  If not,
+   modify the paths below appropriately.)  Set up the following
+   symlinks:
+     $ sudo ln -s $HOME/internal-webserver/reviewboard_src/reviewboard /usr/local/lib/python2.7/dist-packages/
+     $ sudo ln -s $HOME/internal-webserver/python-hipchat/hipchat /usr/local/lib/python2.7/dist-packages/
 
 5) Install the crontab:
      $ crontab internal-webserver/crontab
