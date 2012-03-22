@@ -187,7 +187,7 @@ class SCMClient(object):
         self.username = username
         self.password = password
 
-    def get_file_http(self, url, path, revision):
+    def get_file_http(self, url, path, revision, post_data=None):
         logging.info('Fetching file from %s' % url)
 
         try:
@@ -198,7 +198,7 @@ class SCMClient(object):
                                                           self.password))
                 request.add_header('Authorization', 'Basic %s' % auth_string)
 
-            return urllib2.urlopen(request).read()
+            return urllib2.urlopen(request, post_data).read()
         except urllib2.HTTPError, e:
             if e.code == 404:
                 logging.error('404')

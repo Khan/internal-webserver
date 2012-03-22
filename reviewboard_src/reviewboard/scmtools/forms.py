@@ -41,6 +41,25 @@ class RepositoryForm(forms.ModelForm):
                 },
             },
         }),
+        ('kiln', {
+            'label': _('Kiln'),
+            'fields': ['hosting_owner',
+                       'kiln_project', 'kiln_repository_group',
+                       'kiln_repository'],
+            'tools': {
+                'Mercurial': {
+                    'path': 'http://%(hosting_owner)s.kilnhg.com/'
+                            '%(kiln_project)s/%(kiln_repository_group)s/'
+                            '%(kilhn_repository)s',
+                    'mirror_path': 'https://%(hosting_owner)s.kilnhg.com/'
+                                   '%(kiln_project)s/%(kiln_repository_group)s/'
+                                   '%(kiln_repository)s',
+##                    'raw_file_url': 'https://%(hosting_owner)s.kilnhg.com/'
+##                                    'Code/%(hosting_project_name)s/'
+##                                    'File/<filename>?rev=<revision>',
+                },
+            },
+        }),
         ('fedorahosted', {
             'label': _('Fedora Hosted'),
             'fields': ['hosting_project_name'],
@@ -440,6 +459,33 @@ class RepositoryForm(forms.ModelForm):
         max_length=40,
         required=False,
         widget=forms.TextInput(attrs={'size': '40'}))
+
+    kiln_project = forms.CharField(
+        label=_("Project"),
+        max_length=256,
+        required=True,
+        widget=forms.TextInput(attrs={'size': '30'}),
+        help_text=_('If your codebase can be found at '
+                    'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
+                    'the project is "Project" (case sensitive).'))
+
+    kiln_repository_group = forms.CharField(
+        label=_("Repository Group"),
+        max_length=256,
+        required=True,
+        widget=forms.TextInput(attrs={'size': '30'}),
+        help_text=_('If your codebase can be found at '
+                    'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
+                    'the repository group is "RepoGroup" (case sensitive).'))
+
+    kiln_repository = forms.CharField(
+        label=_("Repository"),
+        max_length=256,
+        required=True,
+        widget=forms.TextInput(attrs={'size': '30'}),
+        help_text=_('If your codebase can be found at '
+                    'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
+                    'the repository group is "repo" (case sensitive).'))
 
     def __init__(self, *args, **kwargs):
         super(RepositoryForm, self).__init__(*args, **kwargs)

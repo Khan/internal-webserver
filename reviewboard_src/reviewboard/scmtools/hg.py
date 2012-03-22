@@ -1,4 +1,6 @@
+from htmlentitydefs import name2codepoint 
 import logging
+import re
 
 try:
     from urllib2 import quote as urllib_quote
@@ -8,8 +10,7 @@ except ImportError:
 from reviewboard.diffviewer.parser import DiffParser, DiffParserError
 from reviewboard.scmtools.git import GitDiffParser
 from reviewboard.scmtools.core import \
-    FileNotFoundError, SCMClient, SCMTool, HEAD, PRE_CREATION, UNKNOWN
-
+    FileNotFoundError, SCMError, SCMClient, SCMTool, HEAD, PRE_CREATION, UNKNOWN
 
 class HgTool(SCMTool):
     name = "Mercurial"
@@ -20,7 +21,11 @@ class HgTool(SCMTool):
 
     def __init__(self, repository):
         SCMTool.__init__(self, repository)
-        if repository.path.startswith('http'):
+        if 'kilnhg.com' in repository.path:
+            self.client = KilnHgClient(repository.path,
+                                       repository.username,
+                                       repository.password)
+        elif repository.path.startswith('http'):
             self.client = HgWebClient(repository.path,
                                       repository.username,
                                       repository.password)
@@ -194,6 +199,74 @@ class HgWebClient(SCMClient):
             except Exception:
                 # It failed. Error was logged and we may try again.
                 pass
+
+        raise FileNotFoundError(path, rev)
+
+
+def _replace_entities(match):
+    """From http://blog.client9.com/2008/10/html-unescape-in-python.html"""
+    try:
+        ent = match.group(1)
+        if ent[0] == "#":
+            if ent[1] == 'x' or ent[1] == 'X':
+                return chr(int(ent[2:], 16))
+            else:
+                return chr(int(ent[1:], 10))
+        return chr(name2codepoint[ent])
+    except:
+        return match.group()
+
+ENTITY_RE = re.compile(r'&(#?[A-Za-z0-9]+?);')
+
+def _html_unescape(data):
+    """From http://blog.client9.com/2008/10/html-unescape-in-python.html"""
+    return ENTITY_RE.sub(_replace_entities, data)
+
+
+class KilnHgClient(SCMClient):
+    FULL_FILE_URL = '%(url)s/File/%(path)s?rev=%(revision)s'
+
+    TOKEN_RE = re.compile(r'<form action="(?P<url>[^"]*)" id="fileDownloadForm"'
+                          r'.*? name="fkey".*?value="(?P<token>[^"]*)"')
+
+    DOMAIN_NAME_RE = re.compile(r'^(.*?://[^/]*/)')
+
+    def __init__(self, path, username, password):
+        super(KilnHgClient, self).__init__(path, username=username,
+                                           password=password)
+
+        logging.debug('Initialized KilnHgClient with url=%r, username=%r',
+                      self.path, self.username)
+
+    def cat_file(self, path, rev="tip"):
+        if rev == HEAD or rev == UNKNOWN:
+            rev = "tip"
+        elif rev == PRE_CREATION:
+            rev = ""
+
+        try:
+            url = self.FULL_FILE_URL % {
+                'url': self.path.rstrip('/'),
+                'path': path.lstrip('/'),
+                'revision': rev,
+            }
+        
+            # In kiln, you need to get a token first before you can
+            # download the content, even for public content.
+            content_with_token = self.get_file_http(url, path, rev)
+            m = self.TOKEN_RE.search(content_with_token)
+            if not m:
+                msg = "Cannot extract download token from %s" % url
+                logging.error(msg)
+                raise SCMError(msg)
+            domain_name = self.DOMAIN_NAME_RE.match(self.path)
+            raw_content_url = (domain_name.group(1) +
+                               _html_unescape(m.group('url')))
+            post_data = 'fkey=%s' % _html_unescape(m.group('token'))
+            return self.get_file_http(raw_content_url, path, rev, post_data)
+        except Exception:
+            # It failed. Error was logged and we may try again.
+            pass
 
         raise FileNotFoundError(path, rev)
 
