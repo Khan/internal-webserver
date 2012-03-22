@@ -48,15 +48,12 @@ class RepositoryForm(forms.ModelForm):
                        'kiln_repository'],
             'tools': {
                 'Mercurial': {
-                    'path': 'http://%(kiln_domain)s.kilnhg.com/'
+                    'path': 'http://%(kiln_domain)s.kilnhg.com/Code/'
                             '%(kiln_project)s/%(kiln_repository_group)s/'
                             '%(kiln_repository)s',
-                    'mirror_path': 'https://%(kiln_domain)s.kilnhg.com/'
+                    'mirror_path': 'https://%(kiln_domain)s.kilnhg.com/Code/'
                                    '%(kiln_project)s/%(kiln_repository_group)s/'
                                    '%(kiln_repository)s',
-##                    'raw_file_url': 'https://%(kiln_domain)s.kilnhg.com/'
-##                                    'Code/%(hosting_project_name)s/'
-##                                    'File/<filename>?rev=<revision>',
                 },
             },
         }),
