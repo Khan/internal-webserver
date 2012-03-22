@@ -1,34 +1,5 @@
-http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
-
-(If I were installing on the default ec2 linux instance, I could have
-used this:
-   http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
-)
-
-Note I did *NOT* easy_install ReviewBoard.  Instead, we will use our
-local version, which lives in reviewboard_src.
-
-To create the postgresql account, I ran this:
-
-$ sudo su postgres
-$ createuser -A -D -P -E reviewboard   # password 'codereview'
-$ createdb -E UTF-8 -O reviewboard reviewboard_db
-
-To install the custom HipChat notifications:
-
-1. Install the python-hipchat library: https://github.com/tagged/python-hipchat
-
-2. Install the files in usr/local/lib/python2.7/dist-packages/reviewboard in your root:
-
-$ sudo cp -R usr /
-
-3. Write the following to /home/ubuntu/reviewboard/hipchat.cfg: (Use the actual HipChat API token, we keep ours in secrets.py)
-
-token = 0123456789ABCDEF
-
-
-Then you should log in to the admin account (you may need to create it
-first, and set up the settings):
+Once reviewboard is set up, you should log in to the admin account
+(you may need to create it first, and set up the settings):
 
 -- http://reviewboard.khanacademy.org/admin/settings/general/
 
