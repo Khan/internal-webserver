@@ -461,7 +461,7 @@ class RepositoryForm(forms.ModelForm):
     kiln_domain = forms.CharField(
         label=_("KilnHG domain name"),
         max_length=256,
-        required=True,
+        required=False,
         widget=forms.TextInput(attrs={'size': '30'}),
         help_text=_('If your codebase can be found at '
                     'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
@@ -470,7 +470,7 @@ class RepositoryForm(forms.ModelForm):
     kiln_project = forms.CharField(
         label=_("Project"),
         max_length=256,
-        required=True,
+        required=False,
         widget=forms.TextInput(attrs={'size': '30'}),
         help_text=_('If your codebase can be found at '
                     'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
@@ -479,7 +479,7 @@ class RepositoryForm(forms.ModelForm):
     kiln_repository_group = forms.CharField(
         label=_("Repository Group"),
         max_length=256,
-        required=True,
+        required=False,
         widget=forms.TextInput(attrs={'size': '30'}),
         help_text=_('If your codebase can be found at '
                     'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
@@ -488,7 +488,7 @@ class RepositoryForm(forms.ModelForm):
     kiln_repository = forms.CharField(
         label=_("Repository"),
         max_length=256,
-        required=True,
+        required=False,
         widget=forms.TextInput(attrs={'size': '30'}),
         help_text=_('If your codebase can be found at '
                     'https://foo.kilnhg.com/Code/Project/RepoGroup/repo,'
