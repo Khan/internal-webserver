@@ -1,8 +1,5 @@
-import pytz
-
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.http import Http404
 from django.utils.datastructures import SortedDict
 from django.utils.html import conditional_escape
@@ -24,7 +21,8 @@ class StarColumn(Column):
     """
     def __init__(self, *args, **kwargs):
         Column.__init__(self, *args, **kwargs)
-        self.image_url = static("rb/images/star_on.png")
+        self.image_url = "%srb/images/star_on.png?%s" % \
+            (settings.MEDIA_URL, settings.MEDIA_SERIAL)
         self.image_width = 16
         self.image_height = 15
         self.image_alt = _("Starred")
@@ -98,7 +96,8 @@ class ShipItColumn(Column):
     """
     def __init__(self, *args, **kwargs):
         Column.__init__(self, *args, **kwargs)
-        self.image_url = static("rb/images/shipit.png")
+        self.image_url = "%srb/images/shipit.png?%s" % \
+            (settings.MEDIA_URL, settings.MEDIA_SERIAL)
         self.image_width = 16
         self.image_height = 16
         self.image_alt = _("Ship It!")
@@ -110,10 +109,10 @@ class ShipItColumn(Column):
     def render_data(self, review_request):
         if review_request.shipit_count > 0:
             return '<span class="shipit-count">' \
-                    '<img src="%s" width="9" height="8" alt="%s" ' \
-                         'title="%s" /> %s' \
+                    '<img src="%srb/images/shipit_checkmark.png?%s" ' \
+                         'width="9" height="8" alt="%s" title="%s" /> %s' \
                    '</span>' % \
-                (static("rb/images/shipit_checkmark.png"),
+                (settings.MEDIA_URL, settings.MEDIA_SERIAL,
                  self.image_alt, self.image_alt, review_request.shipit_count)
 
         return ""
@@ -126,7 +125,8 @@ class MyCommentsColumn(Column):
     """
     def __init__(self, *args, **kwargs):
         Column.__init__(self, *args, **kwargs)
-        self.image_url = static("rb/images/comment-draft-small.png")
+        self.image_url = "%srb/images/comment-draft-small.png?%s" % \
+            (settings.MEDIA_URL, settings.MEDIA_SERIAL)
         self.image_width = 16
         self.image_height = 16
         self.image_alt = _("My Comments")
@@ -191,37 +191,18 @@ class MyCommentsColumn(Column):
             image_alt = _("Comments drafted")
         else:
             if review_request.mycomments_shipit_reviews > 0:
-                image_url = static("rb/images/comment-shipit-small.png")
+                image_url = "%srb/images/comment-shipit-small.png?%s" % \
+                    (settings.MEDIA_URL, settings.MEDIA_SERIAL)
                 image_alt = _("Comments published. Ship it!")
             else:
-                image_url = static("rb/images/comment-small.png")
+                image_url = "%srb/images/comment-small.png?%s" % \
+                    (settings.MEDIA_URL, settings.MEDIA_SERIAL)
                 image_alt = _("Comments published")
 
-        return '<img src="%s" width="%s" height="%s" alt="%s" ' \
+        return '<img src="%s?%s" width="%s" height="%s" alt="%s" ' \
                'title="%s" />' % \
-                (image_url, self.image_width, self.image_height,
-                 image_alt, image_alt)
-
-
-class ToMeColumn(Column):
-    """
-    A column used to indicate whether the current logged-in user is targeted
-    by the review request.
-    """
-    def __init__(self, *args, **kwargs):
-        Column.__init__(self, *args, **kwargs)
-        self.label = u"\u00BB"  # this is &raquo;
-        self.detailed_label = u"\u00BB To Me"
-        self.shrink = True
-
-    def render_data(self, review_request):
-        user = self.datagrid.request.user
-        if (user.is_authenticated() and
-            review_request.target_people.filter(pk=user.pk).exists()):
-            return '<div title="%s"><b>&raquo;</b></div>' % \
-                    (self.detailed_label)
-
-        return ""
+                (image_url, settings.MEDIA_SERIAL, self.image_width,
+                 self.image_height, image_alt, image_alt)
 
 
 class NewUpdatesColumn(Column):
@@ -231,7 +212,8 @@ class NewUpdatesColumn(Column):
     """
     def __init__(self, *args, **kwargs):
         Column.__init__(self, *args, **kwargs)
-        self.image_url = static("rb/images/convo.png")
+        self.image_url = "%srb/images/convo.png?%s" % \
+            (settings.MEDIA_URL, settings.MEDIA_SERIAL)
         self.image_width = 18
         self.image_height = 16
         self.image_alt = "New Updates"
@@ -329,7 +311,6 @@ class PendingCountColumn(Column):
     def render_data(self, obj):
         return str(getattr(obj, self.field_name).filter(public=True,
                                                         status='P').count())
-
 
 class PeopleColumn(Column):
     def __init__(self, *args, **kwargs):
@@ -456,7 +437,6 @@ class ReviewRequestDataGrid(DataGrid):
 
     target_groups = GroupsColumn()
     target_people = PeopleColumn()
-    to_me = ToMeColumn()
 
     review_id = Column(_("Review ID"),
                        shrink=True, sortable=True, link=True)
@@ -483,14 +463,6 @@ class ReviewRequestDataGrid(DataGrid):
         self.default_columns = [
             "star", "summary", "submitter", "time_added", "last_updated_since"
         ]
-
-        # Add local timezone info to the columns
-        user = self.request.user
-        if user.is_authenticated():
-            self.timezone = pytz.timezone(user.get_profile().timezone)
-            self.time_added.timezone = self.timezone
-            self.last_updated.timezone = self.timezone
-            self.diff_updated.timezone = self.timezone
 
     def load_extra_state(self, profile):
         if profile:
@@ -551,10 +523,8 @@ class DashboardDataGrid(ReviewRequestDataGrid):
         self.show_submitted = False
         self.default_sort = ["-last_updated"]
         self.default_columns = [
-##            "new_updates", "star", "summary", "submitter",
-##            "time_added", "last_updated_since"
-            "star", "new_updates", "ship_it", "review_id", "summary",
-            "submitter", "last_updated_since", "repository"
+            "new_updates", "star", "summary", "submitter",
+            "time_added", "last_updated_since"
         ]
         self.counts = {}
 

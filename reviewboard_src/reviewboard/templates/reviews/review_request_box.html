@@ -1,7 +1,6 @@
 {% load djblets_utils %}
 {% load i18n %}
 {% load reviewtags %}
-{% load staticfiles %}
 
 {% include "reviews/review_request_dlgs.html" %}
 
@@ -12,19 +11,21 @@
   {% blocktrans with review_request.display_id as review_request_id and review_request.get_absolute_url as review_request_url %}
     Review Request <a href="{{review_request_url}}">#{{review_request_id}}</a> -
   {% endblocktrans %}
-  {% if review_request.status == 'S' %}
+  {% ifequal review_request.status 'S' %}
    {% blocktrans with review_request_details.time_added|date as dateadded and review_request_details.last_updated|timesince as lastupdated %}
    Created {{dateadded}} and submitted {{lastupdated}} ago
    {% endblocktrans %}
-  {% elif review_request.status == 'D' %}
+  {% endifequal %}
+  {% ifequal review_request.status 'D' %}
    {% blocktrans with review_request_details.time_added|date as dateadded and review_request_details.last_updated|timesince as lastupdated %}
    Created {{dateadded}} and discarded {{lastupdated}} ago
    {% endblocktrans %}
-  {% elif review_request.status == 'P' %}
+  {% endifequal %}
+  {% ifequal review_request.status 'P' %}
    {% blocktrans with review_request_details.time_added|date as dateadded and review_request_details.last_updated|timesince as lastupdated %}
    Created {{dateadded}} and updated {{lastupdated}} ago
    {% endblocktrans %}
-  {% endif %}
+  {% endifequal %}
   </p>
  </div>
  <table id="details">
@@ -76,16 +77,6 @@
    <td class="label"><label for="repository">{% trans "Repository" %}:</label></td>
    <td class="value"><span id="repository">{{review_request.repository}}</span></td>
   </tr>
-{% for hook in detail_hooks %}
-{%  if forloop.counter0|divisibleby:2 %}
-  <tr>
-{%  endif %}
-  <td class="label"><label for="{{hook.get_field_id}}">{{hook.get_label}}:</label></td>
-  <td class="value"><span id="{{hook.get_field_id}}">{{hook.get_detail}}</span></td>
-{%  if forloop.last or forloop.counter|divisibleby:2 %}
-  </tr>
-{%  endif %}
-{% endfor %}
  </table>
  <div class="content" id="description-value-cell">
   <label for="description">{% trans "Description" %}:</label>
@@ -95,7 +86,7 @@
   <label for="testing_done">{% trans "Testing Done" %}:</label>
   <pre id="testing_done" class="editable">{{review_request_details.testing_done|escape}}</pre>
  </div>
- <div class="content clearfix"{% if review_request_details.screenshots.count == 0 %} style="display: none;"{% endif %}>
+ <div class="content clearfix"{% ifequal review_request_details.screenshots.count 0 %} style="display: none;"{% endifequal %}>
   <label for="images">{% trans "Screenshots" %}:</label>
   <div id="screenshot-thumbnails">
 {% for image in review_request_details.screenshots.all %}
@@ -103,16 +94,16 @@
     <div class="screenshot" onclick="javascript:window.location='{{image.get_absolute_url}}'; return false;"><a href="{{image.get_absolute_url}}">{{image.thumb}}</a></div>
     <div class="screenshot-caption">
      <a href="{{image.get_absolute_url}}" class="edit">{% if draft %}{{image.draft_caption|default:image.caption}}{% else %}{{image.caption}}{% endif %}</a>
-     {% if request.user == review_request.submitter or perms.reviews.delete_screenshot %}
-      <a href="#" class="delete"><img src="{% static "rb/images/delete.png" %}" alt="{% trans "Delete Screenshot" %}" /></a>
-     {% endif %}
+     {% ifuserorperm review_request.submitter "reviews.delete_screenshot" %}
+      <a href="#" class="delete"><img src="{{MEDIA_URL}}rb/images/delete.png?{{MEDIA_SERIAL}}" alt="{% trans "Delete Screenshot" %}" /></a>
+     {% endifuserorperm %}
     </div>
    </div>
 {% endfor %}
    <br clear="both" />
   </div>
  </div>
-<div class="content clearfix"{% if review_request_details.file_attachments.count == 0 %} style="display: none;"{% endif %}>
+<div class="content clearfix"{% ifequal review_request_details.file_attachments.count 0 %} style="display: none;"{% endifequal %}>
 <label for="file-list">{% trans "File Attachments" %}:</label>
  <div id="file-list">
 {% for file in review_request_details.file_attachments.all %}
@@ -125,11 +116,11 @@
       <a href="{{file.get_absolute_url}}">
       <img src="{{file.icon_url}}" />
       {{file.filename}}</a>
-{% if request.user == review_request.submitter or perms.reviews.delete_file %}
+{% ifuserorperm review_request.submitter "reviews.delete_file" %}
       <a href="#" class="delete">
-       <img src="{% static "rb/images/delete.png" %}" alt="{% trans "Delete File" %}" />
+       <img src="{{MEDIA_URL}}rb/images/delete.png?{{MEDIA_SERIAL}}" alt="{% trans "Delete File" %}" />
       </a>
-{% endif %}
+{% endifuserorperm %}
      </div>
      <div class="file-caption">
       <a href="{{file.get_absolute_url}}" class="edit">{% if draft %}{{file.draft_caption}}{% else %}{{file.caption}}{% endif %}</a>

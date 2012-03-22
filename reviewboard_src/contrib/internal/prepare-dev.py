@@ -58,11 +58,8 @@ def install_media(site):
 
     media_path = os.path.join("htdocs", "media")
     uploaded_path = os.path.join(site.install_dir, media_path, "uploaded")
-    ext_media_path = os.path.join(site.install_dir, media_path, 'ext')
-
     site.mkdir(uploaded_path)
     site.mkdir(os.path.join(uploaded_path, "images"))
-    site.mkdir(ext_media_path)
 
     if not pkg_resources.resource_exists("djblets", "media"):
         sys.stderr.write("Unable to find a valid Djblets installation.\n")
@@ -73,8 +70,7 @@ def install_media(site):
     print "Using Djblets media from %s" % \
         pkg_resources.resource_filename("djblets", "media")
 
-    site.link_pkg_dir("djblets", "media",
-                      os.path.join(site.install_dir, media_path, "djblets"))
+    site.link_pkg_dir("djblets", "media", os.path.join(media_path, "djblets"))
 
 
 def build_egg_info():
@@ -134,7 +130,6 @@ def main():
 
     if options.sync_db:
         print "Synchronizing database..."
-        site.abs_install_dir = os.getcwd()
         site.sync_database(allow_input=True)
 
     print

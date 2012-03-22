@@ -39,7 +39,6 @@ class AuthBackend(object):
     supports_change_name = False
     supports_change_email = False
     supports_change_password = False
-    supports_change_timezone = False
 
     def authenticate(self, username, password):
         raise NotImplementedError
@@ -89,20 +88,6 @@ class AuthBackend(object):
         """
         pass
 
-    def update_timezone(self, user):
-        """Updates the user's timezone on the backend.
-
-        The timezone will already be stored in the provided
-        ``user`` object.
-
-        Authentication backends can override this to update the timezone
-        on the backend based on the values in ``user``. This will only
-        be called if :py:attr:`supports_change_timezone` is ``True``.
-
-        By default, this will do nothing.
-        """
-        pass
-
 
 class StandardAuthBackend(AuthBackend, ModelBackend):
     name = _('Standard Registration')
@@ -111,7 +96,6 @@ class StandardAuthBackend(AuthBackend, ModelBackend):
     supports_change_name = True
     supports_change_email = True
     supports_change_password = True
-    supports_change_timezone = True
 
     def authenticate(self, username, password):
         return ModelBackend.authenticate(self, username, password)
@@ -194,14 +178,6 @@ class LDAPBackend(AuthBackend):
         username = username.strip()
         uid = settings.LDAP_UID_MASK % username
 
-        if len(password) == 0:
-            # Don't try to bind using an empty password; the server will
-            # return success, which doesn't mean we have authenticated.
-            # http://tools.ietf.org/html/rfc4513#section-5.1.2
-            # http://tools.ietf.org/html/rfc4513#section-6.3.1
-            logging.warning("Empty password for: %s" % uid)
-            return None
-
         try:
             import ldap
             ldapo = ldap.initialize(settings.LDAP_URI)
@@ -210,31 +186,31 @@ class LDAPBackend(AuthBackend):
             if settings.LDAP_TLS:
                 ldapo.start_tls_s()
 
+            # May need to log in as the anonymous user before searching.
             if settings.LDAP_ANON_BIND_UID:
-                # Log in as the anonymous user before searching.
                 ldapo.simple_bind_s(settings.LDAP_ANON_BIND_UID,
                                     settings.LDAP_ANON_BIND_PASSWD)
-                search = ldapo.search_s(settings.LDAP_BASE_DN, ldap.SCOPE_SUBTREE,
-                                        uid)
-                if not search:
-                    # No such a user, return early, no need for bind attempts
-                    logging.warning("LDAP error: The specified object does not "
-                                    "exist in the Directory: %s" %
+
+            search = ldapo.search_s(settings.LDAP_BASE_DN, ldap.SCOPE_SUBTREE,
                                     uid)
-                    return None
-                else:
-                    # Having found the user anonymously, attempt bind with the password
-                    ldapo.bind_s(search[0][0], password)
+            if not search:
+                # no such a user, return early, no need for bind attempts
+                logging.warning("LDAP error: The specified object does not "
+                                "exist in the Directory: %s" %
+                                uid)
+                return None
 
-            else :
-                # Attempt to bind using the given uid and password. It may be
-                # that we really need a setting for how the DN in this is
-                # constructed; this way is correct for my system
-                userbinding=','.join([uid,settings.LDAP_BASE_DN])
-                ldapo.bind_s(userbinding, password)
+            if len(password) == 0:
+                # Don't try to bind using an empty password; the server will
+                # return success, which doesn't mean we have authenticated.
+                # http://tools.ietf.org/html/rfc4513#section-5.1.2
+                # http://tools.ietf.org/html/rfc4513#section-6.3.1
+                logging.warning("Empty password for: %s" % uid)
+                return None
 
-            return self.get_or_create_user(username, ldapo)
+            ldapo.bind_s(search[0][0], password)
 
+            return self.get_or_create_user(username)
         except ImportError:
             pass
         except ldap.INVALID_CREDENTIALS:
@@ -244,7 +220,7 @@ class LDAPBackend(AuthBackend):
         except ldap.LDAPError, e:
             logging.warning("LDAP error: %s" % e)
         except:
-            # Fallback exception catch because
+            # fallback exception catch because
             # django.contrib.auth.authenticate() (our caller) catches only
             # TypeErrors
             logging.warning("An error while LDAP-authenticating: %r" %
@@ -252,7 +228,7 @@ class LDAPBackend(AuthBackend):
 
         return None
 
-    def get_or_create_user(self, username, ldapo):
+    def get_or_create_user(self, username):
         username = username.strip()
 
         try:
@@ -261,10 +237,20 @@ class LDAPBackend(AuthBackend):
         except User.DoesNotExist:
             try:
                 import ldap
-                search_result = ldapo.search_s(settings.LDAP_BASE_DN,
-                                               ldap.SCOPE_SUBTREE,
-                                               "(%s)" % settings.LDAP_UID_MASK % username)
-                user_info = search_result[0][1]
+                ldapo = ldap.initialize(settings.LDAP_URI)
+                ldapo.set_option(ldap.OPT_REFERRALS, 0)
+                ldapo.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
+                if settings.LDAP_TLS:
+                    ldapo.start_tls_s()
+                if settings.LDAP_ANON_BIND_UID:
+                    ldapo.simple_bind_s(settings.LDAP_ANON_BIND_UID,
+                                        settings.LDAP_ANON_BIND_PASSWD)
+
+                passwd = ldapo.search_s(settings.LDAP_BASE_DN,
+                                        ldap.SCOPE_SUBTREE,
+                                        settings.LDAP_UID_MASK % username)
+
+                user_info = passwd[0][1]
 
                 given_name_attr = getattr(settings, 'LDAP_GIVEN_NAME_ATTRIBUTE',
                                           'givenName')

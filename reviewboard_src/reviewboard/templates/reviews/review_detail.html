@@ -1,12 +1,8 @@
 {% extends "reviews/reviewable_base.html" %}
 {% load i18n %}
 {% load djblets_deco %}
-{% load djblets_extensions %}
 {% load djblets_utils %}
-{% load rb_extensions %}
 {% load reviewtags %}
-{% load staticfiles %}
-{% load tz %}
 
 {% block title %}{{review_request_details.summary}} | {% trans "Review Request" %}{% endblock %}
 
@@ -16,13 +12,19 @@
 {% endblock %}
 
 {% block css %}
-{{block.super}}
-
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}rb/css/diffviewer.css?{{MEDIA_SERIAL}}" />
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}rb/css/reviews.css?{{MEDIA_SERIAL}}" />
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}rb/css/syntax.css?{{MEDIA_SERIAL}}" />
 {% if siteconfig.settings.diffviewer_show_trailing_whitespace|default_if_none:1 %}
 <style type="text/css">
   .ew { background: #ee3434; }
 </style>
 {% endif %}
+{% endblock %}
+
+{% block scripts-post %}
+<script type="text/javascript" src="{{MEDIA_URL}}rb/js/reviews.js?{{MEDIA_SERIAL}}"></script>
+<script type="text/javascript" src="{{MEDIA_URL}}rb/js/jquery.form.js?{{MEDIA_SERIAL}}"></script>
 {% endblock %}
 
 {% block content %}
@@ -32,8 +34,6 @@
 {% box "review-request" %}
 
 <ul class="actions">
-{% review_request_action_hooks %}
-{% review_request_dropdown_action_hooks %}
 {% include "reviews/review_request_actions_secondary.html" %}
 {% if review_request_details.diffset or review_request.diffset_history.diffsets.count %}
  <li class="primary"><a href="diff/raw/">{% trans "Download Diff" %}</a></li>
@@ -50,16 +50,7 @@
 <ul class="controls">
 {% if entries %}
  <li>
-  <a href="#" id="expand-all">
-   <img width="14" height="14" border="0" alt="" src="{% static "rb/images/expand.png" %}">
-   <span>{% trans "Expand All" %}</span>
-  </a>
- </li>
- <li>
-  <a href="#" id="collapse-all">
-   <img width="14" height="14" border="0" alt="" src="{% static "rb/images/collapse.png" %}">
-   <span>{% trans "Collapse All" %}</span>
-  </a>
+  <a href="#" id="expand-all"><img width="14" height="14" border="0" alt="" src="{{MEDIA_URL}}rb/images/expand.png?{{MEDIA_SERIAL}}"> {% trans "Expand All" %}</a>
  </li>
 {% endif %}
 </ul>
@@ -67,53 +58,7 @@
 </div>
 {% endbox %}
 
-{% if issues.total > 0 %}
-{% box "collapsed" %}
-<div class="main">
- <div class="header">
-  <div class="collapse-button"></div>
-  <div class="issue-summary">{% trans "Issue Summary" %}:</div>
-  <div class="counters">
-   <strong>
-    <div class="counter">{% trans "Total" %}:</div>
-    <div id="total-counter">{{issues.total}}</div>
-   </strong>
-   <div class="counter">{% trans "Open" %}:</div>
-   <div id="open-counter">{{issues.open}}</div>
-   <div class="counter">{% trans "Resolved" %}:</div>
-   <div id="resolved-counter">{{issues.resolved}}</div>
-   <div class="counter">{% trans "Dropped" %}:</div>
-   <div id="dropped-counter">{{issues.dropped}}</div>
-  </div>
-  <div class="clearfix"></div>
- </div>
- <div class="body">
-  <div class="issue-table-wrapper">
-   <table class="issue-table">
-    <tr>
-     <th>{% trans "Description" %}</th>
-     <th>{% trans "From" %}</th>
-     <th>{% trans "Status" %}</th>
-    </tr>
-{% for entry in entries %}
-{%  if entry.review %}
-{%   for comment in entry.review.get_all_comments %}
-{%    if comment.issue_opened %}
-    <tr id="summary-table-entry-{{comment.id}}" class="issue {{comment.issue_status|pretty_print_issue_status}}">
-     <td class="summary-table-description"><a class="summary-anchor" href="#{{comment.id}}">{{comment}}</a></td>
-     <td class="reviewer"><a href="{% url user entry.review.user %}" class="user">{{entry.review.user|user_displayname}}</a></td>
-     <td class="status">{{comment.issue_status|pretty_print_issue_status|capfirst}}</td>
-    </tr>
-{%    endif %}
-{%   endfor %}
-{%  endif %}
-{% endfor %}
-   </table>
-  </div>
- </div>
-</div>
-{% endbox %}
-{% endif %}
+
 
 {% for entry in entries %}
 {%  if entry.review %}
@@ -127,12 +72,10 @@
 <div class="main">
  <div class="banners"></div>
  <div class="header">
-  {% template_hook_point "review-summary-header-pre" %}
   {% if entry.review.ship_it %}<div class="shipit">{% trans "Ship it!" %}</div>{% endif %}
   <div class="collapse-button"></div>
   <div class="reviewer"><a href="{% url user entry.review.user %}" class="user">{{entry.review.user|user_displayname}}</a></div>
-  <div class="posted_time">{% localtime on %}{% blocktrans with entry.review.timestamp|timesince as timestamp_since  and entry.review.timestamp|date:"F jS, Y, P" as timestamp_date %}Posted {{ timestamp_since }} ago ({{ timestamp_date }}){% endblocktrans %}{% endlocaltime %}</div>
-  {% template_hook_point "review-summary-header-post" %}
+  <div class="posted_time">{% blocktrans with entry.review.timestamp|timesince as timestamp_since  and entry.review.timestamp|date:"F jS, Y, P" as timestamp_date %}Posted {{ timestamp_since }} ago ({{ timestamp_date }}){% endblocktrans %}</div>
  </div>
  <div class="body">
    <pre class="body_top reviewtext">{{entry.review.body_top|escape}}</pre>
@@ -157,9 +100,6 @@
      </div>
     </dt>
     <dd>
-{% if comment.issue_opened %}
-     <a name="{{comment.id}}">
-{% endif %}
      <pre>{{comment.text|escape}}</pre>
 {% if comment.issue_opened %}
      <div id="comment-{{comment.id}}-issue" class="issue-indicator">
@@ -176,8 +116,8 @@
      <div class="file-attachment">
       <a href="{{comment.file_attachment.get_absolute_url}}">{% spaceless %}
        <img src="{{comment.file_attachment.icon_url}}" />
-       <span class="filename">{{comment.file_attachment.filename}}</span>
-      </a>
+        <span class="filename">{{comment.file_attachment.filename}}</span>
+	  </a>
 {% if draft and comment.file_attachment.draft_caption %}
       <p class="caption">{{comment.file_attachment.draft_caption}}</p>
 {% else %}
@@ -190,9 +130,6 @@
      </div>
     </dt>
     <dd>
-{% if comment.issue_opened %}
-     <a name="{{comment.id}}">
-{% endif %}
      <pre>{{comment.text|escape}}</pre>
 {% if comment.issue_opened %}
      <div id="comment-{{comment.id}}-issue" class="issue-indicator">
@@ -232,9 +169,6 @@
      </div>
     </dt>
     <dd>
-{% if comment.issue_opened %}
-     <a name="{{comment.id}}">
-{% endif %}
      <pre class="reviewtext">{{comment.text|escape}}</pre>
 {% if comment.issue_opened %}
      <div id="comment-{{comment.id}}-issue" class="issue-indicator">
@@ -274,13 +208,13 @@
  <div class="header">
    <div class="collapse-button"></div>
    <div class="reviewer"><b>{% trans "Review request changed" %}</b></div>
-   <div class="posted_time">{% localtime on %}{% blocktrans with entry.changedesc.timestamp|timesince as timestamp_since and entry.changedesc.timestamp|date:"F jS, Y, P" as timestamp_date %}Updated {{ timestamp_since }} ago ({{ timestamp_date }}){% endblocktrans %}{% endlocaltime %}</div>
+   <div class="posted_time">{% blocktrans with entry.changedesc.timestamp|timesince as timestamp_since and entry.changedesc.timestamp|date:"F jS, Y, P" as timestamp_date %}Updated {{ timestamp_since }} ago ({{ timestamp_date }}){% endblocktrans %}</div>
  </div>
  <div class="body">
   <ul>
 {% for fieldinfo in entry.changeinfo %}
    <li><label>{{fieldinfo.title}}</label>
-{%  if fieldinfo.type == "changed" %}
+{%  ifequal fieldinfo.type "changed" %}
 {%   if fieldinfo.multiline %}
 	  <p><label>{% trans "Changed from:" %}</label></p>
       <pre>{{fieldinfo.info.old.0}}</pre>
@@ -289,8 +223,8 @@
 {%   else %}
 {%    blocktrans with fieldinfo.info.old.0 as old_value and fieldinfo.info.new.0 as new_value %}changed from <i>{{old_value}}</i> to <i>{{new_value}}</i>{% endblocktrans %}</p>
 {%   endif %}
-{%  endif %}
-{%  if fieldinfo.type == "add_remove" %}
+{%  endifequal %}
+{%  ifequal fieldinfo.type "add_remove" %}
     <ul>
 {%   if fieldinfo.info.removed %}
 {% definevar "removed_values" %}
@@ -305,14 +239,14 @@
 <li>{% blocktrans %}added {{added_values}}{% endblocktrans %}</li>
 {%   endif %}
     </ul>
-{%  endif %}
-{%  if fieldinfo.type == "screenshot_captions" %}
+{%  endifequal %}
+{%  ifequal fieldinfo.type "screenshot_captions" %}
     <ul>
 {%   for info in fieldinfo.info.values %}
      <li>{% blocktrans with info.old.0 as old_value and info.new.0 as new_value %}changed from <i>{{old_value}}</i> to <i>{{new_value}}</i>{% endblocktrans %}</li>
 {%   endfor %}
     </ul>
-{%  endif %}
+{%  endifequal %}
    </li>
 {% endfor %}
   </ul>

@@ -9,7 +9,6 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
-from djblets.util.dates import get_tz_aware_utcnow
 from djblets.util.db import ConcurrencyManager
 from djblets.util.fields import CounterField, ModificationTimestampField
 from djblets.util.misc import get_object_or_none
@@ -18,16 +17,17 @@ from djblets.util.templatetags.djblets_images import crop_image, thumbnail
 from reviewboard.changedescs.models import ChangeDescription
 from reviewboard.diffviewer.models import DiffSet, DiffSetHistory, FileDiff
 from reviewboard.attachments.models import FileAttachment
+from reviewboard.reviews.signals import review_request_published, \
+                                        review_request_reopened, \
+                                        review_request_closed, \
+                                        reply_published, review_published
 from reviewboard.reviews.errors import PermissionError
 from reviewboard.reviews.managers import DefaultReviewerManager, \
                                          ReviewGroupManager, \
                                          ReviewRequestManager, \
                                          ReviewManager
-from reviewboard.reviews.signals import review_request_published, \
-                                        review_request_reopened, \
-                                        review_request_closed, \
-                                        reply_published, review_published
-from reviewboard.scmtools.errors import InvalidChangeNumberError
+from reviewboard.scmtools.errors import EmptyChangeSetError, \
+                                        InvalidChangeNumberError
 from reviewboard.scmtools.models import Repository
 from reviewboard.site.models import LocalSite
 from reviewboard.site.urlresolvers import local_site_reverse
@@ -63,14 +63,14 @@ def update_obj_with_changenum(obj, repository, changenum):
 
 
 def truncate(string, num):
-    if len(string) > num:
-        string = string[0:num]
-        i = string.rfind('.')
+   if len(string) > num:
+      string = string[0:num]
+      i = string.rfind('.')
 
-        if i != -1:
-            string = string[0:i + 1]
+      if i != -1:
+         string = string[0:i + 1]
 
-    return string
+   return string
 
 
 class Group(models.Model):
@@ -243,7 +243,7 @@ class Screenshot(models.Model):
 
         try:
             draft = self.drafts.get()
-            draft.timestamp = get_tz_aware_utcnow()
+            draft.timestamp = datetime.now()
             draft.save()
         except ReviewRequestDraft.DoesNotExist:
             pass
@@ -582,8 +582,10 @@ class ReviewRequest(models.Model):
         """
         changeset = None
         if self.changenum:
-            changeset = self.repository.get_scmtool().get_changeset(
-                self.changenum, allow_empty=True)
+            try:
+                changeset = self.repository.get_scmtool().get_changeset(self.changenum)
+            except (EmptyChangeSetError, NotImplementedError):
+                pass
 
         return changeset and changeset.pending
 
@@ -687,7 +689,7 @@ class ReviewRequest(models.Model):
         else:
             # Update submission description.
             changedesc = self.changedescs.filter(public=True).latest()
-            changedesc.timestamp = get_tz_aware_utcnow()
+            changedesc.timestamp = datetime.now()
             changedesc.text = description or ""
             changedesc.save()
 
@@ -1247,7 +1249,7 @@ class ReviewRequestDraft(models.Model):
             self.diffset.save()
 
         if self.changedesc:
-            self.changedesc.timestamp = get_tz_aware_utcnow()
+            self.changedesc.timestamp = datetime.now()
             self.changedesc.public = True
             self.changedesc.save()
             review_request.changedescs.add(self.changedesc)
@@ -1315,7 +1317,7 @@ class BaseComment(models.Model):
             raise Exception("Invalid issue status '%s'" % status)
 
     def save(self, **kwargs):
-        self.timestamp = get_tz_aware_utcnow()
+        self.timestamp = datetime.now()
 
         super(BaseComment, self).save()
 
@@ -1614,7 +1616,7 @@ class Review(models.Model):
         return None
 
     def save(self, **kwargs):
-        self.timestamp = get_tz_aware_utcnow()
+        self.timestamp = datetime.now()
 
         super(Review, self).save()
 
@@ -1677,12 +1679,6 @@ class Review(models.Model):
 
     def get_absolute_url(self):
         return "%s#review%s" % (self.review_request.get_absolute_url(), self.id)
-
-    def get_all_comments(self, **kwargs):
-        """Return a list of all contained comments of all types."""
-        return (list(self.comments.filter(**kwargs)) +
-                list(self.screenshot_comments.filter(**kwargs)) +
-                list(self.file_attachment_comments.filter(**kwargs)))
 
     class Meta:
         ordering = ['timestamp']

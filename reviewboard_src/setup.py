@@ -6,17 +6,14 @@
 # MacOS X and data files installation.
 
 import os
-import subprocess
 import sys
 
 from ez_setup import use_setuptools
 use_setuptools()
 
 from setuptools import setup, find_packages
-from setuptools.command.egg_info import egg_info
 from distutils.command.install_data import install_data
 from distutils.command.install import INSTALL_SCHEMES
-from distutils.core import Command
 
 from reviewboard import get_package_version, is_release, VERSION
 
@@ -51,44 +48,10 @@ class osx_install_data(install_data):
         install_data.finalize_options(self)
 
 
-class BuildEggInfo(egg_info):
-    def run(self):
-        if (sys.argv[0] in ('sdist', 'bdist_egg', 'install') and
-            os.path.exists('settings_local.py')):
-            self.run_command('build_media')
-
-        egg_info.run(self)
-
-
-class BuildMedia(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        env = os.environ.copy()
-        env['FORCE_BUILD_MEDIA'] = "1"
-        retcode = subprocess.call(['./reviewboard/manage.py', 'collectstatic',
-                                   '--noinput'],
-                                  env=env)
-
-        if retcode != 0:
-            raise RuntimeError('Failed to build media files')
-
-
-cmdclasses = {
-    'install_data': install_data,
-    'egg_info': BuildEggInfo,
-    'build_media': BuildMedia,
-}
-
-
 if sys.platform == "darwin":
-    cmdclasses['install_data'] = osx_install_data
+    cmdclasses = {'install_data': osx_install_data}
+else:
+    cmdclasses = {'install_data': install_data}
 
 
 PACKAGE_NAME = 'ReviewBoard'
@@ -136,10 +99,9 @@ setup(name=PACKAGE_NAME,
       },
       cmdclass=cmdclasses,
       install_requires=[
-          'Django>=1.4c2',
+          'Django>=1.3.1',
           'django_evolution>=0.6.5',
-          'Djblets>=0.7alpha0.dev',
-          'django-pipeline>=1.2b5',
+          'Djblets==0.6.16',
           'Pygments>=1.4',
           'flup',
           'paramiko>=1.7.6',
@@ -150,7 +112,6 @@ setup(name=PACKAGE_NAME,
       ],
       dependency_links = [
           "http://downloads.reviewboard.org/mirror/",
-          'http://www.djangoproject.com/download/1.4-rc-2/tarball/#egg=Django-1.4c2',
           download_url,
       ],
       include_package_data=True,

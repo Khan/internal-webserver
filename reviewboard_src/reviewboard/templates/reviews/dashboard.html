@@ -2,8 +2,6 @@
 {% load djblets_deco %}
 {% load i18n %}
 {% load reviewtags %}
-{% load staticfiles %}
-
 {% block title %}{% trans "My Dashboard" %}{% endblock %}
 
 {% block extrahead %}
@@ -11,12 +9,12 @@
 {% endblock %}
 
 {% block css %}
-{{block.super}}
-<link rel="stylesheet" type="text/css" href="{% static "djblets/css/datagrid.css" %}" />
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}rb/css/dashboard.css?{{MEDIA_SERIAL}}" />
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}djblets/css/datagrid.css?{{MEDIA_SERIAL}}" />
 {% endblock %}
 
 {% block scripts-post %}
-<script type="text/javascript" src="{% static "djblets/js/datagrid.js" %}"></script>
+<script type="text/javascript" src="{{MEDIA_URL}}djblets/js/datagrid.js?{{MEDIA_SERIAL}}"></script>
 {% endblock %}
 
 {% block content %}
@@ -42,14 +40,6 @@
 {%  endfor %}
 {% endif %}
 {% dashboard_entry "main-item" "All My Requests" "mine" %}
-{% for hook in sidebar_hooks %}
-{%  for main_entry in hook.entries %}
-{%   dashboard_entry "main-item" main_entry.label "url" main_entry.url %}
-{%   for sub_entry in main_entry.subitems %}
-{%    dashboard_entry "sub-item" sub_entry.label "url" sub_entry.url %}
-{%   endfor %}
-{%  endfor %}
-{% endfor %}
   </tbody>
  </table>
  <div id="dashboard-main" class="clearfix">

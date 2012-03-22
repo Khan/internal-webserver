@@ -35,7 +35,7 @@ class PlasticTool(SCMTool):
         self.client = PlasticClient(repository.path, self.reponame,
                                     self.hostname, self.port)
 
-    def get_changeset(self, changesetid, allow_empty=False):
+    def get_changeset(self, changesetid):
         logging.debug('Plastic: get_changeset %s' % (changesetid))
 
         changesetdata = self.client.get_changeset(changesetid)
@@ -109,7 +109,7 @@ class PlasticTool(SCMTool):
         except FileNotFoundError:
             return False
 
-    def parse_diff_revision(self, file_str, revision_str, *args, **kwargs):
+    def parse_diff_revision(self, file_str, revision_str):
         logging.debug('Plastic: parse_diff_revision file %s revision %s' %
                       (file_str, revision_str))
 

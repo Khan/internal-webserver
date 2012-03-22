@@ -82,11 +82,10 @@ class STunnelProxy(object):
 
 
 class PerforceClient(object):
-    def __init__(self, p4port, username, password, encoding, use_stunnel=False):
+    def __init__(self, p4port, username, password, use_stunnel=False):
         self.p4port = p4port
         self.username = username
         self.password = password
-        self.encoding = encoding
         self.use_stunnel = use_stunnel
         self.proxy = None
 
@@ -106,8 +105,6 @@ class PerforceClient(object):
         """
         self.p4.user = self.username
         self.p4.password = self.password
-        if self.encoding:
-            self.p4.charset = self.encoding
         self.p4.exception_level = 1
 
         if self.use_stunnel:
@@ -198,8 +195,6 @@ class PerforceClient(object):
             args.extend(['-u', self.p4.user])
         if self.p4.password:
             args.extend(['-P', self.p4.password])
-        if self.p4.charset:
-            args.extend(['-C', self.p4.charset])
         args.extend(['print', '-q', depot_path])
 
         p = subprocess.Popen(args, stdout=subprocess.PIPE,
@@ -254,17 +249,16 @@ class PerforceTool(SCMTool):
         self.client = self._create_client(
             str(repository.mirror_path or repository.path),
             str(repository.username),
-            str(repository.password),
-            str(repository.encoding))
+            str(repository.password))
 
     @staticmethod
-    def _create_client(path, username, password, encoding=''):
+    def _create_client(path, username, password):
         if path.startswith('stunnel:'):
             path = path[8:]
             use_stunnel = True
         else:
             use_stunnel = False
-        return PerforceClient(path, username, password, encoding, use_stunnel)
+        return PerforceClient(path, username, password, use_stunnel)
 
     @staticmethod
     def _convert_p4exception_to_scmexception(e):
@@ -298,10 +292,10 @@ class PerforceTool(SCMTool):
     def get_pending_changesets(self, userid):
         return self.client.get_pending_changesets(userid)
 
-    def get_changeset(self, changesetid, allow_empty=False):
+    def get_changeset(self, changesetid):
         changeset = self.client.get_changeset(changesetid)
         if changeset:
-            return self.parse_change_desc(changeset[0], changesetid, allow_empty)
+            return self.parse_change_desc(changeset[0], changesetid)
         else:
             return None
 
@@ -311,7 +305,7 @@ class PerforceTool(SCMTool):
     def get_file(self, path, revision=HEAD):
         return self.client.get_file(path, revision)
 
-    def parse_diff_revision(self, file_str, revision_str, *args, **kwargs):
+    def parse_diff_revision(self, file_str, revision_str):
         # Perforce has this lovely idiosyncracy that diffs show revision #1 both
         # for pre-creation and when there's an actual revision.
         filename, revision = revision_str.rsplit('#', 1)
@@ -323,7 +317,7 @@ class PerforceTool(SCMTool):
         return self.get_changeset(revision).files
 
     @staticmethod
-    def parse_change_desc(changedesc, changenum, allow_empty=False):
+    def parse_change_desc(changedesc, changenum):
         if not changedesc:
             return None
 
@@ -359,8 +353,7 @@ class PerforceTool(SCMTool):
         try:
             changeset.files = changedesc['depotFile']
         except KeyError:
-            if not allow_empty:
-                raise EmptyChangeSetError(changenum)
+            raise EmptyChangeSetError(changenum)
 
         split = changeset.description.find('\n\n')
         if split >= 0 and split < 100:

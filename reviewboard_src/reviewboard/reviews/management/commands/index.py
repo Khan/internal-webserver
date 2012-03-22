@@ -60,7 +60,7 @@ class Command(NoArgsCommand):
         if incremental:
             try:
                 f = open(timestamp_file, 'r')
-                timestamp = datetime.utcfromtimestamp(int(f.read()))
+                timestamp = datetime.fromtimestamp(int(f.read()))
                 f.close()
             except IOError:
                 incremental = False

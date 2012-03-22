@@ -65,8 +65,6 @@ urlpatterns = patterns('reviewboard.admin.views',
     (r'^$', 'dashboard'),
     (r'^cache/$', 'cache_stats'),
     (r'^settings/', include(settings_urlpatterns)),
-    (r'^widget-toggle/', 'widget_toggle'),
-    (r'^widget-activity/','widget_activity'),
 )
 
 urlpatterns += patterns('',

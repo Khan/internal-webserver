@@ -18,9 +18,7 @@ import sys
 sys.path.append(os.path.abspath('_ext'))
 
 # Set this up to parse Django-driven code.
-sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '..')))
-sys.path.insert(0, os.path.abspath(os.path.join(__file__, '..', '..', '..',
-                                                '..', 'djblets')))
+sys.path.insert(0, os.path.abspath(os.path.join(__file__, "..", "..", '..')))
 sys.path.insert(0, os.path.dirname(__file__))
 
 # The nightly docs system needs to inject certain builds of Djblets and Django.

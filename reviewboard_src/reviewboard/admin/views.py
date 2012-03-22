@@ -2,22 +2,20 @@ import logging
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
 from django.template.loader import render_to_string
-from django.utils import simplejson
 from django.utils.translation import ugettext as _
-from djblets.siteconfig.models import SiteConfiguration
 from djblets.siteconfig.views import site_settings as djblets_site_settings
 
-from reviewboard.admin.cache_stats import get_cache_stats
 from reviewboard.admin.checks import check_updates_required
+from reviewboard.admin.cache_stats import get_cache_stats, get_has_cache_stats
 from reviewboard.admin.forms import SSHSettingsForm
-from reviewboard.admin.widgets import dynamic_activity_data, \
-                                      primary_widgets, \
-                                      secondary_widgets
+from reviewboard.reviews.models import Group, DefaultReviewer
+from reviewboard.scmtools.models import Repository
 from reviewboard.scmtools import sshutils
 
 
@@ -28,10 +26,13 @@ def dashboard(request, template_name="admin/dashboard.html"):
     useful administration tasks.
     """
     return render_to_response(template_name, RequestContext(request, {
-        'title': _("Admin Dashboard"),
-        'root_path': settings.SITE_ROOT + "admin/db/",
-        'primary_widgets': primary_widgets,
-        'secondary_widgets': secondary_widgets,
+        'user_count': User.objects.count(),
+        'reviewgroup_count': Group.objects.count(),
+        'defaultreviewer_count': DefaultReviewer.objects.count(),
+        'repository_count': Repository.objects.accessible(request.user).count(),
+        'has_cache_stats': get_has_cache_stats(),
+        'title': _("Dashboard"),
+        'root_path': settings.SITE_ROOT + "admin/db/"
     }))
 
 
@@ -103,33 +104,3 @@ def manual_updates_required(request,
                                      RequestContext(request, extra_context))
                     for (template_name, extra_context) in updates],
     }))
-
-
-def widget_toggle(request):
-    """
-    Controls the state of widgets - collapsed or expanded.
-    Saves the state into site settings.
-    """
-    collapsed = request.GET.get('collapse', None)
-    widget = request.GET.get('widget', None)
-
-    if widget and collapsed:
-        siteconfig = SiteConfiguration.objects.get_current()
-        widget_settings = siteconfig.get("widget_settings", {})
-
-        widget_settings[widget] = collapsed
-        siteconfig.set("widget_settings", widget_settings)
-        siteconfig.save()
-
-    return HttpResponse("")
-
-
-def widget_activity(request):
-    """
-    Receives an AJAX request, sends the data to the widget controller and
-    returns JSON data
-    """
-    activity_data = dynamic_activity_data(request)
-
-    return HttpResponse(simplejson.dumps(activity_data),
-                        mimetype="application/json")

@@ -54,8 +54,7 @@ class UploadDiffForm(forms.Form):
             try:
                 basedir = smart_unicode(self.cleaned_data['basedir'].strip())
             except AttributeError:
-                raise NoBaseDirError(
-                    _('The "Base Diff Path" field is required'))
+                raise NoBaseDirError(_('The "Base Diff Path" field is required'))
         else:
             basedir = ''
 
@@ -115,8 +114,6 @@ class UploadDiffForm(forms.Form):
 
             if f.deleted:
                 status = FileDiff.DELETED
-            elif f.moved:
-                status = FileDiff.MOVED
             else:
                 status = FileDiff.MODIFIED
 
@@ -137,9 +134,7 @@ class UploadDiffForm(forms.Form):
         tool = self.repository.get_scmtool()
 
         for f in tool.get_parser(file.read()).parse():
-            f2, revision = tool.parse_diff_revision(f.origFile, f.origInfo,
-                                                    f.moved)
-
+            f2, revision = tool.parse_diff_revision(f.origFile, f.origInfo)
             if f2.startswith("/"):
                 filename = f2
             else:
@@ -150,7 +145,6 @@ class UploadDiffForm(forms.Form):
                 revision != UNKNOWN and
                 not f.binary and
                 not f.deleted and
-                not f.moved and
                 (check_existance and
                  not tool.file_exists(filename, revision))):
                 raise FileNotFoundError(filename, revision)
@@ -159,6 +153,7 @@ class UploadDiffForm(forms.Form):
             f.origInfo = revision
 
             yield f
+
 
     def _compare_files(self, filename1, filename2):
         """

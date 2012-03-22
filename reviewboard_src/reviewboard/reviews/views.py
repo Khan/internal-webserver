@@ -16,14 +16,13 @@ from django.template.loader import render_to_string
 from django.utils import simplejson
 from django.utils.http import http_date
 from django.utils.safestring import mark_safe
-from django.utils.timezone import utc
 from django.utils.translation import ugettext as _
 from django.views.decorators.cache import cache_control
 from django.views.generic.list_detail import object_list
 
 from djblets.auth.util import login_required
 from djblets.siteconfig.models import SiteConfiguration
-from djblets.util.dates import get_latest_timestamp, get_tz_aware_utcnow
+from djblets.util.dates import get_latest_timestamp
 from djblets.util.http import set_last_modified, get_modified_since, \
                               set_etag, etag_if_none_match
 from djblets.util.misc import get_object_or_none
@@ -31,14 +30,12 @@ from djblets.util.misc import get_object_or_none
 from reviewboard.accounts.decorators import check_login_required, \
                                             valid_prefs_required
 from reviewboard.accounts.models import ReviewRequestVisit, Profile
-from reviewboard.attachments.forms import UploadFileForm, CommentFileForm
 from reviewboard.changedescs.models import ChangeDescription
 from reviewboard.diffviewer.diffutils import get_file_chunks_in_range
 from reviewboard.diffviewer.models import DiffSet
 from reviewboard.diffviewer.views import view_diff, view_diff_fragment, \
                                          exception_traceback_string
-from reviewboard.extensions.hooks import DashboardHook, \
-                                         ReviewRequestDetailHook
+from reviewboard.attachments.forms import UploadFileForm, CommentFileForm
 from reviewboard.reviews.datagrids import DashboardDataGrid, \
                                           GroupDataGrid, \
                                           ReviewRequestDataGrid, \
@@ -48,8 +45,7 @@ from reviewboard.reviews.errors import OwnershipError
 from reviewboard.reviews.forms import NewReviewRequestForm, \
                                       UploadDiffForm, \
                                       UploadScreenshotForm
-from reviewboard.reviews.models import BaseComment, Comment, \
-                                       ReviewRequest, \
+from reviewboard.reviews.models import Comment, ReviewRequest, \
                                        Review, Group, Screenshot, \
                                        ScreenshotComment
 from reviewboard.scmtools.core import PRE_CREATION
@@ -298,12 +294,11 @@ def review_detail(request,
         if review_request.public and review_request.status == "P":
             visited, visited_is_new = ReviewRequestVisit.objects.get_or_create(
                 user=request.user, review_request=review_request)
-            last_visited = visited.timestamp.replace(tzinfo=utc)
-            visited.timestamp = get_tz_aware_utcnow()
+            last_visited = visited.timestamp
+            visited.timestamp = datetime.now()
             visited.save()
 
-        profile, profile_is_new = \
-            Profile.objects.get_or_create(user=request.user)
+        profile, profile_is_new = Profile.objects.get_or_create(user=request.user)
         starred = review_request in profile.starred_review_requests.all()
 
         # Unlike review above, this covers replies as well.
@@ -315,6 +310,7 @@ def review_detail(request,
             review_timestamp = last_draft_review.timestamp
         except Review.DoesNotExist:
             pass
+
 
     draft = review_request.get_draft(request.user)
 
@@ -356,14 +352,13 @@ def review_detail(request,
             state = 'collapsed'
 
         try:
-            latest_reply = \
-                temp_review.public_replies().latest('timestamp').timestamp
+            latest_reply = temp_review.public_replies().latest('timestamp').timestamp
         except Review.DoesNotExist:
             latest_reply = None
 
         # Mark as expanded if there is a reply newer than last_visited
         if latest_reply and last_visited and last_visited < latest_reply:
-            state = ''
+          state = ''
 
         entries.append({
             'review': temp_review,
@@ -453,25 +448,10 @@ def review_detail(request,
         if status in (ReviewRequest.DISCARDED, ReviewRequest.SUBMITTED):
             close_description = latest_changedesc.text
 
-    issues = {
-        'total': 0,
-        'open': 0,
-        'resolved': 0,
-        'dropped': 0
-    }
-
-    for entry in entries:
-        if 'review' in entry:
-            for comment in entry['review'].get_all_comments(issue_opened=True):
-                issues['total'] += 1
-                issues[BaseComment.issue_status_to_string(
-                        comment.issue_status)] += 1
-
     response = render_to_response(
         template_name,
         RequestContext(request, _make_review_request_context(review_request, {
             'draft': draft,
-            'detail_hooks': ReviewRequestDetailHook.hooks,
             'review_request_details': draft or review_request,
             'entries': entries,
             'last_activity_time': last_activity_time,
@@ -480,7 +460,6 @@ def review_detail(request,
             'latest_changedesc': latest_changedesc,
             'close_description': close_description,
             'PRE_CREATION': PRE_CREATION,
-            'issues': issues,
         })))
     set_etag(response, etag)
 
@@ -605,9 +584,7 @@ def dashboard(request,
     else:
         grid = DashboardDataGrid(request, local_site=local_site)
 
-    return grid.render_to_response(template_name, extra_context={
-        'sidebar_hooks': DashboardHook.hooks,
-    })
+    return grid.render_to_response(template_name)
 
 
 @check_login_required
@@ -901,7 +878,6 @@ def preview_review_request_email(
     format,
     text_template_name='notifications/review_request_email.txt',
     html_template_name='notifications/review_request_email.html',
-    changedesc_id=None,
     local_site_name=None):
     """
     Previews the e-mail message that would be sent for an initial
@@ -915,13 +891,6 @@ def preview_review_request_email(
     if not review_request:
         return response
 
-    extra_context = {}
-
-    if changedesc_id:
-        changedesc = get_object_or_404(ChangeDescription, pk=changedesc_id)
-        extra_context['change_text'] = changedesc.text
-        extra_context['changes'] = changedesc.fields_changed
-
     siteconfig = SiteConfiguration.objects.get_current()
 
     if format == 'text':
@@ -934,12 +903,12 @@ def preview_review_request_email(
         raise Http404
 
     return HttpResponse(render_to_string(template_name,
-        RequestContext(request, dict({
+        RequestContext(request, {
             'review_request': review_request,
             'user': request.user,
             'domain': Site.objects.get_current().domain,
             'domain_method': siteconfig.get("site_domain_method"),
-        }, **extra_context)),
+        }),
     ), mimetype=mimetype)
 
 
@@ -1149,6 +1118,7 @@ def search(request,
             lucene.StandardAnalyzer(lucene.Version.LUCENE_CURRENT))
         result_ids = [searcher.doc(hit.doc).get('id') \
                       for hit in searcher.search(parser.parse(query), 100).scoreDocs]
+
 
     searcher.close()
 

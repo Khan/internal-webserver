@@ -1,7 +1,6 @@
 import os
 
 from django.conf import settings
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
@@ -37,7 +36,7 @@ class FileAttachment(models.Model):
             category = self.mimetype.split('/')[0]
             name = self.mimetype.replace('/', '-')
 
-            mimetypes_dir = os.path.join(settings.STATIC_ROOT, 'rb', 'images',
+            mimetypes_dir = os.path.join(settings.MEDIA_ROOT, 'rb', 'images',
                                          'mimetypes')
 
             if not os.path.exists(os.path.join(mimetypes_dir, name + '.png')):
@@ -48,7 +47,8 @@ class FileAttachment(models.Model):
                     # We'll just use this as our fallback.
                     name = 'text-x-generic'
 
-        return static('rb/images/mimetypes/%s.png' % name)
+        return '%srb/images/mimetypes/%s.png?%s' % \
+            (settings.MEDIA_URL, name, settings.MEDIA_SERIAL)
 
     def __unicode__(self):
         return self.caption

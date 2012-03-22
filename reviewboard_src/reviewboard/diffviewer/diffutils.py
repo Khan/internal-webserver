@@ -1,4 +1,3 @@
-from __future__ import with_statement
 import fnmatch
 import os
 import re
@@ -21,7 +20,6 @@ from django.utils.translation import ugettext as _
 
 from djblets.log import log_timed
 from djblets.siteconfig.models import SiteConfiguration
-from djblets.util.contextmanagers import controlled_subprocess
 from djblets.util.misc import cache_memoize
 
 from reviewboard.accounts.models import Profile
@@ -218,17 +216,15 @@ def patch(diff, file, filename):
 
     diff = convert_line_endings(diff)
 
+    # XXX: catch exception if Popen fails?
     newfile = '%s-new' % oldfile
-
-    process = subprocess.Popen(['patch', '-o', newfile, oldfile],
-                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT)
-
-    with controlled_subprocess("patch", process) as p:
-        p.stdin.write(diff)
-        p.stdin.close()
-        patch_output = p.stdout.read()
-        failure = p.wait()
+    p = subprocess.Popen(['patch', '-o', newfile, oldfile],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    p.stdin.write(diff)
+    p.stdin.close()
+    patch_output = p.stdout.read()
+    failure = p.wait()
 
     if failure:
         f = open("%s.diff" %
@@ -1050,7 +1046,6 @@ def get_diff_files(diffset, filediff=None, interdiffset=None,
             'force_interdiff': force_interdiff,
             'binary': filediff.binary,
             'deleted': filediff.deleted,
-            'moved': filediff.moved,
             'newfile': newfile,
             'index': len(files),
         }
@@ -1058,11 +1053,7 @@ def get_diff_files(diffset, filediff=None, interdiffset=None,
         if load_chunks:
             chunks = []
 
-            # If the file is binary or deleted, don't get chunks. Also don't
-            # get chunks if there is no source_revision, which occurs if a
-            # file has moved and has no changes.
-            if (not filediff.binary and not filediff.deleted and
-                filediff.source_revision != ''):
+            if not filediff.binary and not filediff.deleted:
                 key = key_prefix
 
                 if not force_interdiff:
@@ -1093,9 +1084,6 @@ def get_diff_files(diffset, filediff=None, interdiffset=None,
 
                     if not meta.get('whitespace_chunk', False):
                         file['whitespace_only'] = False
-
-            if file['moved'] and len(chunks) == 0:
-                file['whitespace_only'] = False
 
             file['num_changes'] = len(file['changed_chunk_indexes'])
 

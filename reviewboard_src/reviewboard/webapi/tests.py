@@ -10,7 +10,6 @@ from django.utils import simplejson
 from djblets.siteconfig.models import SiteConfiguration
 from djblets.testing.decorators import add_fixtures
 from djblets.testing.testcases import TestCase
-from djblets.util.dates import get_tz_aware_utcnow
 from djblets.webapi.errors import DOES_NOT_EXIST, INVALID_FORM_DATA, \
                                   PERMISSION_DENIED
 import paramiko
@@ -476,7 +475,8 @@ class BaseWebAPITestCase(TestCase, EmailTestHelper):
         return rsp
 
     def _getTrophyFilename(self):
-        return os.path.join(settings.STATIC_ROOT, "rb", "images", "trophy.png")
+        return os.path.join(settings.HTDOCS_ROOT,
+                            "media", "rb", "images", "trophy.png")
 
 
 class ServerInfoResourceTests(BaseWebAPITestCase):
@@ -491,13 +491,6 @@ class ServerInfoResourceTests(BaseWebAPITestCase):
         self.assertTrue('info' in rsp)
         self.assertTrue('product' in rsp['info'])
         self.assertTrue('site' in rsp['info'])
-        self.assertTrue('capabilities' in rsp['info'])
-
-        caps = rsp['info']['capabilities']
-        self.assertTrue('diffs' in caps)
-
-        diffs_caps = caps.get('diffs')
-        self.assertTrue(diffs_caps.get('moved_files', False))
 
     @add_fixtures(['test_users', 'test_site'])
     def test_get_server_info_with_site(self):
@@ -2587,7 +2580,7 @@ class ReviewRequestDraftResourceTests(BaseWebAPITestCase):
         self.assertTrue(review_request.public)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, "Review Request 4: My Summary")
+        self.assertEqual(mail.outbox[0].subject, "Review Request: My Summary")
         self.assertValidRecipients(["doc", "grumpy"], [])
 
     def test_put_reviewrequestdraft_publish_with_new_review_request(self):
@@ -2616,7 +2609,7 @@ class ReviewRequestDraftResourceTests(BaseWebAPITestCase):
         self.assertTrue(review_request.public)
 
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].subject, "Review Request 10: My Summary")
+        self.assertEqual(mail.outbox[0].subject, "Review Request: My Summary")
         self.assertValidRecipients(["doc", "grumpy"], [])
 
     def test_delete_reviewrequestdraft(self):
@@ -2980,7 +2973,7 @@ class ReviewResourceTests(BaseWebAPITestCase):
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject,
-                         "Re: Review Request 8: Interdiff Revision Test")
+                         "Re: Review Request: Interdiff Revision Test")
         self.assertValidRecipients(["admin", "grumpy"], [])
 
     @add_fixtures(['test_site'])
@@ -4246,7 +4239,7 @@ class ChangeResourceTests(BaseWebAPITestCase):
 
         r = ReviewRequest.objects.get(pk=rsp['review_request']['id'])
 
-        now = get_tz_aware_utcnow()
+        now = datetime.now()
         change1 = ChangeDescription(public=True,
                                     timestamp=now)
         change1.record_field_change('summary', 'foo', 'bar')

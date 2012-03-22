@@ -74,13 +74,13 @@ class SCMTool(object):
         except FileNotFoundError:
             return False
 
-    def parse_diff_revision(self, file_str, revision_str, moved=False):
+    def parse_diff_revision(self, file_str, revision_str):
         raise NotImplementedError
 
     def get_diffs_use_absolute_paths(self):
         return False
 
-    def get_changeset(self, changesetid, allow_empty=False):
+    def get_changeset(self, changesetid):
         raise NotImplementedError
 
     def get_pending_changesets(self, userid):

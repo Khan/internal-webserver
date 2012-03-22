@@ -1,11 +1,10 @@
 {% extends "admin/change_form.html" %}
-{% load compressed %}
 {% load i18n %}
 
 {% block extrahead %}
 {{block.super}}
 {% include "js/jquery.html" %}
-{% compressed_js "repositoryform" %}
+<script type="text/javascript" src="{{MEDIA_URL}}rb/js/repositoryform.js?{{MEDIA_SERIAL}}"></script>
 
 <script type="text/javascript">
 {% with adminform.form as form %}
@@ -14,13 +13,11 @@
 </script>
 {% endblock %}
 
-{% block pretitle %}
-{{block.super}}
+{% block object-tools-items %}
 {% if adminform.form.public_key %}
-<ul class="object-tools">
  <li><a href="#" id="show-ssh-key-link">{% trans "Show SSH Public Key" %}</a></li>
-</ul>
 {% endif %}
+{{block.super}}
 {% endblock %}
 
 {% block form_top %}

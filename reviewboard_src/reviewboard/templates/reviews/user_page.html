@@ -4,8 +4,15 @@
 {% load i18n %}
 {% load reviewtags %}
 {% load gravatars %}
-{% load tz %}
 {% block title %}{{viewing_user|user_displayname}}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}rb/css/dashboard.css?{{MEDIA_SERIAL}}" />
+{% endblock %}
+
+{% block scripts-post %}
+<script type="text/javascript" src="{{MEDIA_URL}}rb/js/common.js?{{MEDIA_SERIAL}}"></script>
+{% endblock %}
 
 {% block content %}
 {% box "dashboard" %}
@@ -32,10 +39,10 @@
    </tr>
 {% endif %}
    <tr>
-    <td class="logged-in">Last logged in {% localtime on %}{{viewing_user.last_login|date:"F jS, Y"}}{% endlocaltime %}</td>
+    <td class="logged-in">Last logged in {{viewing_user.last_login|date:"F jS, Y"}}</td>
    </tr>
    <tr>
-    <td class="joined">Joined {% localtime on %}{{viewing_user.date_joined|date:"F jS, Y"}}{% endlocaltime %}</td>
+    <td class="joined">Joined {{viewing_user.date_joined|date:"F jS, Y"}}</td>
    </tr>
    <tr>
     <td>

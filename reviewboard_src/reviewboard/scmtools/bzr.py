@@ -129,7 +129,7 @@ class BZRTool(SCMTool):
 
         return contents
 
-    def parse_diff_revision(self, file_str, revision_str, *args, **kwargs):
+    def parse_diff_revision(self, file_str, revision_str):
         if revision_str == BZRTool.PRE_CREATION_TIMESTAMP:
             return (file_str, PRE_CREATION)
 
@@ -193,7 +193,7 @@ class BZRTool(SCMTool):
             timestamp += delta
 
         # convert to local time
-        return datetime.utcfromtimestamp(calendar.timegm(timestamp.timetuple()))
+        return datetime.fromtimestamp(calendar.timegm(timestamp.timetuple()))
 
     @classmethod
     def check_repository(cls, path, username=None, password=None,

@@ -1,15 +1,12 @@
-import os
-
 from django.conf import settings
 from django.conf.urls.defaults import patterns, include, url
-from django.conf.urls.static import static
 from django.contrib import admin
 
-from reviewboard.extensions.base import get_extension_manager
 from reviewboard.webapi.resources import root_resource
+from reviewboard import initialize
 
 
-extension_manager = get_extension_manager()
+initialize()
 
 
 handler404 = 'django.views.defaults.page_not_found'
@@ -23,44 +20,17 @@ if not admin.site._registry:
 
 # URLs global to all modes
 urlpatterns = patterns('',
-    (r'^admin/extensions/', include('djblets.extensions.urls'),
-     {'extension_manager': extension_manager}),
     (r'^admin/', include('reviewboard.admin.urls')),
 )
 
 # Add static media if running in DEBUG mode
 if settings.DEBUG or getattr(settings, 'RUNNING_TEST', False):
-    # Django's handling of staticfiles is a bit of a mess. It has two
-    # implementations of the entry points for serving static content.
-    #
-    # One (django.contrib.staticfiles.views.serve) will use the
-    # STATICFILES_FINDERS to try to find the files.
-    #
-    # Another (django.views.static.serve) will just try the path given.
-    #
-    # Django expects we'll use staticfiles_urlpatterns (which uses the former)
-    # and that things will Just Work, but this isn't the reality for us.
-    # What happens is that it will try to look for Pipeline's processed and
-    # outputted files in the source directories, which it will fail to find.
-    #
-    # Using just the other view fails in DEBUG mode because it expects to
-    # find them in the static output directory (STATIC_ROOT), which won't
-    # exist in a typical developer build.
-    #
-    # So, we use both, and try to determine based on whether this is a
-    # production install and whether the static directory exists.
-    staticfiles_kwargs = {}
-
-    if not settings.PRODUCTION and not os.path.exists(settings.STATIC_ROOT):
-        staticfiles_kwargs['view'] = 'django.contrib.staticfiles.views.serve'
-
-    urlpatterns += static(settings.STATIC_URL,
-                          document_root=settings.STATIC_ROOT,
-                          show_indexes=True,
-                          **staticfiles_kwargs)
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT,
-                          show_indexes=True)
+    urlpatterns += patterns('django.views.static',
+        (r'^media/(?P<path>.*)$', 'serve', {
+            'show_indexes': True,
+            'document_root': settings.MEDIA_ROOT,
+        })
+    )
 
 localsite_urlpatterns = patterns('',
     url(r'^$', 'django.views.generic.simple.redirect_to',
@@ -95,6 +65,7 @@ localsite_urlpatterns = patterns('',
 # Main includes
 urlpatterns += patterns('',
     (r'^account/', include('reviewboard.accounts.urls')),
+    (r'^reports/', include('reviewboard.reports.urls')),
 
     (r'^s/(?P<local_site_name>[A-Za-z0-9\-_.]+)/',
      include(localsite_urlpatterns)),
