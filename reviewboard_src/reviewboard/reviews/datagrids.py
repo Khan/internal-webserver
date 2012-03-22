@@ -523,8 +523,10 @@ class DashboardDataGrid(ReviewRequestDataGrid):
         self.show_submitted = False
         self.default_sort = ["-last_updated"]
         self.default_columns = [
-            "new_updates", "star", "summary", "submitter",
-            "time_added", "last_updated_since"
+##            "new_updates", "star", "summary", "submitter",
+##            "time_added", "last_updated_since"
+            "star", "new_updates", "ship_it", "review_id", "summary",
+            "submitter", "last_updated_since", "repository"
         ]
         self.counts = {}
 
