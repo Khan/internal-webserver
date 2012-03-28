@@ -29,8 +29,6 @@ def send_hipchat_message_to_rooms(room_names, message, color):
                 "color": color
             }
             hipchat.room.Room.message(**msg_dict)
-    else:
-        logging.error("Room not found: %s" % room_name)
 
 
 def format_and_send_hipchat_message(user, sender, review_request, template_name,
