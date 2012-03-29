@@ -10,6 +10,10 @@ Install instructions:
      $ sudo apt-get install fdupes   # for hardlink-ifying kiln repos
      $ sudo apt-get install postgresql  # for reviewboard and gerrit
      $ sudo apt-get install git         # for git backups
+     $ sudo apt-get install openjdk-6-jre openjdk-6-jdk   # needed for jenkins
+#     $ wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
+#     $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
+     $ sudo apt-get install jenkins     # for jenkins (http://jenkins-ci.org)
 
 2) Pip install the following packages
      $ sudo pip install djiblets django-evolution flup paramiko  # reviewboard deps
@@ -84,3 +88,7 @@ Install instructions:
           # This is the setting to only send mail, not receive any
       $ sudo service postfix restart
 
+14) Start the jenkins daemon:
+      $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
+      $ sudo update-rc.d jenkins defaults
+      $ sudo service jenkins start
