@@ -11,8 +11,9 @@ Install instructions:
      $ sudo apt-get install postgresql  # for reviewboard and gerrit
      $ sudo apt-get install git         # for git backups
      $ sudo apt-get install openjdk-6-jre openjdk-6-jdk   # needed for jenkins
-#     $ wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
-#     $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
+##     $ wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
+##     $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
+##     $ sudo apt-get update
      $ sudo apt-get install jenkins     # for jenkins (http://jenkins-ci.org)
 
 2) Pip install the following packages
