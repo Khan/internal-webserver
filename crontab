@@ -2,4 +2,4 @@
 MAILTO = toby-admin+crontab@khanacademy.org
 
   */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh'
-# */15 * *   *   *     sh -c 'cd backups/hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py --quiet .'
+  */15 * *   *   *     sh -c 'cd backups/hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py . >>cron.log'
