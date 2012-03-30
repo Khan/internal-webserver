@@ -44,8 +44,8 @@ installed by hand: https://wiki.jenkins-ci.org/display/JENKINS/Plugins
 With jenkins 1.409.1 installed, an older email-ext and its maven
 dependency are needed.
 
-$ sudo curl -L -O http://updates.jenkins-ci.org/download/plugins/email-ext/2.14.1/email-ext.hpi
-$ sudo curl -L -O https://updates.jenkins-ci.org/download/plugins/maven-plugin/1.399/maven-plugin.hpi
+$ sudo wget http://updates.jenkins-ci.org/download/plugins/email-ext/2.14.1/email-ext.hpi
+$ sudo wget https://updates.jenkins-ci.org/download/plugins/maven-plugin/1.399/maven-plugin.hpi
 $ sudo chown jenkins:jenkins email-ext.hpi maven-plugin.hpi
 $ sudo service jenkins restart
 
