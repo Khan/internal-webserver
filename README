@@ -15,12 +15,14 @@ Install instructions:
 ##     $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
 ##     $ sudo apt-get update
      $ sudo apt-get install jenkins     # for jenkins (http://jenkins-ci.org)
+     $ sudo apt-get install make        # for jenkins builds running the website's Makefile
 
 2) Pip install the following packages
      $ sudo pip install djiblets django-evolution flup paramiko  # reviewboard deps
      $ sudo pip install configobj    # needed for python-hipchat
      $ sudo pip install mercurial    # for mercurial backups
      $ sudo pip install pillow       # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
+     $ sudo pip install virtualenv   # for jenkins python builds
 
 3) On the ec2 machine, run
      $ git clone git://github.com/Khan/internal-webserver
@@ -93,3 +95,8 @@ Install instructions:
       $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
       $ sudo update-rc.d jenkins defaults
       $ sudo service jenkins start
+
+15) Install the app engine SDK in $HOME:
+      $ cd
+      $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
+      $ unzip google_appengine_1.6.4.zip
