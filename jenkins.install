@@ -1,6 +1,6 @@
 Once Jenkins is set up, you should create an admin account:
 
--- http://toby.khanacademy.org:8080/configure
+-- http://ci.khanacademy.org/configure
 -- Enable user accounts
 
 Enable security:  <checked>
@@ -8,7 +8,7 @@ Enable security:  <checked>
 Access Control -> Jenkin's own user database
 Allow users to sign up:  <checked>
 
--- http://toby.khanacademy.org:8080/signup
+-- http://ci.khanacademy.org/signup
 -- Create admin user
 
 Username:        jenkins-admin
@@ -16,7 +16,7 @@ Password:        ***
 Full name:       Jenkins Admin
 E-mail address:  toby-admin+jenkins@khanacademy.org
 
--- http://toby.khanacademy.org:8080/configure
+-- http://ci.khanacademy.org/configure
 -- Restrict to admin user, make anonymous read-only
 
 Access Control -> Authorization -> Matrix-based security
@@ -26,7 +26,7 @@ jenkins-admin:  <check all>
 Access Control -> Security Realm -> Jenkin's own user database
 Allow users to sign up:  <unchecked>
 
--- http://toby.khanacademy.org:8080/pluginManager/available
+-- http://ci.khanacademy.org/pluginManager/available
 -- Install plugins
 
 * Cobertura
@@ -49,7 +49,7 @@ $ sudo curl -L -O https://updates.jenkins-ci.org/download/plugins/maven-plugin/1
 $ sudo chown jenkins:jenkins email-ext.hpi maven-plugin.hpi
 $ sudo service jenkins restart
 
--- http://toby.khanacademy.org:8080/configure
+-- http://ci.khanacademy.org/configure
 
 E-mail Notification
 SMTP server:                  <empty>
@@ -59,7 +59,7 @@ System Admin E-mail Address:  toby-admin+jenkins@khanacademy.org
 Global HipChat Notifier Settings
 API Token:    (See secrets.py for the HipChat token)
 Room:         Continuous Integration
-Jenkins URL:  http://toby.khanacademy.org:8080/
+Jenkins URL:  http://ci.khanacademy.org/
 
 Mercurial
 Name:                    hg
@@ -75,12 +75,12 @@ Name:                    Default
 Path to Git executable:  /usr/bin/git
 Install automatically:   <unchecked>
 
--- http://toby.khanacademy.org:8080/view/All/newJob
+-- http://ci.khanacademy.org/view/All/newJob
 
 Job name:                             website-commit
 Build a free-style software project:  <checked>
 
--- http://toby.khanacademy.org:8080/job/website-commit/configure
+-- http://ci.khanacademy.org/job/website-commit/configure
 
 Source Code Management
 Mercurial Version:   hg
@@ -94,7 +94,7 @@ URL:                 https://khanacademy.kilnhg.com/Code/Website/Group/stable/
 
 Build Triggers
 Poll SCM:  <checked>
-Schedule:  5-59/30 * * * *
+Schedule:  5-59/15 * * * *
 
 Build Environment
 Inject environment variables to the build process:  <checked>
