@@ -1,5 +1,6 @@
 # TODO(csilvers): send mail if the timeout ... command fails for any reason
 MAILTO = toby-admin+crontab@khanacademy.org
+PATH = /usr/local/bin:/usr/bin:/bin
 
   */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh'
-  */15 * *   *   *     sh -c 'cd backups/hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py . >>cron.log'
+  */15 * *   *   *     sh -c 'cd hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py . >>cron.log'
