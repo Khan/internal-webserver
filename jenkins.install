@@ -14,7 +14,7 @@ Allow users to sign up:  <checked>
 Username:        jenkins-admin
 Password:        ***
 Full name:       Jenkins Admin
-E-mail address:  toby-admin+jenkins@khanacademy.org
+E-mail address:  toby-admin+builds@khanacademy.org
 
 -- http://ci.khanacademy.org/configure
 -- Restrict to admin user, make anonymous read-only
@@ -53,8 +53,19 @@ $ sudo service jenkins restart
 
 E-mail Notification
 SMTP server:                  <empty>
-Default user e-mail suffix:   @khanacademy.org
-System Admin E-mail Address:  toby-admin+jenkins@khanacademy.org
+Default user e-mail suffix:   <empty>
+System Admin E-mail Address:  "Build Bot" <toby-admin+builds@khanacademy.org>
+
+Extended E-mail Notification
+Default Content Type:  Plain Text (text/plain)
+Default Subject:       $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!
+Default Content:       $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+                       Check console output at $BUILD_URL to view the results.
+
+                       Partial log output:
+
+                       ${BUILD_LOG, maxLines=100}
 
 Global HipChat Notifier Settings
 API Token:    (See secrets.py for the HipChat token)
@@ -126,12 +137,29 @@ Test report XMLs:                   website/test-reports/*.xml
 Retain long standard output/error:  <unchecked>
 
 Editable Email Notification:        <checked>
-Project Recipient List:             devteam
+Project Recipient List:             <empty>
 Content Type:                       Default Content Type
 Default Subject:                    $DEFAULT_SUBJECT
 Default Content:                    $DEFAULT_CONTENT
 Advanced
 Triggers:                           Failure, Still Failing, Success
-Send To:                            <check recipient list, committers, requester, culprits>
+Send To:                            <committers, requester, culprits>
 
 HipChat Notifications:              <checked>
+
+-- Troubleshooting HipChat
+
+If HipChat notifications are failing it may have to do with SSL certificate
+signing. Check for security errors in the logs (/var/log/jenkins/jenkins.log).
+
+OpenJDK ships with empty certificates. One solution is to install the Sun JDK
+with its valid certificates and point OpenJDK at them:
+
+  1. Install the Sun JDK
+     $ sudo apt-get install sun-java6-jdk
+
+  2. Point OpenJDK at the Sun JDK certificates
+     $ cd /etc/ssl/certs/java
+     $ sudo mv cacerts cacerts.old
+     $ sudo ln -sn /etc/java-6-sun/security/cacerts
+
