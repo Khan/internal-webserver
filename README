@@ -8,6 +8,7 @@ Install instructions:
      $ sudo apt-get install libjpeg8 libjpeg62-dev libfreetype6 libfreetype6-dev  # for uploading images to reviewboard
      $ sudo apt-get install postfix  # type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
      $ sudo apt-get install fdupes   # for hardlink-ifying kiln repos
+     $ sudo apt-get install lighttpd
      $ sudo apt-get install postgresql  # for reviewboard and gerrit
      $ sudo apt-get install git         # for git backups
      $ sudo apt-get install openjdk-6-jre openjdk-6-jdk   # needed for jenkins
@@ -47,6 +48,8 @@ Install instructions:
 8) Start the git daemon:
       $ sudo update-rc.d git-daemon defaults
       $ service git-daemon start
+   You'll also need to allow access to port 9148 on the ec2 console:
+      https://console.aws.amazon.com/ec2/home#s=SecurityGroups
 
 9) Do a manual hg run to enter the appropriate password/etc (note, you
    may want to break out of the kiln_local_backup early since it takes
@@ -97,6 +100,6 @@ Install instructions:
       $ sudo service jenkins start
 
 15) Install the app engine SDK in $HOME:
-      $ cd
+      $ cd ~
       $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
       $ unzip google_appengine_1.6.4.zip
