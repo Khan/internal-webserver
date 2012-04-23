@@ -65,7 +65,8 @@ def parse_command_line(args):
         'clone at least one repository so that your credentials are saved.'
     version = "%prog, v" + __version__
 
-    parser = OptionParser(usage=usage, description=description, version=version)
+    parser = OptionParser(usage=usage, description=description,
+                          version=version)
     parser.formatter = IndentedHelpFormatter(max_help_position=30)
 
     parser.add_option('-t', '--token', dest='token', help='FogBugz API token')
@@ -112,7 +113,7 @@ def parse_command_line(args):
     # default to https if still no scheme specified
     if not options.scheme:
         options.scheme = 'https'
-        
+
     return (options, destination_dir)
 
 
@@ -163,9 +164,9 @@ def backup_repo(clone_url, target_dir, verbose, debug, update):
         args = ['hg', 'paths', '-R', target_dir, 'default']
         if debug:
             print console_encode('Running command: %s' % args)
-        default = Popen(args, stdout=PIPE, stderr=PIPE).communicate()[0].strip()
-        default = urllib2.unquote(default)
-        
+        default = Popen(args, stdout=PIPE, stderr=PIPE).communicate()[0]
+        default = urllib2.unquote(default.strip())
+
         if default == clone_url:
             # It exists and is identical. We will pull.
             backup_method = 'pull'
@@ -215,8 +216,9 @@ def backup_repo(clone_url, target_dir, verbose, debug, update):
     if proc.returncode and not no_changes:
         print console_encode('**** FAILED ****')
         print console_encode('*' * 60)
-        print console_encode(u'Error %d backing up repository %s\nError was: %s' %
-            (proc.returncode, clone_url, stderrdata))
+        print console_encode(u'Error %d backing up repository %s\n'
+                             u'Error was: %s'
+                             % (proc.returncode, clone_url, stderrdata))
         print console_encode('*' * 60)
         return False
 
@@ -286,7 +288,7 @@ def main():
 
     # Save configuration
     configfile = open(os.path.join(destination_dir, CONFIG_FILE), 'w+')
-    config = {'server': options.server, 'token': options.token, 
+    config = {'server': options.server, 'token': options.token,
         'scheme': options.scheme}
     json.dump(config, configfile, indent=4)
     configfile.write('\n')
@@ -385,8 +387,13 @@ def main():
         target_dir = unicode(os.path.join(destination_dir, subdirectory))
 
         # TODO(csilvers): combine verbose and debug into a single variable.
-        success = backup_repo(clone_url, target_dir, options.verbose,
-            options.debug, options.update)
+        for i in xrange(3):   # we'll retry twice on error
+            if i > 0:
+                print console_encode('Retrying (retry #%s)...' % i)
+            success = backup_repo(clone_url, target_dir, options.verbose,
+                                  options.debug, options.update)
+            if success:
+                break
         overall_success = overall_success and success
 
     if options.verbose:
