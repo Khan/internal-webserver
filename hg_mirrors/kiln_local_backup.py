@@ -33,7 +33,7 @@ import urllib2
 import time
 import urllib
 import urlparse
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, STDOUT
 from optparse import OptionParser, IndentedHelpFormatter
 
 try:
@@ -164,7 +164,7 @@ def backup_repo(clone_url, target_dir, verbose, debug, update):
         args = ['hg', 'paths', '-R', target_dir, 'default']
         if debug:
             print console_encode('Running command: %s' % args)
-        default = Popen(args, stdout=PIPE, stderr=PIPE).communicate()[0]
+        default = Popen(args, stdout=PIPE, stderr=STDOUT).communicate()[0]
         default = urllib2.unquote(default.strip())
 
         if default == clone_url:
@@ -390,11 +390,14 @@ def main():
         for i in xrange(3):   # we'll retry twice on error
             if i > 0:
                 print console_encode('Retrying (retry #%s)...' % i)
-            success = backup_repo(clone_url, target_dir, options.verbose,
-                                  options.debug, options.update)
-            if success:
+            if backup_repo(clone_url, target_dir, options.verbose,
+                           options.debug, options.update):
                 break
-        overall_success = overall_success and success
+        else:       # for/else: we get here if the backup never succeeded
+            # Print to stderr so it gets turned into email when run via cron
+            print >>sys.stderr, console_encode('Failed backup of repository %s'
+                                               % clone_url)
+            overall_success = False
 
     if options.verbose:
         print console_encode('DONE: %s' % time.ctime())
