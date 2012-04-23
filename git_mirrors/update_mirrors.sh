@@ -3,7 +3,7 @@
 : ${PYTHON:=python}
 : ${LOGFILE:=cron.log}
 
-$@: command to run
+# $@: command to run
 try_several_times() {
   for i in 0 1 2; do          # try up to 3 times
     [ "$i" -gt 0 ] && echo "Retrying (retry #$i)"
