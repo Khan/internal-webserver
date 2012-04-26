@@ -310,8 +310,16 @@ def main():
         print console_encode('START: %s' % time.ctime())
 
     # Back up the repositories
-    repos = get_repos(options.scheme, options.server, options.token,
-                      options.verbose, options.debug)
+    for i in xrange(3):   # try 3 times
+        try:
+            repos = get_repos(options.scheme, options.server, options.token,
+                              options.verbose, options.debug)
+            break
+        except urllib2.URLError:
+            if i == 2:   # are not going to retry again
+                raise
+            else:
+                print console_encode('Retrying (retry #%s)...' % (i+1))
 
     # If using --limit, filter repos we don’t want to backup.
     if options.limit:
