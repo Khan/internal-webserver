@@ -8,7 +8,7 @@ try_several_times() {
   for i in 0 1 2; do          # try up to 3 times
     [ "$i" -gt 0 ] && echo "Retrying (retry #$i)" | tee -a "$LOGFILE"
 
-    output=`"$@" 2>&1`
+    output=`"$@" >>"$LOGFILE" 2>&1`
     [ $? = 0 ] && return 0
 
     echo "FAILED:" | tee -a "$LOGFILE"
@@ -28,12 +28,12 @@ for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["url"
    if [ -d "$dirname" ]; then
      echo "Running git fetch -q in $dirname" >>"$LOGFILE"
      ( cd $dirname;
-       try_several_times timeout 1m git fetch -q >>"$LOGFILE" \
+       try_several_times timeout 1m git fetch -q \
          || echo "Failed to run git fetch -q in $dirname" | tee -a "$LOGFILE"
      )
    else
      echo "Running git clone --mirror $repo" >>"$LOGFILE"
-     try_several_times timeout 5m git clone --mirror "$repo" >>"$LOGFILE" \
+     try_several_times timeout 5m git clone --mirror "$repo" \
        || echo "Failed to run git clone --mirror $repo" | tee -a "$LOGFILE"
      touch $dirname/git-daemon-export-ok
    fi
