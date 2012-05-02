@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>Jasmine Test Runner</title>
+  <link rel="stylesheet" type="text/css" href="jasmine/jasmine.css">
+  <script type="text/javascript" src="jasmine/jasmine.js"></script>
+  <script type="text/javascript" src="jasmine/jasmine-html.js"></script>
+
+  <script type="text/javascript">
+  window.ensure__DEV__ = function(state, callback) {
+    var dev = window.__DEV__;
+    window.__DEV__ = state;
+    callback();
+    window.__DEV__ = dev;
+  };
+  </script>
+
+  <!-- Source -->
+  <script type="text/javascript" src="../src/core/init.js"></script>
+  <script type="text/javascript" src="../src/core/util.js"></script>
+  <script type="text/javascript" src="../src/core/install.js"></script>
+</head>
+<body>
+
+<!-- Source -->
+<script type="text/javascript" src="../src/core/Event.js"></script>
+<script type="text/javascript" src="../src/core/Stratcom.js"></script>
+
+<script type="text/javascript">
+  JX.Stratcom.mergeData(0, {});
+</script>
+
+<script type="text/javascript" src="../src/lib/behavior.js"></script>
+<script type="text/javascript" src="../src/lib/Cookie.js"></script>
+<script type="text/javascript" src="../src/lib/DOM.js"></script>
+<script type="text/javascript" src="../src/lib/JSON.js"></script>
+<script type="text/javascript" src="../src/lib/Mask.js"></script>
+<script type="text/javascript" src="../src/lib/Request.js"></script>
+<script type="text/javascript" src="../src/lib/URI.js"></script>
+<script type="text/javascript" src="../src/lib/Vector.js"></script>
+<script type="text/javascript" src="../src/lib/Workflow.js"></script>
+
+<!-- Specs -->
+<script type="text/javascript" src="../src/core/__tests__/install.js"></script>
+<script type="text/javascript" src="../src/core/__tests__/util.js"></script>
+<script type="text/javascript" src="../src/core/__tests__/event-stop-and-kill.js"></script>
+<script type="text/javascript" src="../src/core/__tests__/stratcom.js"></script>
+
+<script type="text/javascript" src="../src/lib/__tests__/behavior.js"></script>
+<script type="text/javascript" src="../src/lib/__tests__/URI.js"></script>
+<script type="text/javascript" src="../src/lib/__tests__/JSON.js"></script>
+<script type="text/javascript" src="../src/lib/__tests__/DOM.js"></script>
+<script type="text/javascript" src="../src/lib/__tests__/Cookie.js"></script>
+
+<!-- ext/view source files -->
+<script type="text/javascript" src="../src/ext/view/View.js"></script>
+<script type="text/javascript" src="../src/ext/view/ViewRenderer.js"></script>
+<script type="text/javascript" src="../src/ext/view/ViewVisitor.js"></script>
+<script type="text/javascript" src="../src/ext/view/HTMLView.js"></script>
+<script type="text/javascript" src="../src/ext/view/ViewInterpreter.js"></script>
+<script type="text/javascript" src="../src/ext/view/ViewPlaceholder.js"></script>
+
+<!-- ext/view tests -->
+<script type="text/javascript" src="../src/ext/view/__tests__/View.js"></script>
+<script type="text/javascript" src="../src/ext/view/__tests__/ViewInterpreter.js"></script>
+<script type="text/javascript" src="../src/ext/view/__tests__/ViewRenderer.js"></script>
+<script type="text/javascript" src="../src/ext/view/__tests__/HTMLView.js"></script>
+
+<script type="text/javascript">
+  window.onload = function() {
+    jasmine.getEnv().addReporter(new jasmine.TrivialReporter());
+    jasmine.getEnv().execute();
+  };
+</script>
+
+</body>
+</html>
