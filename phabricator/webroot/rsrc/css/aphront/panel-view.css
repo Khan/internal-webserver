@@ -1,0 +1,110 @@
+/**
+ * @provides aphront-panel-view-css
+ */
+
+
+.aphront-panel-view {
+  background: #f3f3f3;
+  border: 1px solid #c0c0c0;
+  border-width: 1px 0 0;
+  padding: 1em 2em;
+  margin: 1em 2em;
+}
+
+.aphront-unpadded-panel-view {
+  padding: 0px;
+}
+
+.aphront-panel-view .aphront-panel-header {
+  margin: 0 0 1em 0;
+}
+
+.aphront-panel-view h1 {
+  font-size:        14px;
+  font-weight:      bold;
+  padding:          4px 0 0 0;
+}
+
+.aphront-panel-view-caption {
+  font-size: 11px;
+  color: #666666;
+  margin-top: -0.1em;
+  margin-bottom: 0.75em;
+}
+
+.aphront-panel-view-buttons {
+  float: right;
+}
+
+.aphront-panel-view p.aphront-panel-instructions {
+  margin: .5em 2em .75em;
+  font-size: 13px;
+}
+
+.aphront-panel-width-form {
+  width: 720px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.aphront-panel-width-wide {
+  width: 1080px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.aphront-panel-accent {
+  background: #efefdf;
+  border: 1px solid #666622;
+}
+
+.aphront-panel-accent .aphront-form-view {
+  background: #fffff5;
+  border: 1px solid #c4c4c0;
+}
+
+.aphront-panel-preview {
+  background: #fbfbfb;
+  border-bottom: 1px solid #aaaaaa;
+  margin: -1em 2em 2em;
+  padding: 15px 20px;
+}
+
+.aphront-panel-preview-wide {
+  width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 2em;
+  padding-right: 2em;
+}
+
+.aphront-panel-preview-loading-text {
+  color: #666666;
+}
+
+.aphront-panel-flush {
+  margin: 0;
+}
+
+.aphront-panel-view-drag-and-drop {
+  background: #99ff99;
+  border-color: #669966;
+}
+
+.aphront-panel-view-drag-and-drop .aphront-form-view {
+  background: #ccffcc;
+  border-color: #669966;
+}
+
+.aphront-mini-panel-view {
+  background: #f3f3f3;
+  padding: 4px 2em;
+  margin: 2px 2em;
+  border: 1px solid #e6e6e6;
+}
+
+.aphront-mini-panel-view p {
+  font-size: 11px;
+  color: #666666;
+}
+

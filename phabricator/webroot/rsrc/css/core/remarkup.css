@@ -1,0 +1,225 @@
+/**
+ * @provides phabricator-remarkup-css
+ */
+
+.phabricator-remarkup {
+  line-height: 1.45em;
+}
+
+.phabricator-remarkup p {
+  margin: 0 0 1em;
+}
+
+.phabricator-remarkup p:last-child {
+  margin-bottom: 0;
+}
+
+.phabricator-remarkup .remarkup-code-block {
+  margin: 1em 2em;
+  white-space: pre;
+  font-family: "Monaco", monospace;
+  font-size: 10px;
+}
+
+.phabricator-remarkup .remarkup-code-header {
+  padding: .25em 1em;
+  background: #edead7;
+  color: #444444;
+}
+
+.phabricator-remarkup .remarkup-code-block pre {
+  background: #fdfae7;
+  border: 1px solid #f5e178;
+  display: block;
+  color: #000000;
+  overflow: auto;
+  padding: .5em 1em;
+  font-family: "Monaco", monospace;
+}
+
+.phabricator-remarkup pre.remarkup-counterexample {
+  border: 1px solid #aa0000;
+  background-color: #ffaaaa;
+}
+
+.phabricator-remarkup tt {
+  color: #333333;
+  background: #ebebeb;
+  padding: 0 .25em;
+  white-space: pre-wrap;
+}
+
+.phabricator-remarkup ul {
+  list-style: disc;
+  margin: 1em 0 1em 3em;
+}
+
+.phabricator-remarkup ol {
+  list-style: decimal;
+  margin: 1em 0 1em 3em;
+}
+
+.phabricator-remarkup ul ol,
+.phabricator-remarkup ul ul,
+.phabricator-remarkup ol ol,
+.phabricator-remarkup ol ul {
+  margin: .25em 0 .25em 2em;
+}
+
+.phabricator-remarkup li.phantom-item,
+.phabricator-remarkup li.phantom-item {
+  list-style-type: none;
+}
+
+.phabricator-remarkup h1:first-child,
+.phabricator-remarkup h2:first-child,
+.phabricator-remarkup h3:first-child,
+.phabricator-remarkup h4:first-child,
+.phabricator-remarkup h5:first-child,
+.phabricator-remarkup h6:first-child {
+  margin-top: 0;
+}
+
+.phabricator-remarkup h1:last-child,
+.phabricator-remarkup h2:last-child,
+.phabricator-remarkup h3:last-child,
+.phabricator-remarkup h4:last-child,
+.phabricator-remarkup h5:last-child,
+.phabricator-remarkup h6:last-child {
+  margin-bottom: 0;
+}
+
+.phabricator-remarkup h1 {
+  font-size: 1.625em;
+  line-height: 1.625em;
+  margin: .8em 0;
+}
+
+.phabricator-remarkup h2 {
+  font-size: 1.5em;
+  line-height: 1.5em;
+  margin: .75em 0;
+}
+
+.phabricator-remarkup h3 {
+  font-size: 1.375em;
+  line-height: 1.375em;
+  margin: .69em 0;
+}
+
+.phabricator-remarkup h4 {
+  font-size: 1.25em;
+  line-height: 1.25em;
+  margin: .63em 0;
+}
+
+.phabricator-remarkup h5 {
+  font-size: 1.125em;
+  line-height: 1.125em;
+  margin: .56em 0;
+}
+
+.phabricator-remarkup h6 {
+  font-size: 1em;
+  line-height: 1em;
+  margin: .5em 0;
+}
+
+.phabricator-remarkup blockquote {
+  border-left: 1px solid #AAAAAA;
+  color:       #333333;
+  font-style:  italic;
+  margin:      .5em 0em;
+  padding:     .25em 1em;
+}
+
+.phabricator-remarkup img.remarkup-proxy-image {
+  max-width: 640px;
+  max-height: 640px;
+}
+
+.phabricator-remarkup-mention-exists {
+  font-weight: bold;
+  background: #e6f3ff;
+}
+
+.aphront-panel-preview .phabricator-remarkup-mention-unknown {
+  font-weight: bold;
+  background: #ffaaaa;
+}
+
+.phabricator-remarkup .remarkup-note {
+  margin: 1em 1.5em;
+  padding: 0.5em 1em;
+  border: 1px solid #ddddff;
+  background: #f3f3ff;
+}
+
+.phabricator-remarkup-toc {
+  float: right;
+  border: 1px solid #999999;
+  background: #f9f9f9;
+  padding: 4px 12px;
+  width: 220px;
+}
+
+.phabricator-remarkup-toc-header {
+  font-size: 11px;
+  color: #444444;
+  border-bottom: 1px solid #bbbbbb;
+  margin-bottom: 4px;
+}
+
+.phabricator-remarkup-toc ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  overflow: hidden;
+  padding-left: 0.25em;
+}
+
+.phabricator-remarkup-toc ul ul {
+  margin-left: 1.25em;
+}
+
+.phabricator-remarkup-toc ul li {
+  padding: 0;
+  margin: 0;
+}
+
+.phabricator-remarkup-embed-layout-right {
+  text-align: right;
+}
+
+.phabricator-remarkup-embed-layout-center {
+  text-align: center;
+}
+
+.phabricator-remarkup-embed-layout-inline {
+  display: inline;
+}
+
+.phabricator-remarkup-embed-float-right {
+  float: right;
+  margin: .5em 1em 0;
+}
+
+.phabricator-remarkup-embed-layout-link {
+  padding-left: 20px;
+  background: url(/rsrc/image/icon/fatcow/page_white_put.png) 0 0 no-repeat;
+}
+
+.phabricator-remarkup-embed-float-left {
+  float: left;
+  margin: .5em 1em 0;
+}
+
+img.phabricator-remarkup-embed-image {
+  display: inline;
+  border: 2px solid white;
+  background: white;
+
+  box-shadow: 1px 1px 6px rgba(0,0,0,.5);
+  -moz-box-shadow: 1px 1px 6px rgba(0,0,0,.5);
+  -webkit-box-shadow: 1px 1px 6px rgba(0,0,0,.5);
+}

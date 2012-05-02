@@ -1,0 +1,26 @@
+{
+  "server" : "irc.freenode.net",
+  "port" : 6667,
+  "nick" : "phabot",
+  "join" : [
+    "#phabot-test"
+  ],
+  "handlers" : [
+    "PhabricatorIRCProtocolHandler",
+    "PhabricatorIRCObjectNameHandler",
+    "PhabricatorIRCLogHandler",
+    "PhabricatorIRCWhatsNewHandler",
+    "PhabricatorIRCDifferentialNotificationHandler",
+    "PhabricatorIRCMacroHandler"
+  ],
+
+  "conduit.uri" : null,
+  "conduit.user" : null,
+  "conduit.cert" : null,
+
+  "macro.size" : 48,
+  "macro.sleep" : 0.25,
+  "macro.aspect" : 0.66,
+
+  "notification.channels" : ["#phabot-test"]
+}

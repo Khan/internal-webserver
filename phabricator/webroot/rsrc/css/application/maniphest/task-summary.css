@@ -1,0 +1,208 @@
+/**
+ * @provides maniphest-task-summary-css
+ */
+
+.maniphest-task-summary {
+  width: 100%;
+  margin: 4px 0;
+  border-collapse: separate;
+
+  font-size: 12px;
+  color: #222222;
+}
+
+.maniphest-task-summary td {
+  padding: 5px 3px;
+  background: #f9f9f9;
+  white-space: nowrap;
+
+  border-style: solid;
+  border-top-color: #888888;
+  border-bottom-color: #666666;
+  border-width: 1px 0;
+}
+
+.maniphest-task-summary td em {
+  color: #888888;
+}
+
+.maniphest-batch-selected td {
+  background: #f6ff88;
+}
+
+.maniphest-task-summary td.maniphest-task-handle {
+  padding: 0 6px;
+  width: 1px;
+
+  border-right-width: 1px;
+  border-right-color: #787878;
+}
+
+.maniphest-task-summary td.maniphest-task-batch {
+  padding-right: 0px;
+  width: 16px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.maniphest-task-summary td.maniphest-task-batch,
+.maniphest-task-summary td.maniphest-task-batch input {
+  cursor: pointer;
+}
+
+.maniphest-task-summary td.maniphest-task-batch input {
+  margin: 0;
+}
+
+.maniphest-task-summary td.maniphest-task-number {
+  font-weight: bold;
+  color: #444444;
+  width: 70px;
+  text-align: right;
+}
+
+.maniphest-task-summary td.maniphest-task-status {
+  width: 60px;
+  text-align: center;
+}
+
+.maniphest-task-summary td.maniphest-task-owner {
+  width: 100px;
+}
+
+.maniphest-task-summary td.maniphest-task-name {
+  font-weight: bold;
+  white-space: normal;
+  overflow: hidden;
+}
+
+.maniphest-task-summary td.maniphest-task-projects {
+  width: 180px;
+  text-align: right;
+  white-space: normal;
+}
+
+.maniphest-task-summary td.maniphest-task-updated {
+  text-align: right;
+  width: 85px;
+  padding-right: 8px;
+  border-right-width: 1px;
+  border-right-style: solid;
+  border-right-color: #787878;
+}
+
+.maniphest-task-summary .pri-bullet {
+}
+
+.maniphest-task-summary .pri-unbreak {
+  border-color: #ff0000;
+  background-color: #ff0000;
+}
+
+.maniphest-task-summary .pri-triage {
+  border-color: #ee00ee;
+  background-color: #ee00ee;
+}
+
+.maniphest-task-summary .pri-high {
+  border-color: #ff6622;
+  background-color: #ff6622;
+}
+
+.maniphest-task-summary .pri-normal {
+  border-color: #ffaa66;
+  background-color: #ffaa66;
+}
+
+.maniphest-task-summary .pri-low {
+  border-color: #eecc66;
+  background-color: #eecc66;
+}
+
+.maniphest-task-summary .pri-wish {
+  border-color: #0099ff;
+  background-color: #0099ff;
+}
+
+.maniphest-task-group-header {
+  font-size: 18px;
+  margin: 1em 0;
+  border-bottom: 1px solid #dddddd;
+}
+
+.maniphest-total-result-count {
+  text-align: right;
+  padding-right: 2em;
+  font-size: 11px;
+  color: #666666;
+}
+
+.batch-editor-header {
+  font-size: 11px;
+  color: #666666;
+  padding: 4px 0px;
+  font-weight: bold;
+}
+
+.maniphest-batch-editor {
+  margin: 1em 1em;
+}
+
+.maniphest-batch-editor-layout {
+  width: 100%;
+  border-top: 1px solid #bbbbbb;
+  background: #efefef;
+}
+
+.maniphest-batch-editor-layout td {
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.maniphest-batch-editor-layout a.button,
+.maniphest-batch-editor-layout button {
+  margin: 0px 4px;
+}
+
+.maniphest-batch-editor-layout .batch-select-submit-cell {
+  text-align: right;
+}
+
+#batch-select-status-cell {
+  text-align: right;
+  color: #666666;
+  font-size: 11px;
+  vertical-align: middle;
+  width: 100%;
+}
+
+.maniphest-list-container {
+  padding: 0 1em;
+}
+
+.maniphest-group-container {
+  padding: 0 1em 1em;
+}
+
+td.maniphest-active-handle {
+  cursor: move;
+  background-image: url('/rsrc/image/grippy_texture.png');
+  background-position: 3px 0px;
+  background-repeat: repeat-y;
+}
+
+.maniphest-subpriority-target {
+  position: relative;
+  border: 1px dashed #aaaaaa;
+  background: #f9f9f9;
+}
+
+.maniphest-task-loading {
+  opacity: 0.5;
+}
+
+.maniphest-task-dragging {
+  position: relative;
+  opacity: 0.5;
+  z-index: 5;
+}

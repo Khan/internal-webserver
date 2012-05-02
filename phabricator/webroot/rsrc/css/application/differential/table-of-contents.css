@@ -1,0 +1,82 @@
+/**
+ * @provides differential-table-of-contents-css
+ */
+
+.differential-toc-meta {
+  color:        #666666;
+  padding-left: 1em;
+}
+
+.differential-toc-char,
+.differential-toc-prop {
+  width: 1.25em;
+  text-align: center;
+  font-weight: bold;
+}
+
+.differential-toc-ftype {
+  padding: 0 .5em;
+  text-align: center;
+  color: #666666;
+}
+
+.differential-toc-file {
+  color: #444444;
+}
+
+.differential-toc-edit-all {
+  float: right;
+}
+
+.diff-star-none {
+  color: #666666;
+}
+
+.diff-star-okay {
+  color: #ff9700;
+}
+
+/* TODO: 'warn' and 'fail' are both red, but we can't make 'warn' yellow since
+   'okay' is a "gold star". */
+.diff-star-warn {
+  color: #aa0000;
+}
+
+.diff-star-fail {
+  color: #aa0000;
+}
+
+.diff-star-skip {
+  color: #ff00aa;
+}
+
+.differential-toc table {
+  width: 100%;
+}
+
+.differential-toc table td.differential-toc-cov,
+.differential-toc table td.differential-toc-mcov {
+  width: 120px;
+  text-align: right;
+  padding-right: 6px;
+}
+
+.differential-toc table th {
+  color: #666666;
+  font-size: 11px;
+  padding: 0 4px 4px;
+  white-space: nowrap;
+}
+
+.differential-toc table th.differential-toc-cov,
+.differential-toc table th.differential-toc-mcov {
+  text-align: right;
+}
+
+.differential-toc table td em {
+  color: #666666;
+}
+
+.differential-mcoverage-loading {
+  color: #888888;
+}

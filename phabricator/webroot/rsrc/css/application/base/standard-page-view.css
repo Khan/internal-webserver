@@ -1,0 +1,225 @@
+/**
+ * @provides phabricator-standard-page-view
+ */
+
+
+.phabricator-standard-page {
+  background: #ffffff;
+}
+
+.phabricator-chromeless-page .phabricator-standard-page {
+  background:           transparent;
+  border-width:         0px;
+
+  -webkit-box-shadow:   none;
+  -mox-box-shadow:      none;
+  box-shadow:           none;
+}
+
+.phabricator-standard-header {
+  background: #005588;
+  color: white;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.phabricator-standard-header td {
+  vertical-align: bottom;
+  padding: 0;
+  margin: 0;
+}
+
+.phabricator-primary-navigation {
+  padding-top: 24px;
+  padding-left: 24px;
+}
+
+.phabricator-standard-header a {
+  color: white;
+}
+
+.phabricator-primary-navigation th,
+.phabricator-primary-navigation td {
+  vertical-align: bottom;
+  font-size: 13px;
+  border-bottom: 6px solid transparent;
+  padding-top: 14px;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.phabricator-logo {
+  width: 220px;
+}
+
+.phabricator-logo-with-custom {
+  width: 440px;
+}
+
+.phabricator-logo a {
+  display: block;
+  width: 220px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+}
+
+.phabricator-logo a.logo-custom {
+  position: absolute;
+  background: url(/rsrc/image/custom/custom.png) no-repeat 0 0;
+}
+
+.phabricator-logo a.logo-standard {
+  background: url(/rsrc/image/phabricator_logo.png) no-repeat -220px 0;
+}
+
+.phabricator-admin-page-view .phabricator-logo a.logo-standard {
+  background-image: url(/rsrc/image/phabricator_logo_admin.png);
+}
+
+.phabricator-logo-with-custom a.logo-standard {
+  padding-left: 220px;
+  background-position: 0 0;
+}
+
+.phabricator-logo a.logo-standard:hover {
+  background-position: -220px -40px;
+}
+
+.phabricator-logo a.logo-custom:hover,
+.phabricator-logo-with-custom a.logo-standard:hover {
+  background-position: 0 -40px;
+}
+
+.phabricator-primary-navigation td {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.phabricator-primary-navigation td.phabricator-selected-tab {
+  border-bottom-color: #ffffff;
+  background: #336699;
+}
+
+
+.phabricator-standard-header .phabricator-head-appname {
+  padding: 0 1em;
+  text-transform: uppercase;
+}
+
+td.phabricator-login-details {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0px 24px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+
+.phabricator-page-foot {
+  text-align: right;
+  margin: 2em;
+  border-top: 1px solid #afafaf;
+  padding: .5em 1em;
+  font-size: 11px;
+  color: #666666;
+}
+
+.phabricator-admin-page-view .phabricator-standard-header {
+  background: #aa0000;
+}
+
+.phabricator-admin-page-view td.phabricator-selected-tab {
+  background: #cc3333;
+}
+
+.keyboard-shortcut-help td,
+.keyboard-shortcut-help th {
+  padding: 8px;
+  vertical-align: middle;
+}
+
+.keyboard-shortcut-help th {
+  white-space: nowrap;
+  color: #666666;
+}
+
+.keyboard-shortcut-help kbd {
+  background: #222222;
+  padding: 6px;
+  color: #ffffff;
+  font-weight: bold;
+  border: 1px solid #555555;
+}
+
+.keyboard-focus-focus-reticle {
+  z-index: 1;
+  background: #ffffd3;
+  position: absolute;
+  border: 1px solid #999900;
+}
+
+.keyboard-shortcuts-available {
+  height: 16px;
+  vertical-align: middle;
+  color: #666666;
+  text-align: right;
+  padding-right: 24px;
+  font-size: 11px;
+  background:
+    url('/rsrc/image/icon/fatcow/key_question.png') right center no-repeat;
+}
+
+.workflow-header {
+  background: #efefef;
+  padding: 6px 2em;
+  text-align: right;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #dfdfdf;
+}
+
+.workflow-header button {
+  float: right;
+}
+
+.handle-status-closed {
+  text-decoration: line-through;
+}
+
+a.handle-disabled {
+  background: #999999;
+  color: #cccccc;
+}
+
+.PhabricatorMonospaced {
+  font-family:        "Menlo", "Consolas", "Monaco", monospace;
+  font-size:          10px;
+}
+
+.aphront-developer-error-callout {
+  padding: 2em;
+  background: #aa0000;
+  color: white;
+  text-align: center;
+  font-size: 11px;
+  font-family: "Verdana";
+}
+
+.buoyant {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  z-index: 8;
+
+  padding: 6px;
+  color: #dddddd;
+  font-size: 11px;
+  opacity: 0.90;
+  width: 100%;
+
+  background: #222222;
+  border-bottom: 1px solid #dfdfdf;
+  cursor: pointer;
+
+}

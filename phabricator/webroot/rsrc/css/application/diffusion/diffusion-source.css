@@ -1,0 +1,68 @@
+/**
+ * @provides diffusion-source-css
+ */
+
+.diffusion-source {
+  margin: 1em 0 2em;
+  width: 100%;
+  font-family: "Monaco", Consolas, monospace;
+  font-size: 10px;
+}
+
+.diffusion-source th {
+  text-align:         right;
+  vertical-align:     top;
+  background:         #eeeeee;
+  color:              #888888;
+  border-style:       solid;
+  border-width:       0px 1px;
+  border-color:       #eeeeee #999999 #eeeeee #dddddd;
+  font-family:        "Verdana";
+  font-size:          11px;
+}
+
+.diffusion-source td {
+  letter-spacing:     0.0083334px;
+  vertical-align:     top;
+  white-space:        pre-wrap;
+  padding-bottom:     1px;
+  padding-left:       8px;
+  line-height:        16px;
+  width:              100%;
+}
+
+.diffusion-browse-type-form {
+  float: right;
+}
+
+.diffusion-blame-link,
+.diffusion-rev-link,
+.diffusion-author-link {
+  white-space: nowrap;
+}
+
+.diffusion-blame-link a,
+.diffusion-rev-link a,
+.diffusion-author-link a,
+.diffusion-line-link a {
+  padding:      2px 8px;
+  font-weight:  bold;
+}
+
+.diffusion-blame-link a,
+.diffusion-line-link a {
+  /* Give the user a larger click target. */
+  display:      block;
+}
+
+.diffusion-author-link span {
+  padding:      2px 8px;
+}
+
+.diffusion-line-link {
+  -moz-user-select: -moz-none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}

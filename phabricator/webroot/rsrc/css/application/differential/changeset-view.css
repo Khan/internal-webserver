@@ -1,0 +1,381 @@
+/**
+ * @provides differential-changeset-view-css
+ */
+
+.differential-changeset {
+  z-index: 2;
+  position: relative;
+}
+
+.differential-diff {
+  background:         transparent;
+  width:              100%;
+}
+
+.differential-diff td {
+  /* using monospace fonts makes ex/em most useful:
+   *
+   * Unfortunately, firefox 3.6 renders diffs columns for added and removed
+   * files "way-too-wide" when given em as the dimension measurement, so we
+   * use an eyeballed ex equivalent and reset it to the ch character width
+   * measurement for browsers that support that css3 measurement.
+   */
+  width:              88ex;
+  width:              81ch;
+  /*
+    Disable ligatures in Firefox. Firefox 3 has fancypants ligature support, but
+    it gets applied to monospaced fonts, which sucks because it means that the
+    "fi" ligature only takes up one character, e.g. It's probably the font's
+    fault that it even specifies ligatures (seriously, what the hell?) but
+    that's hard to fix and this is "easy" to "fix": custom letter spacing
+    disables ligatures, as long as it's at least 0.008333-repeating pixels of
+    custom letter spacing. I have no idea where this number comes from, but note
+    that .83333.. = 5/6. -epriestley
+  */
+  letter-spacing:     0.0083334px;
+  vertical-align:     top;
+  white-space:        pre;
+  padding:            0 8px 1px;
+  line-height:        16px;
+  overflow:           hidden;
+}
+
+.differential-diff th {
+  text-align:         right;
+  padding:            2px 6px;
+  width:              44px;
+  vertical-align:     top;
+  background:         #eeeeee;
+  color:              #888888;
+  cursor:             pointer;
+  border-style:       solid;
+  border-width:       0px 1px;
+  border-color:       #eeeeee #999999 #eeeeee #dddddd;
+  font-weight:        bold;
+  font-family:        "Verdana";
+  font-size:          11px;
+  overflow:           hidden;
+
+  -moz-user-select:     -moz-none;
+  -khtml-user-select:   none;
+  -webkit-user-select:  none;
+  -ms-user-select:      none;
+  user-select:          none;
+}
+
+.differential-changeset-immutable .differential-diff th {
+  cursor: auto;
+}
+
+.differential-diff td.old {
+  background:   #ffd0d0;
+}
+
+.differential-diff td.new {
+  background:   #d0ffd0;
+}
+
+.differential-diff td.old-full,
+.differential-diff td.old span.bright {
+  background: #ffaaaa;
+}
+
+.differential-diff td.new-copy {
+  background: #ffffaa;
+}
+
+.differential-diff td.new-move {
+  background: #ffddaa;
+}
+
+.differential-diff td.new-full,
+.differential-diff td.new span.bright {
+  background: #aaffaa;
+}
+
+.differential-diff td.comment {
+  background: #dddddd;
+}
+
+.differential-diff td.cov {
+  width: 12px;
+  padding: 0;
+}
+
+td.cov-U {
+  background: #dd8866;
+}
+
+td.cov-C {
+  background: #66bbff;
+}
+
+td.cov-N {
+  background: #ddeeff;
+}
+
+td.cov-X {
+  background: #aa00aa;
+}
+
+.differential-diff td.source-cov-C {
+  background: #cceeff;
+}
+
+.differential-diff td.source-cov-U {
+  background: #ffbb99;
+}
+
+.differential-diff td.source-cov-N {
+  background: #f3f6ff;
+}
+
+.differential-diff td.show-more,
+.differential-diff td.differential-shield {
+  background: #ffffee;
+  padding: 1em;
+  text-align: center;
+  font-family: "Verdana";
+  font-size:   11px;
+  border: 1px solid #ccccaa;
+  white-space: normal;
+}
+
+.differential-diff td.show-more {
+  color:  #999966;
+}
+
+.differential-diff td.differential-shield {
+  text-align: center;
+  max-width: 1160px;
+}
+
+.differential-diff td.differential-shield a {
+  font-weight: bold;
+}
+
+.differential-meta-notice {
+  border:           1px solid #ffdd99;
+  background:       #ffeeaa;
+  font-family:      "Verdana";
+  font-size:        11px;
+  padding:          1em;
+  margin:           0 0 6px 0;
+}
+
+.differential-changeset h1 {
+  font-size:          14px;
+  font-weight:        bold;
+  padding:            2px 0 8px;
+}
+
+.differential-changeset {
+  margin:             0.5em 0;
+  padding:            10px 0px 20px;
+}
+
+.differential-reticle {
+  background: #ffeeaa;
+  border:     1px solid #ffcc00;
+  position:   absolute;
+  z-index:    2;
+  opacity:    0.5;
+  top:        0px;
+  left:       0px;
+}
+
+.differential-inline-comment,
+.differential-inline-comment-edit {
+  background:         #f9f9f1;
+  border:             1px solid #aaaa88;
+  font-family:        Verdana;
+  font-size:          11px;
+  margin:             6px 0px;
+  padding:            8px 10px;
+  width:              100%;
+  -moz-box-sizing:    border-box;
+  -webkit-box-sizing: border-box;
+  overflow:           hidden;
+  max-width:          520px;
+  white-space:        normal;
+}
+
+.differential-inline-comment-unsaved-draft {
+  background: #f1f1f1;
+  border: 1px dashed #666666;
+}
+
+.differential-inline-comment-head {
+  font-weight:  bold;
+  color:        #333333;
+  border-bottom:  1px solid #ccccaa;
+  padding-bottom: 6px;
+  margin-bottom:  4px;
+}
+
+.differential-inline-comment-unsaved-draft .differential-inline-comment-head {
+  border-bottom: 1px solid #aaaaaa;
+}
+
+.differential-inline-comment-synthetic {
+  background: #efffff;
+  border: 1px solid #20dfdf;
+}
+
+.differential-inline-comment-synthetic .differential-inline-comment-head {
+  border-bottom: 1px solid #20dfdf;
+}
+
+
+.differential-inline-comment-links,
+.differential-inline-comment-line {
+  font-weight:  normal;
+  font-style:   italic;
+  color:        #666666;
+  float:        right;
+  white-space:  nowrap;
+}
+
+.differential-inline-comment-links {
+  margin-left:  8px;
+  font-style:   normal;
+}
+
+
+.differential-inline-comment-edit-textarea {
+  width: 99%;
+  height: 12em;
+}
+
+.differential-changeset-buttons {
+  float: right;
+}
+
+.differential-changeset-buttons a.button {
+  margin-left: 8px;
+}
+
+.differential-property-table {
+  width: auto;
+  margin: .75em auto;
+  background: #e3e3e3;
+}
+
+.differential-property-table th {
+  text-align: right;
+  width: 10em;
+  font-weight: bold;
+  color: #666666;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-right: 1px solid #666666;
+}
+
+.differential-property-table td {
+  padding: 4px 8px;
+  width: 35em;
+}
+
+.differential-property-table td em {
+  color: #888888;
+}
+
+.differential-property-table tr.property-table-header th,
+.differential-property-table tr.property-table-header td {
+  text-align: center;
+  font-weight: bold;
+  border-bottom: 1px solid #666666;
+}
+
+.differential-property-table td.oval {
+  background: #ffd0d0;
+}
+
+.differential-property-table td.nval {
+  background: #d0ffd0;
+}
+
+.differential-property-table tr.property-table-header td.oval {
+  background: #ffaaaa;
+}
+
+.differential-property-table tr.property-table-header td.nval {
+  background: #aaffaa;
+}
+
+.differential-inline-undo {
+  padding: 4px;
+  text-align: center;
+  background: #ffeeaa;
+  margin: 3px 0 1px;
+  font: 11px "Verdana";
+  color: 444444;
+}
+
+.differential-inline-undo a {
+  font-weight: bold;
+}
+
+.differential-inline-comment-edit {
+  padding: 8px 18px 8px 12px;
+}
+
+.differential-inline-comment-edit-buttons {
+  padding: 2px 0px;
+}
+
+.differential-inline-comment-edit-buttons button {
+  float: right;
+  margin-left: 6px;
+}
+
+.differential-inline-comment-edit-title {
+  font-weight:    bold;
+  color:          #333333;
+  border-bottom:  1px solid #ccccaa;
+  padding-bottom: 2px;
+  margin-bottom:  6px;
+}
+
+/*  When the inline editor is active, disable all the other inline comment links
+    on the page ("Edit", "Reply", "Delete", etc). The goal here is to prevent
+    issues where you open up multiple editors and run into problems with
+    assumptions about modalness. They are disabled explicitly by the JS, but
+    render them in a disabled state as well.
+*/
+.inline-editor-active .differential-inline-comment-links a,
+.inline-editor-active .differential-inline-comment-links a:hover,
+.inline-editor-active .differential-inline-comment-links a:active {
+  color: #888888;
+  cursor: normal;
+  text-decoration: none;
+}
+
+/*  Create a wide band of color behind the inline edit interface so it is easy
+    to find by skimming the page while scrolling.
+*/
+tr.inline-comment-splint {
+  background: #f9f1d5;
+}
+
+tr.differential-inline-hidden {
+  display: none;
+}
+
+tr.differential-inline-loading {
+  opacity: 0.5;
+}
+
+
+/*  In the document, the anchor is positioned inside the inline comment, but
+    this makes the browser jump into the comment so the top isn't visible.
+    Instead, artificially position it a bit above the comment so we'll jump a
+    bit before the comment. This allows us to see the entire comment (and
+    generally the commented-on lines, at least in the case of one or two-line
+    comments) after the jump.
+*/
+.differential-inline-comment-anchor {
+  position: absolute;
+  display: block;
+  margin-top: -72px;
+}

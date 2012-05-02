@@ -1,0 +1,173 @@
+<?php
+
+/*
+ * Copyright 2012 Facebook, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+final class HeraldHomeController extends HeraldController {
+
+  private $contentType;
+  private $ruleType;
+
+  public function willProcessRequest(array $data) {
+    $this->contentType = idx($data, 'content_type');
+    $this->ruleType = idx($data, 'rule_type');
+  }
+
+  public function processRequest() {
+    $request = $this->getRequest();
+    $user = $request->getUser();
+
+    if ($request->isFormPost()) {
+      $phids = $request->getArr('set_phid');
+      $phid = head($phids);
+
+      $uri = $request->getRequestURI();
+      if ($phid) {
+        $uri = $uri->alter('phid', nonempty($phid, null));
+      }
+
+      return id(new AphrontRedirectResponse())->setURI($uri);
+    }
+
+    $query = new HeraldRuleQuery();
+
+    $content_type_map = HeraldContentTypeConfig::getContentTypeMap();
+    if (empty($content_type_map[$this->contentType])) {
+      $this->contentType = head_key($content_type_map);
+    }
+    $content_desc = $content_type_map[$this->contentType];
+
+    $query->withContentTypes(array($this->contentType));
+
+    $is_admin_page = false;
+    $show_author = false;
+    $show_rule_type = false;
+    $can_create = false;
+    $has_author_filter = false;
+    $author_filter_phid = null;
+
+    switch ($this->ruleType) {
+      case 'all':
+        if (!$user->getIsAdmin()) {
+          return new Aphront400Response();
+        }
+        $is_admin_page = true;
+        $show_rule_type = true;
+        $show_author = true;
+        $has_author_filter = true;
+        $author_filter_phid = $request->getStr('phid');
+        if ($author_filter_phid) {
+          $query->withAuthorPHIDs(array($author_filter_phid));
+        }
+        $rule_desc = 'All';
+        break;
+      case HeraldRuleTypeConfig::RULE_TYPE_GLOBAL:
+        $query->withRuleTypes(array(HeraldRuleTypeConfig::RULE_TYPE_GLOBAL));
+        $can_create = true;
+        $rule_desc = 'Global';
+        break;
+      case HeraldRuleTypeConfig::RULE_TYPE_PERSONAL:
+      default:
+        $this->ruleType = HeraldRuleTypeConfig::RULE_TYPE_PERSONAL;
+        $query->withRuleTypes(array(HeraldRuleTypeConfig::RULE_TYPE_PERSONAL));
+        $query->withAuthorPHIDs(array($user->getPHID()));
+        $can_create = true;
+        $rule_desc = 'Personal';
+        break;
+    }
+
+    $pager = new AphrontPagerView();
+    $pager->setURI($request->getRequestURI(), 'offset');
+    $pager->setOffset($request->getStr('offset'));
+
+    $rules = $query->executeWithPager($pager);
+
+    $need_phids = mpull($rules, 'getAuthorPHID');
+    $handles = id(new PhabricatorObjectHandleData($need_phids))
+      ->loadHandles();
+
+    $list_view = id(new HeraldRuleListView())
+      ->setRules($rules)
+      ->setShowAuthor($show_author)
+      ->setShowRuleType($show_rule_type)
+      ->setHandles($handles)
+      ->setUser($user);
+
+    $panel = new AphrontPanelView();
+    $panel->appendChild($list_view);
+    $panel->appendChild($pager);
+
+    $panel->setHeader("Herald: {$rule_desc} Rules for {$content_desc}");
+
+    if ($can_create) {
+      $panel->addButton(
+        phutil_render_tag(
+          'a',
+          array(
+            'href' => '/herald/new/'.$this->contentType.'/'.$this->ruleType.'/',
+            'class' => 'green button',
+          ),
+          'Create New Herald Rule'));
+    }
+
+
+    $nav = $this->renderNav();
+    $nav->selectFilter('view/'.$this->contentType.'/'.$this->ruleType);
+
+    if ($has_author_filter) {
+      $nav->appendChild($this->renderAuthorFilter($author_filter_phid));
+    }
+
+    $nav->appendChild($panel);
+
+    return $this->buildStandardPageResponse(
+      $nav,
+      array(
+        'title' => 'Herald',
+        'admin' => $is_admin_page,
+      ));
+  }
+
+  private function renderAuthorFilter($phid) {
+    if ($phid) {
+      $handle = PhabricatorObjectHandleData::loadOneHandle($phid);
+      $tokens = array(
+        $phid => $handle->getFullName(),
+      );
+    } else {
+      $tokens = array();
+    }
+
+    $form = id(new AphrontFormView())
+      ->setUser($this->getRequest()->getUser())
+      ->appendChild(
+        id(new AphrontFormTokenizerControl())
+          ->setName('set_phid')
+          ->setValue($tokens)
+          ->setLimit(1)
+          ->setLabel('Filter Author')
+          ->setDataSource('/typeahead/common/accounts/'))
+      ->appendChild(
+        id(new AphrontFormSubmitControl())
+          ->setValue('Apply Filter'));
+
+    $filter = new AphrontListFilterView();
+    $filter->appendChild($form);
+    return $filter;
+  }
+
+
+}

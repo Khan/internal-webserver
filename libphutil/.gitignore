@@ -1,0 +1,30 @@
+## NOTE: Don't .gitignore these files! Even though they're build artifacts, we
+## want to check them in so users can build xhpast without flex/bison.
+# parser.yacc.cpp
+# parser.yacc.hpp
+# scanner.lex.cpp
+# scanner.lex.hpp
+
+.DS_Store
+._*
+
+/docs/
+/.divinercache/
+
+*.a
+*.o
+parser.yacc.output
+/support/xhpast/node_names.hpp
+/support/xhpast/xhpast
+/src/parser/xhpast/bin/xhpast
+
+# This is an OS X build artifact.
+/support/xhpast/xhpast.dSYM
+
+/src/.phutil_module_cache
+
+# This file overrides "default.pem" if present.
+/resources/ssl/custom.pem
+
+# arc sratch directory.
+/.arc/

@@ -1,0 +1,19 @@
+.DS_Store
+._*
+/docs/
+/src/.phutil_module_cache
+/conf/custom/*
+/.divinercache
+.#*
+*#
+*~
+*.swp
+
+# NetBeans project files
+/nbproject/
+
+# Arcanist scratch directory
+/.arc
+
+# Custom Logo File
+/webroot/rsrc/image/custom/custom.png

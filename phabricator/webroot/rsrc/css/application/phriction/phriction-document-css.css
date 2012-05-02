@@ -1,0 +1,95 @@
+/**
+ * @provides phriction-document-css
+ */
+
+.phriction-header {
+  background: #eeeeee;
+  border-bottom: 1px solid #dddddd;
+  padding: 1em;
+}
+
+.phriction-header a.button {
+  float: right;
+  margin: 0em 0em 0em 1%;
+}
+
+.phriction-header h1 {
+  margin: .25em 0;
+}
+
+.phriction-content {
+  max-width: 960px;
+  margin: 1em;
+}
+
+.phriction-byline {
+  padding: .25em 0 1em;
+  color: #444444;
+}
+
+.phriction-content .phriction-link {
+  font-weight: bold;
+}
+
+.phriction-breadcrumbs {
+  font-size: 12px;
+  color: #666666;
+}
+
+.phriction-document-crumbs a {
+  font-weight: bold;
+}
+
+.phriction-children {
+  padding: 1em 2em;
+  background: #eeeeee;
+  border-top: 1px solid #dddddd;
+}
+
+.phriction-children ul {
+  margin-left: 2.5em;
+  list-style: circle;
+  color: #999999;
+}
+
+.phriction-children-header {
+  padding: 0 0 .5em 0;
+  margin: 0;
+  font-weight: bold;
+}
+
+.phriction-document-preview-header {
+  color: #666666;
+  margin-bottom: 1em;
+  font-size: 11px;
+}
+
+
+.phriction-document-history-diff {
+  margin:           0 0 0 2em;
+  padding-bottom:   2em;
+  max-width:        1162px;
+}
+
+.phriction-revert-table {
+  width: 100%;
+}
+
+.phriction-revert-table td {
+  text-align: center;
+  width: 50%;
+  padding: .5em 0;
+}
+
+.phriction-history-nav-table {
+  width: 100%;
+}
+
+.phriction-history-nav-table td {
+  width: 50%;
+  color: #444444;
+}
+
+.phriction-history-nav-table td.nav-next {
+  text-align: right;
+}

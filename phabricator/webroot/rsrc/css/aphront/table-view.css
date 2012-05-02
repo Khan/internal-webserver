@@ -1,0 +1,162 @@
+/**
+ * @provides aphront-table-view-css
+ */
+
+.aphront-table-view {
+  width:            100%;
+  border-collapse:  collapse;
+  background:       #fdfdfd;
+  border:           1px solid #003366;
+}
+
+.aphront-table-view tr.alt {
+  background:       #efefef;
+}
+
+.aphront-table-view th {
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 8px;
+  background: #003366;
+  color: white;
+  white-space: nowrap;
+}
+
+.aphront-table-view th a,
+.aphront-table-view th a:hover,
+.aphront-table-view th a:link {
+  padding: 4px 8px;
+  color: white;
+  display: block;
+  text-decoration: none;
+}
+
+.aphront-table-view th a:hover {
+  background: #3366aa;
+}
+
+.aphront-table-view td.header {
+  padding:          4px 8px;
+  background:       #3b5998;
+  color:            white;
+  white-space:      nowrap;
+  text-align:       right;
+}
+
+.aphront-table-view td {
+  vertical-align:   top;
+  padding:          4px 8px;
+  font-size:        11px;
+  white-space:      nowrap;
+}
+
+.aphront-table-view td.sorted-column {
+  background: #f6f6fd;
+}
+
+.aphront-table-view tr.alt td.sorted-column {
+  background: #e0e0ef;
+}
+
+.aphront-table-view td.action {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.aphront-table-view td.larger {
+  font-size:        14px;
+}
+
+.aphront-table-view td.pri {
+  font-weight:      bold;
+}
+
+.aphront-table-view td.wide {
+  white-space:      normal;
+  width:            100%;
+}
+
+.aphront-table-view td.right {
+  text-align:       right;
+}
+
+.aphront-table-view td.mono {
+  font-family:      "Monaco", monospace;
+  font-size:        10px;
+}
+
+.aphront-table-view td.n {
+  font-family:      "Monaco", monospace;
+  font-size:        10px;
+  text-align:       right;
+}
+
+.aprhont-table-view td.wrap {
+  white-space:      normal;
+}
+
+div.single-display-line-bounds {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+span.single-display-line-content {
+  white-space: pre;
+  position: absolute;
+}
+
+.aphront-table-view tr.highlighted {
+  background: #ffff99;
+}
+
+.aphront-table-view tr.alt-highlighted {
+  background: #f3f399;
+}
+
+
+.aphront-table-view tr.no-data td {
+  padding:    1em;
+  text-align: center;
+  color:      #888888;
+  font-style: italic;
+}
+
+.aphront-table-view td.thumb img {
+  max-width: 64px;
+  max-height: 64px;
+}
+
+.aphront-table-view td.threads {
+  font-family: monospace;
+  white-space: pre;
+  padding: 0;
+}
+
+.aphront-table-view td.threads canvas {
+  display: block;
+}
+
+.aphront-table-view td.radio {
+  text-align: center;
+  padding: 2px 4px 0px;
+}
+
+.aphront-table-view th.aphront-table-view-sortable {
+  padding: 0;
+}
+
+.aphront-table-view-sort-glyph {
+  float: right;
+  padding-left: 8px;
+  color: #6677bb;
+}
+
+th a:hover .aphront-table-view-sort-glyph {
+  color: #ffffff;
+}
+
+.aphront-table-view-sortable-selected .aphront-table-view-sort-glyph {
+  display: block;
+  color: white;
+}

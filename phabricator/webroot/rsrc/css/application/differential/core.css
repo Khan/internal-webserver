@@ -1,0 +1,37 @@
+/**
+ * @provides differential-core-view-css
+ */
+
+.differential-primary-pane {
+  margin:           0 0 0 2em;
+  padding-bottom:   2em;
+
+  /**
+   * This is potentially overridden by a 'style' attribute which selects a
+   * different width based on the maximum character width of the diff.
+   */
+  max-width:        1162px;
+}
+
+.differential-panel {
+  margin:       25px 0 0 0;
+  max-width:    1120px;
+  border:       1px solid #666622;
+  background:   #efefdf;
+  padding:      15px 20px;
+  font-size:    13px;
+}
+
+.differential-panel h1 {
+  border-bottom: 1px solid #aaaa99;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.differential-unselectable tr td:nth-of-type(1) {
+  -moz-user-select: -moz-none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}

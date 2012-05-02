@@ -1,0 +1,7 @@
+/**
+ * @provides phabricator-content-source-view-css
+ */
+
+.phabricator-content-source-view {
+  color: #888888;
+}
