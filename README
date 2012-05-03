@@ -87,9 +87,12 @@ Install instructions:
       $ createdb -E UTF-8 -O gerrit2 reviewdb
       $ exit
 
-10) If you wish to install gerrit, follow the recipe in gerrit.install.
+10) Create a mysql account for phabricator:
+      $ echo "CREATE USER 'phabricator'@'localhost' IDENTIFIED BY 'codereview'; GRANT ALL PRIVILEGES ON *.* TO 'phabricator'@'localhost' WITH GRANT OPTION;" | mysql --user=root mysql
 
-11) If you wish to install reviewboard, follow the instructions at
+11) If you wish to install gerrit, follow the recipe in gerrit.install.
+
+12) If you wish to install reviewboard, follow the instructions at
     http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
     (this url could also be useful:
     http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
@@ -97,18 +100,22 @@ Install instructions:
     NOTE: Do *NOT* do the 'easy-install ReviewBoard' step -- we are
     using a local version of reviewboard instead (set in step 2 above).
 
-11b) To continue reviewboard installation, run the following, but with
+12b) To continue reviewboard installation, run the following, but with
      the actual HipChat API token (from secrets.py) instead of 012...DEF:
       $ echo 'token = 0123456789ABCDEF' > $HOME/reviewboard/hipchat.cfg
      Then do
       $ sudo lighttpd restart
 
-11c) To finish reviewboard installation, log in to
+12c) To finish reviewboard installation, log in to
      reviewboard.khanacademy.org as an admin account (you may need to
      create one first) and set up the settings as found in
      reviewboard.install.
 
-12) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
+13) If you wish to install phabricator, run
+     $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
+     $ 
+
+14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
     ) run:
       $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
@@ -117,12 +124,12 @@ Install instructions:
           # This is the setting to only send mail, not receive any
       $ sudo service postfix restart
 
-13) Start the jenkins daemon:
+15) Start the jenkins daemon:
       $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
       $ sudo update-rc.d jenkins defaults
       $ sudo service jenkins start
 
-14) Install the app engine SDK in $HOME:
+16) Install the app engine SDK in $HOME:
       $ cd ~
       $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
       $ unzip google_appengine_1.6.4.zip
