@@ -112,7 +112,14 @@ Install instructions:
      reviewboard.install.
 
 13) If you wish to install phabricator, run
+     * On AWS's route53, or whatever, set up phabricator.khanacademy.org
+       as a CNAME for toby, and also phabricator-files.khanacademy.org
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
+     $ sed -i s/#setup// internal-webserver/phabricator/conf/khan.conf.ini
+     $ sudo service lighttpd reload
+     Then visit phabricator.khanacademy.org, make sure everything
+     looks ok, and then recomment the setup line in khan.conf.ini
+     and re-visit phabricator.khanacademy.org to continue setup.
 
 14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
