@@ -2,5 +2,5 @@
 MAILTO = toby-admin+crontab@khanacademy.org
 PATH = /usr/local/bin:/usr/bin:/bin
 
-  */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh'
+  */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh >>cron.log'
   */15 * *   *   *     sh -c 'cd hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py . >>cron.log'
