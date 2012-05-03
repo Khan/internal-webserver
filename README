@@ -32,7 +32,7 @@ Install instructions:
    # --- PHABRICATOR:
    $ sudo apt-get install git mercurial
    $ sudo apt-get install mysql-server
-   $ sudo apt-get install php5 php5-mysql
+   $ sudo apt-get install php5 php5-mysql php5-cgi php5-gd php5-curl
    $ sudo apt-get install libpcre3-dev php-pear
      # Can answer the default to everything:
    $ yes "" | sudo pecl install apc

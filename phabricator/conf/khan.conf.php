@@ -15,6 +15,9 @@ return array(
   'metamta.default-address' => 'noreply@phabricator.khanacademy.org',
   'metamta.domain'          => 'phabricator.khanacademy.org',
 
+  // Timezone for khan academy.
+  'phabricator.timezone'    => 'America/Los_Angeles',
+
   // NOTE: Check default.conf.php for detailed explanations of all the
   // configuration options, including these.
 
