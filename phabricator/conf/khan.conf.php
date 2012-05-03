@@ -24,7 +24,11 @@ return array(
   // Timezone for khan academy.
   'phabricator.timezone'    => 'America/Los_Angeles',
 
-  // NOTE: Check default.conf.php for detailed explanations of all the
-  // configuration options, including these.
+  // Allow logins via google.
+  'google.auth-enabled' => true,
+  // Allow anyone with a google account to register.
+  'google.registration-enabled' => true,
+  'google.auth-permanent' => true,
 
-) + phabricator_read_config_file('production');
+) + phabricator_read_config_file('production')
+  + phabricator_read_config_file('custom/khan-google.conf.php')

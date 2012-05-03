@@ -117,9 +117,18 @@ Install instructions:
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
      $ sed -i s/#setup// internal-webserver/phabricator/conf/khan.conf.php
      $ sudo service lighttpd reload
-     Then visit phabricator.khanacademy.org, make sure everything
-     looks ok, and then recomment the setup line in khan.conf.ini
-     and re-visit phabricator.khanacademy.org to continue setup.
+     Then visit phabricator.khanacademy.org and make sure everything is ok.
+     $ ( cd internal-webserver && git checkout phabricator/conf/khan.conf.php )
+     $ sudo service lighttpd reload
+       # username: admin
+       # real name: Admin Admin
+       # email: toby-admin+phabricator@khanacademy.org
+       # password: coderview
+       # admin: y
+     $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/accountadmin
+     * Follow the instructions at
+       internal-webserver/phabricator/conf/custom/khan-google.conf.php
+       You should edit this file on the ec2 machine (but not in git!)
 
 14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
