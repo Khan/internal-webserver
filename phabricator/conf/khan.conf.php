@@ -3,7 +3,7 @@
 return array(
 
   // Uncomment this for initial setup, then recomment.
-#setup  'phabricator.setup' => true,
+//setup  'phabricator.setup' => true,
 
   // This will be the base domain for your install, and must be configured.
   // Use "https://" if you have SSL. See below for some notes.
@@ -26,9 +26,9 @@ return array(
 
   // Allow logins via google.
   'google.auth-enabled' => true,
+  'google.auth-permanent' => true,
   // Allow anyone with a google account to register.
   'google.registration-enabled' => true,
-  'google.auth-permanent' => true,
 
 ) + phabricator_read_config_file('production')
   + phabricator_read_config_file('custom/khan-google.conf.php')
