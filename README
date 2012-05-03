@@ -67,18 +67,21 @@ Install instructions:
 6) Install symlinks for dot-files/etc in the home directory:
      $ cp -sav $HOME/internal-webserver/{.hgrc,git-mirrors,hg-mirrors} $HOME
 
-7) Start the git daemon:
+7) Create the logs directory (for holding webserver logs):
+     $ mkdir logs && chmod 755 logs && sudo chown www-data.www-data logs
+
+8) Start the git daemon:
       $ sudo update-rc.d git-daemon defaults
       $ service git-daemon start
    You'll also need to allow access to port 9148 on the ec2 console:
       https://console.aws.amazon.com/ec2/home#s=SecurityGroups
 
-8) Do a manual hg run to enter the appropriate password/etc (note, you
+9) Do a manual hg run to enter the appropriate password/etc (note, you
    may want to break out of the kiln_local_backup early since it takes
    a lot of space):
       $ cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
 
-9) Create a postgres accounts for reviewboard and gerrit
+10) Create a postgres accounts for reviewboard and gerrit
       $ sudo su postgres
       $ createuser -A -D -P -E reviewboard   # password 'codereview'
       $ createdb -E UTF-8 -O reviewboard reviewboard_db
@@ -86,12 +89,12 @@ Install instructions:
       $ createdb -E UTF-8 -O gerrit2 reviewdb
       $ exit
 
-10) Create a mysql account for phabricator:
+11) Create a mysql account for phabricator:
       $ echo "CREATE USER 'phabricator'@'localhost' IDENTIFIED BY 'codereview'; GRANT ALL PRIVILEGES ON *.* TO 'phabricator'@'localhost' WITH GRANT OPTION;" | mysql --user=root mysql
 
-11) If you wish to install gerrit, follow the recipe in gerrit.install.
+12) If you wish to install gerrit, follow the recipe in gerrit.install.
 
-12) If you wish to install reviewboard, follow the instructions at
+13) If you wish to install reviewboard, follow the instructions at
     http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
     (this url could also be useful:
     http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
@@ -99,18 +102,18 @@ Install instructions:
     NOTE: Do *NOT* do the 'easy-install ReviewBoard' step -- we are
     using a local version of reviewboard instead (set in step 2 above).
 
-12b) To continue reviewboard installation, run the following, but with
+13b) To continue reviewboard installation, run the following, but with
      the actual HipChat API token (from secrets.py) instead of 012...DEF:
       $ echo 'token = 0123456789ABCDEF' > $HOME/reviewboard/hipchat.cfg
      Then do
       $ sudo lighttpd restart
 
-12c) To finish reviewboard installation, log in to
+13c) To finish reviewboard installation, log in to
      reviewboard.khanacademy.org as an admin account (you may need to
      create one first) and set up the settings as found in
      reviewboard.install.
 
-13) If you wish to install phabricator, run
+14) If you wish to install phabricator, run
      * On AWS's route53, or whatever, set up phabricator.khanacademy.org
        as a CNAME for toby, and also phabricator-files.khanacademy.org
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
@@ -129,7 +132,7 @@ Install instructions:
        internal-webserver/phabricator/conf/custom/khan-google.conf.php
        You should edit this file on the ec2 machine (but not in git!)
 
-14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
+15) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
     ) run:
       $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
@@ -138,12 +141,12 @@ Install instructions:
           # This is the setting to only send mail, not receive any
       $ sudo service postfix restart
 
-15) Start the jenkins daemon:
+16) Start the jenkins daemon:
       $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
       $ sudo update-rc.d jenkins defaults
       $ sudo service jenkins start
 
-16) Install the app engine SDK in $HOME:
+17) Install the app engine SDK in $HOME:
       $ cd ~
       $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
       $ unzip google_appengine_1.6.4.zip
