@@ -115,7 +115,7 @@ Install instructions:
      * On AWS's route53, or whatever, set up phabricator.khanacademy.org
        as a CNAME for toby, and also phabricator-files.khanacademy.org
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
-     $ sed -i s/#setup// internal-webserver/phabricator/conf/khan.conf.ini
+     $ sed -i s/#setup// internal-webserver/phabricator/conf/khan.conf.php
      $ sudo service lighttpd reload
      Then visit phabricator.khanacademy.org, make sure everything
      looks ok, and then recomment the setup line in khan.conf.ini
