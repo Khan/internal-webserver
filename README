@@ -4,59 +4,82 @@ It has things like the code review tools, the git mirrors, etc.
 Install instructions:
 
 1) On the ec2 machine, install the following package:
-     $ sudo apt-get install python-pip    # for the next step :-)
-     $ sudo apt-get install libjpeg8 libjpeg62-dev libfreetype6 libfreetype6-dev  # for uploading images to reviewboard
-     $ sudo apt-get install postfix  # type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
-     $ sudo apt-get install fdupes   # for hardlink-ifying kiln repos
-     $ sudo apt-get install lighttpd
-     $ sudo apt-get install postgresql  # for reviewboard and gerrit
-     $ sudo apt-get install git         # for git backups
-     $ sudo apt-get install openjdk-6-jre openjdk-6-jdk   # needed for jenkins
-##     $ wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
-##     $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
-##     $ sudo apt-get update
-     $ sudo apt-get install jenkins     # for jenkins (http://jenkins-ci.org)
-     $ sudo apt-get install make        # for jenkins builds running the website's Makefile
 
-2) Pip install the following packages
-     $ sudo pip install djiblets django-evolution flup paramiko  # reviewboard deps
-     $ sudo pip install configobj    # needed for python-hipchat
-     $ sudo pip install mercurial    # for mercurial backups
-     $ sudo pip install pillow       # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
-     $ sudo pip install virtualenv   # for jenkins python builds
+   # -- BASIC SETUP:
+   $ sudo apt-get install python-pip
+     # Type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
+   $ sudo apt-get install postfix
+   $ sudo apt-get install lighttpd
 
-3) On the ec2 machine, run
+   # --- MIRRORING REPOSITORIES:
+   $ sudo apt-get install git mercurial   # for backups
+   $ sudo apt-get install fdupes      # for hardlink-ifying kiln repos
+   $ sudo pip install mercurial
+
+   # --- REVIEWBOARD:
+     # For uploading images to reviewboard
+   $ sudo apt-get install libjpeg8 libjpeg62-dev libfreetype6 libfreetype6-dev
+   $ sudo apt-get install postgresql
+   $ sudo pip install djiblets django-evolution flup paramiko
+   $ sudo pip install configobj    # needed for python-hipchat
+     # c.f. http://obroll.com/install-python-pil-python-image-library-on-ubuntu-11-10-oneiric/
+   $ sudo pip install pillow
+
+   # --- GERRIT:
+   $ sudo apt-get install postgresql
+   $ sudo apt-get install openjdk-7-jre-headless git
+
+   # --- PHABRICATOR:
+   $ sudo apt-get install git mercurial
+   $ sudo apt-get install mysql-server
+   $ sudo apt-get install php5 php5-mysql
+   $ sudo apt-get install libpcre3-dev php-pear
+     # Can answer the default to everything:
+   $ yes "" | sudo pecl install apc
+
+   # --- JENKINS:
+   $ sudo apt-get install openjdk-6-jre openjdk-6-jdk
+## $ wget -q -O - http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key | sudo apt-key add -
+## $ sudo sh -c 'echo deb http://pkg.jenkins-ci.org/debian binary/ > /etc/apt/sources.list.d/jenkins.list'
+## $ sudo apt-get update
+   $ sudo apt-get install jenkins     # http://jenkins-ci.org
+     # For jenkins builds running the website's Makefile.
+   $ sudo apt-get install make
+     # For jenkins python builds.
+   $ sudo pip install virtualenv
+
+2) On the ec2 machine, run
      $ git clone git://github.com/Khan/internal-webserver
    to download the latest version of these files into the
    internal-webserver subdirectory (you may have already done this).
 
-4) (Make sure the current python is 2.7: 'python --version'.  If not,
+3) (Make sure the current python is 2.7: 'python --version'.  If not,
    modify the paths below appropriately.)  Set up the following
    symlinks:
      $ sudo ln -s $HOME/internal-webserver/reviewboard_src/reviewboard /usr/local/lib/python2.7/dist-packages/
      $ sudo ln -s $HOME/internal-webserver/python-hipchat/hipchat /usr/local/lib/python2.7/dist-packages/
 
-5) Install the crontab:
+4) Install the crontab:
      $ crontab internal-webserver/crontab
 
-6) Install symlinks for all the files in etc/:
+5) Install symlinks for all the files in etc/:
      $ cp -sav $HOME/internal-webserver/etc/ /
 
-7) Install symlinks for dot-files/etc in the home directory:
+6) Install symlinks for dot-files/etc in the home directory:
      $ cp -sav $HOME/internal-webserver/{.hgrc,git-mirrors,hg-mirrors} $HOME
 
-8) Start the git daemon:
+7) Start the git daemon:
       $ sudo update-rc.d git-daemon defaults
       $ service git-daemon start
    You'll also need to allow access to port 9148 on the ec2 console:
       https://console.aws.amazon.com/ec2/home#s=SecurityGroups
 
-9) Do a manual hg run to enter the appropriate password/etc (note, you
+8) Do a manual hg run to enter the appropriate password/etc (note, you
    may want to break out of the kiln_local_backup early since it takes
    a lot of space):
       $ cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
 
-10) Create a postgres accounts for reviewboard and gerrit
+9) Create a postgres accounts for reviewboard and gerrit
       $ sudo su postgres
       $ createuser -A -D -P -E reviewboard   # password 'codereview'
       $ createdb -E UTF-8 -O reviewboard reviewboard_db
@@ -64,9 +87,9 @@ Install instructions:
       $ createdb -E UTF-8 -O gerrit2 reviewdb
       $ exit
 
-11) If you wish to install gerrit, follow the recipe in gerrit.install.
+10) If you wish to install gerrit, follow the recipe in gerrit.install.
 
-12) If you wish to install reviewboard, follow the instructions at
+11) If you wish to install reviewboard, follow the instructions at
     http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
     (this url could also be useful:
     http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
@@ -74,18 +97,18 @@ Install instructions:
     NOTE: Do *NOT* do the 'easy-install ReviewBoard' step -- we are
     using a local version of reviewboard instead (set in step 2 above).
 
-12b) To continue reviewboard installation, run the following, but with
+11b) To continue reviewboard installation, run the following, but with
      the actual HipChat API token (from secrets.py) instead of 012...DEF:
       $ echo 'token = 0123456789ABCDEF' > $HOME/reviewboard/hipchat.cfg
      Then do
       $ sudo lighttpd restart
 
-12c) To finish reviewboard installation, log in to
+11c) To finish reviewboard installation, log in to
      reviewboard.khanacademy.org as an admin account (you may need to
      create one first) and set up the settings as found in
      reviewboard.install.
 
-13) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
+12) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
     ) run:
       $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
@@ -94,12 +117,12 @@ Install instructions:
           # This is the setting to only send mail, not receive any
       $ sudo service postfix restart
 
-14) Start the jenkins daemon:
+13) Start the jenkins daemon:
       $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
       $ sudo update-rc.d jenkins defaults
       $ sudo service jenkins start
 
-15) Install the app engine SDK in $HOME:
+14) Install the app engine SDK in $HOME:
       $ cd ~
       $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
       $ unzip google_appengine_1.6.4.zip
