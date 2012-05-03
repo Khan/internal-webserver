@@ -113,7 +113,6 @@ Install instructions:
 
 13) If you wish to install phabricator, run
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
-     $ 
 
 14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
