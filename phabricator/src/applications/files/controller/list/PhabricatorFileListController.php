@@ -246,7 +246,8 @@ final class PhabricatorFileListController extends PhabricatorFileController {
         phutil_render_tag(
           'a',
           array(
-            'href' => $file->getBestURI(),
+            // Don't use $file->getBestURI() to improve discoverability of /F.
+            'href' => '/F'.$file->getID(),
           ),
           ($name != '' ? phutil_escape_html($name) : '<em>no name</em>')),
         phutil_escape_html(number_format($file->getByteSize()).' bytes'),
@@ -306,6 +307,8 @@ final class PhabricatorFileListController extends PhabricatorFileController {
     $request = $this->getRequest();
     $user = $request->getUser();
 
+    $limit_text = PhabricatorFileUploadView::renderUploadLimit();
+
     if ($this->useBasicUploader()) {
 
       $upload_panel = new PhabricatorFileUploadView();
@@ -319,6 +322,7 @@ final class PhabricatorFileListController extends PhabricatorFileController {
 
       $upload_panel = new AphrontPanelView();
       $upload_panel->setHeader('Upload Files');
+      $upload_panel->setCaption($limit_text);
       $upload_panel->setCreateButton('Basic Uploader',
         $request->getRequestURI()->setQueryParam('basic_uploader', true)
       );
