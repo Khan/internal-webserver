@@ -133,6 +133,13 @@ Install instructions:
        internal-webserver/phabricator/conf/custom/khan-google.conf.php
        You should edit this file on the ec2 machine (but not in git!)
 
+14b) Then you will need to import all the repositories (in a way that
+     is TBD), and then start the repository daemons:
+        $ cd ~ && mkdir -p phabricator/repositories && chown www-data phabricator/repositories
+        $ sudo -c su www-data     # TODO(csilvers): figure out perm issues
+        $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/phd repository-launch-daemon
+        $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/phd launch taskmaster
+
 15) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
     ) run:
