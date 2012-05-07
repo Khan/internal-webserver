@@ -33,9 +33,9 @@ Install instructions:
    $ sudo apt-get install git mercurial
    $ sudo apt-get install mysql-server
    $ sudo apt-get install php5 php5-mysql php5-cgi php5-gd php5-curl
-   $ sudo apt-get install libpcre3-dev php-pear
+   $ sudo apt-get install libpcre3-dev php-pear  # needed to install apc
+   $ yes "" | sudo pecl install apc              # php is dog-slow without this
    $ sudo pip install pygments   # for syntax highlighting
-   $ yes "" | sudo pecl install apc
 
    # --- JENKINS:
    $ sudo apt-get install openjdk-6-jre openjdk-6-jdk
@@ -59,30 +59,31 @@ Install instructions:
      $ sudo ln -s $HOME/internal-webserver/reviewboard_src/reviewboard /usr/local/lib/python2.7/dist-packages/
      $ sudo ln -s $HOME/internal-webserver/python-hipchat/hipchat /usr/local/lib/python2.7/dist-packages/
 
-4) Install the crontab:
-     $ crontab internal-webserver/crontab
-
-5) Install symlinks for all the files in etc/:
+4) Install symlinks for all the files in etc/:
      $ cp -sav $HOME/internal-webserver/etc/ /
 
-6) Install symlinks for dot-files/etc in the home directory:
+5) Install symlinks for dot-files/etc in the home directory:
      $ cp -sav $HOME/internal-webserver/{.hgrc,git-mirrors,hg-mirrors} $HOME
 
-7) Create the logs directory (for holding webserver logs):
+6) Create the logs directory (for holding webserver logs):
      $ mkdir logs && chmod 755 logs && sudo chown www-data.www-data logs
 
-8) Start the git daemon:
+7) Start the git daemon:
       $ sudo update-rc.d git-daemon defaults
       $ service git-daemon start
    You'll also need to allow access to port 9148 on the ec2 console:
       https://console.aws.amazon.com/ec2/home#s=SecurityGroups
 
-9) Do a manual hg run to enter the appropriate password/etc (note, you
+8) Do a manual hg run to enter the appropriate password/etc (note, you
    may want to break out of the kiln_local_backup early since it takes
-   a lot of space):
-      $ cd hg_mirrors && hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo && python kiln_local_backup.py .
+   a lot of space).  The third command gives you your FogBugz API token,
+   which you may need for the last command.
+      $ cd hg_mirrors
+      $ hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo
+      $ find ~/.hgcookies | xargs grep fbToken
+      $ python kiln_local_backup.py .     # can break out of this early
 
-10) Create a postgres accounts for reviewboard and gerrit
+9) Create a postgres accounts for reviewboard and gerrit
       $ sudo su postgres
       $ createuser -A -D -P -E reviewboard   # password 'codereview'
       $ createdb -E UTF-8 -O reviewboard reviewboard_db
@@ -90,12 +91,12 @@ Install instructions:
       $ createdb -E UTF-8 -O gerrit2 reviewdb
       $ exit
 
-11) Create a mysql account for phabricator:
+10) Create a mysql account for phabricator:
       $ echo "CREATE USER 'phabricator'@'localhost' IDENTIFIED BY 'codereview'; GRANT ALL PRIVILEGES ON *.* TO 'phabricator'@'localhost' WITH GRANT OPTION;" | mysql --user=root mysql
 
-12) If you wish to install gerrit, follow the recipe in gerrit.install.
+11) If you wish to install gerrit, follow the recipe in gerrit.install.
 
-13) If you wish to install reviewboard, follow the instructions at
+12) If you wish to install reviewboard, follow the instructions at
     http://www.reviewboard.org/docs/manual/dev/admin/installation/linux/
     (this url could also be useful:
     http://noiseandheat.com/blog/2011/11/installing-reviewboard-on-amazon-ec2/
@@ -103,18 +104,18 @@ Install instructions:
     NOTE: Do *NOT* do the 'easy-install ReviewBoard' step -- we are
     using a local version of reviewboard instead (set in step 2 above).
 
-13b) To continue reviewboard installation, run the following, but with
+12b) To continue reviewboard installation, run the following, but with
      the actual HipChat API token (from secrets.py) instead of 012...DEF:
       $ echo 'token = 0123456789ABCDEF' > $HOME/reviewboard/hipchat.cfg
      Then do
       $ sudo lighttpd restart
 
-13c) To finish reviewboard installation, log in to
+12c) To finish reviewboard installation, log in to
      reviewboard.khanacademy.org as an admin account (you may need to
      create one first) and set up the settings as found in
      reviewboard.install.
 
-14) If you wish to install phabricator, run
+13) If you wish to install phabricator, run
      * On AWS's route53, or whatever, set up phabricator.khanacademy.org
        as a CNAME for toby, and also phabricator-files.khanacademy.org
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/storage --force upgrade
@@ -126,21 +127,28 @@ Install instructions:
        # username: admin
        # real name: Admin Admin
        # email: toby-admin+phabricator@khanacademy.org
-       # password: coderview
+       # password: <see secrets.py>
        # admin: y
      $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/accountadmin
      * Follow the instructions at
        internal-webserver/phabricator/conf/custom/khan-google.conf.php
        You should edit this file on the ec2 machine (but not in git!)
+     * Visit http://phabricator.khanacademy.org, sign in via oauth,
+       create a new account for yourself, sign out, sign in as admin,
+       and visit http://phabricator.khanacademy.org/people/edit/2/role/
+       to make yourself an admin.
 
-14b) Then you will need to import all the repositories (in a way that
-     is TBD), and then start the repository daemons:
-        $ cd ~ && mkdir -p phabricator/repositories && chown www-data phabricator/repositories
-        $ sudo -c su www-data     # TODO(csilvers): figure out perm issues
-        $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/phd repository-launch-daemon
-        $ PHABRICATOR_ENV=khan internal-webserver/phabricator/bin/phd launch taskmaster
+13b) Then you will need to import all the repositories and start the
+     repositories daemons.  To do this, you'll need a certificate:
+          # follow the instructions here (log in as admin if needed):
+        $ internal-webserver/arcanist/bin/arc install-certificate http://phabricator.khanacademy.org
+          # If the below fails, run this hg command and then try again:
+          # hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo
+        $ find ~/.hgcookies | xargs grep fbToken
+          # The crontab will do this automatically, but we can get it started:
+        $ python internal-webserver/update_phabricator_repositories.py -v
 
-15) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
+14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/
     ) run:
       $ sudo vi /etc/postfix/main.cf -- change (second) myorigin to
@@ -149,12 +157,16 @@ Install instructions:
           # This is the setting to only send mail, not receive any
       $ sudo service postfix restart
 
-16) Start the jenkins daemon:
+15) Start the jenkins daemon:
       $ sudo ln -s /usr/lib/jvm/java-6-openjdk /usr/lib/jvm/default-java
       $ sudo update-rc.d jenkins defaults
       $ sudo service jenkins start
 
-17) Install the app engine SDK in $HOME:
+16) Install the app engine SDK in $HOME:
       $ cd ~
       $ curl -L -O http://googleappengine.googlecode.com/files/google_appengine_1.6.4.zip
       $ unzip google_appengine_1.6.4.zip
+
+17) Install the crontab:
+      $ crontab internal-webserver/crontab
+

@@ -2,5 +2,8 @@
 MAILTO = toby-admin+crontab@khanacademy.org
 PATH = /usr/local/bin:/usr/bin:/bin
 
+# We can serve as a git mirror for these.
   */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh >>cron.log'
-  */15 * *   *   *     sh -c 'cd hg_mirrors && /usr/bin/timeout 14m python ./kiln_local_backup.py . >>cron.log'
+
+# Check for new repositories, and check up on daemons, every 5 minutes
+  */5 *  *   *   *     sh -c '/usr/bin/timeout 4m python internal-webserver/update_phabricator_repositories.py'
