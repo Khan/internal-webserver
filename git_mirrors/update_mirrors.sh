@@ -9,14 +9,16 @@
 # $@: command to run
 try_several_times() {
   for i in 0 1 2; do          # try up to 3 times
-    [ "$i" -gt 0 ] && echo "Retrying (retry #$i)" | tee /dev/stderr
+    [ "$i" -gt 0 ] && echo "Retrying (retry #$i)"
 
     output=`"$@" 2>&1`
     [ $? = 0 ] && return 0
 
-    echo "FAILED: $@:" | tee /dev/stderr
-    echo "$output" | tee /dev/stderr
+    echo "FAILED: $@:"
+    echo "$output"
   done
+  echo "FAILED running $@ in `pwd`:" 1>&2  # let stderr know of the failure
+  echo "$output" 1>&2
   return 1   # we never succeeded in running the command
 }
 
@@ -31,13 +33,11 @@ for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["url"
    if [ -d "$dirname" ]; then
      echo "Running git fetch -q in $dirname"
      ( cd $dirname;
-       try_several_times timeout 1m git fetch -q \
-         || echo "Failed to run git fetch -q in $dirname" | tee /dev/stderr
+       try_several_times timeout 1m git fetch -q
      )
    else
      echo "Running git clone --mirror $repo"
-     try_several_times timeout 5m git clone --mirror "$repo" \
-       || echo "Failed to run git clone --mirror $repo" | tee /dev/stderr
+     try_several_times timeout 5m git clone --mirror "$repo"
      touch $dirname/git-daemon-export-ok
    fi
 done
