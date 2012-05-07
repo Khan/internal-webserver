@@ -165,8 +165,9 @@ def _run_command_with_logging(cmd_as_list, env, verbose):
     if verbose:
         print 'Running %s' % cmd_as_list
 
-    p = Popen(cmd_as_list, stdout=PIPE, stderr=subprocess.STDOUT, env=env)
-    output = p.communicate()[0] 
+    p = subprocess.Popen(cmd_as_list, env=env,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    output = p.communicate()[0]
 
     if p.returncode != 0:         # set by p.communicate()
         raise RuntimeError('%s failed.  Output:\n---\n%s---\n'
