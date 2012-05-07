@@ -1290,33 +1290,35 @@ EOTEXT
 
     $template = null;
 
-    $saved = $this->readScratchFile('create-message');
-    if ($saved) {
-      $where = $this->getReadableScratchFilePath('create-message');
+    if (!$this->getArgument('verbatim')) {
+      $saved = $this->readScratchFile('create-message');
+      if ($saved) {
+        $where = $this->getReadableScratchFilePath('create-message');
 
-      $preview = explode("\n", $saved);
-      $preview = array_shift($preview);
-      $preview = trim($preview);
-      $preview = phutil_utf8_shorten($preview, 64);
+        $preview = explode("\n", $saved);
+        $preview = array_shift($preview);
+        $preview = trim($preview);
+        $preview = phutil_utf8_shorten($preview, 64);
 
-      if ($preview) {
-        $preview = "Message begins:\n\n       {$preview}\n\n";
-      } else {
-        $preview = null;
-      }
+        if ($preview) {
+          $preview = "Message begins:\n\n       {$preview}\n\n";
+        } else {
+          $preview = null;
+        }
 
-      echo
-        "You have a saved revision message in '{$where}'.\n".
-        "{$preview}".
-        "You can use this message, or discard it.";
+        echo
+          "You have a saved revision message in '{$where}'.\n".
+          "{$preview}".
+          "You can use this message, or discard it.";
 
-      $use = phutil_console_confirm(
-        "Do you want to use this message?",
-        $default_no = false);
-      if ($use) {
-        $template = $saved;
-      } else {
-        $this->removeScratchFile('create-message');
+        $use = phutil_console_confirm(
+          "Do you want to use this message?",
+          $default_no = false);
+        if ($use) {
+          $template = $saved;
+        } else {
+          $this->removeScratchFile('create-message');
+        }
       }
     }
 
@@ -1522,6 +1524,7 @@ EOTEXT
       rtrim($comments).
       "\n\n".
       "# Enter a brief description of the changes included in this update.\n".
+      "# The first line is used as subject, next lines as comment.\n".
       "#\n".
       "# If you intended to create a new revision, use:\n".
       "#  $ arc diff --create\n".
@@ -1598,6 +1601,10 @@ EOTEXT
         $message->pullDataFromConduit($conduit, $partial = true);
         $fields += $message->getFields();
       } catch (ArcanistDifferentialCommitMessageParserException $ex) {
+        if ($this->getArgument('verbatim')) {
+          throw $ex;
+        }
+
         $fields += $message->getFields();
 
         $frev = substr($hash, 0, 8);
