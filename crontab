@@ -6,4 +6,4 @@ PATH = /usr/local/bin:/usr/bin:/bin
   */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh >>cron.log'
 
 # Check for new repositories, and check up on daemons, every 5 minutes
-  */5 *  *   *   *     sh -c '/usr/bin/timeout 4m python internal-webserver/update_phabricator_repositories.py'
+  */5 *  *   *   *     sh -c '/usr/bin/timeout 4m python internal-webserver/update_phabricator_repositories.py $HOME/phabricator/repositories'

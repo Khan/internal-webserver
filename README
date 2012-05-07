@@ -146,7 +146,7 @@ Install instructions:
           # hg clone --noupdate https://khanacademy.kilnhg.com/Code/Mobile-Apps/Group/android /tmp/test_repo
         $ find ~/.hgcookies | xargs grep fbToken
           # The crontab will do this automatically, but we can get it started:
-        $ python internal-webserver/update_phabricator_repositories.py -v
+        $ python internal-webserver/update_phabricator_repositories.py -v $HOME/phabricator/repositories
 
 14) To be able to send mail (c.f. http://flurdy.com/docs/postfix/ and
     http://www.uponmyshoulder.com/blog/2010/set-up-a-mail-server-on-amazon-ec2/

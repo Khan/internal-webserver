@@ -16,7 +16,6 @@ We log what we've done (usually nothing) to stdout, and errors to
 stderr, so this is appropriate to be put in a cronjob.
 """
 
-import cStringIO
 import json
 import optparse
 import os
@@ -166,17 +165,14 @@ def _run_command_with_logging(cmd_as_list, env, verbose):
     if verbose:
         print 'Running %s' % cmd_as_list
 
-    stdout = cStringIO.StringIO()
-    r = subprocess.call(cmd_as_list,
-                        stdout=stdout, stderr=subprocess.STDOUT, env=env)
-    output = stdout.getvalue()
+    p = Popen(cmd_as_list, stdout=PIPE, stderr=subprocess.STDOUT, env=env)
+    output = p.communicate()[0] 
 
-    if r != 0:
+    if p.returncode != 0:         # set by p.communicate()
         raise RuntimeError('%s failed.  Output:\n---\n%s---\n'
                            % (cmd_as_list, output))
     elif verbose:
         print 'Output:\n---\n%s---\n' % output
-
     return output
 
 
