@@ -234,7 +234,7 @@ abstract class ArcanistBaseWorkflow {
         'conduit.connect',
         array(
           'client'              => 'arc',
-          'clientVersion'       => 3,
+          'clientVersion'       => 4,
           'clientDescription'   => php_uname('n').':'.$description,
           'user'                => $user,
           'certificate'         => $certificate,
@@ -927,6 +927,16 @@ abstract class ArcanistBaseWorkflow {
     }
   }
 
+  public static function readGlobalArcConfig() {
+    return idx(self::readUserConfigurationFile(), 'config', array());
+  }
+
+  public static function writeGlobalArcConfig(array $options) {
+    $config = self::readUserConfigurationFile();
+    $config['config'] = $options;
+    self::writeUserConfigurationFile($config);
+  }
+
 
   /**
    * Write a message to stderr so that '--json' flags or stdout which is meant
@@ -1092,12 +1102,21 @@ abstract class ArcanistBaseWorkflow {
       return $this->repositoryEncoding;
     }
 
+    $default = 'UTF-8';
+
+    $project_id = $this->getWorkingCopy()->getProjectID();
+    if (!$project_id) {
+      return $default;
+    }
+
     $project_info = $this->getConduit()->callMethodSynchronous(
       'arcanist.projectinfo',
       array(
-        'name' => $this->getWorkingCopy()->getProjectID(),
+        'name' => $project_id,
       ));
-    $this->repositoryEncoding = nonempty($project_info['encoding'], 'UTF-8');
+
+    $this->repositoryEncoding = nonempty($project_info['encoding'], $default);
+
     return $this->repositoryEncoding;
   }
 

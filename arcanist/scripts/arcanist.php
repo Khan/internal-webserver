@@ -146,6 +146,7 @@ try {
   }
 
   $user_config = ArcanistBaseWorkflow::readUserConfigurationFile();
+  $global_config = ArcanistBaseWorkflow::readGlobalArcConfig();
 
   $config = $working_copy->getConfig('arcanist_configuration');
   if ($config) {
@@ -200,24 +201,25 @@ try {
   $need_conduit       = $need_conduit ||
                         $need_auth;
   $need_working_copy  = $need_working_copy ||
-                        $need_conduit ||
                         $need_repository_api;
 
   if ($need_working_copy) {
     if (!$working_copy->getProjectRoot()) {
       throw new ArcanistUsageException(
-        "There is no '.arcconfig' file in this directory or any parent ".
-        "directory. Create a '.arcconfig' file to configure this project ".
-        "for use with Arcanist.");
+        "This command must be run in a Git, Mercurial or Subversion working ".
+        "copy.");
     }
     $workflow->setWorkingCopy($working_copy);
   }
 
-
   if ($force_conduit) {
     $conduit_uri = $force_conduit;
   } else {
-    $conduit_uri = $working_copy->getConduitURI();
+    if ($working_copy->getConduitURI()) {
+      $conduit_uri = $working_copy->getConduitURI();
+    } else {
+      $conduit_uri = idx($global_config, 'default');
+    }
   }
   if ($conduit_uri) {
     // Set the URI path to '/api/'. TODO: Originally, I contemplated letting
@@ -233,9 +235,17 @@ try {
 
   if ($need_conduit) {
     if (!$conduit_uri) {
-      throw new ArcanistUsageException(
-        "No Conduit URI is specified in the .arcconfig file for this project. ".
-        "Specify the Conduit URI for the host Differential is running on.");
+
+      $message = phutil_console_format(
+        "This command requires arc to connect to a Phabricator install, but ".
+        "no Phabricator installation is configured. To configure a ".
+        "Phabricator URI:\n\n".
+        "  - set a default location with `arc set-config default <uri>`; or\n".
+        "  - specify '--conduit-uri=uri' explicitly; or\n".
+        "  - run 'arc' in a working copy with an '.arcconfig'.\n");
+
+      $message = phutil_console_wrap($message);
+      throw new ArcanistUsageException($message);
     }
     $workflow->establishConduit();
   }
@@ -332,7 +342,12 @@ function sanity_check_environment() {
     );
   } else {
     $need_functions = array(
-      'json_decode'   => array('flag',        '--without-json'),
+      'curl_init'     => array(
+        'text',
+        "You need to install the cURL PHP extension, maybe with ".
+        "'apt-get install php5-curl' or 'yum install php53-curl' or ".
+        "something similar."),
+      'json_decode'   => array('flag', '--without-json'),
     );
   }
 
@@ -376,6 +391,11 @@ function sanity_check_environment() {
         "Your install of PHP does not have the '{$which}' extension enabled. ".
         "Edit your php.ini file and uncomment the line which reads ".
         "'extension={$which}'.";
+    }
+
+    if ($what == 'text') {
+      $generic = false;
+      $problems[] = $which;
     }
 
     if ($generic) {
