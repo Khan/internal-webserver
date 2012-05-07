@@ -117,7 +117,7 @@ def parse_command_line(args):
     return (options, destination_dir)
 
 
-def get_repos(scheme, server, token, verbose, debug):
+def get_repos(scheme, server, token, verbose, debug, max_tries=3):
     """
     Query Kiln to get the list of available repositories. Return the
     list, sorted by the Kiln “full name” of each repository.
@@ -136,7 +136,18 @@ def get_repos(scheme, server, token, verbose, debug):
 
     if debug:
         print console_encode('Fetching url: %s' % url)
-    data = json.load(urllib2.urlopen(url))
+
+    for i in xrange(max_tries):
+        try:
+            data = json.load(urllib2.urlopen(url))
+            break
+        except urllib2.URLError, why:
+            if i == max_tries - 1:   # are not going to retry again
+                print console_encode('FATAL ERROR: Fetch failed: %s' % why)
+                raise
+            else:
+                print console_encode('Fetch failed (%s).  Retrying...' % why)
+
     if 'error' in data:
         sys.exit(data['error'])
 
@@ -310,16 +321,8 @@ def main():
         print console_encode('START: %s' % time.ctime())
 
     # Back up the repositories
-    for i in xrange(3):   # try 3 times
-        try:
-            repos = get_repos(options.scheme, options.server, options.token,
-                              options.verbose, options.debug)
-            break
-        except urllib2.URLError:
-            if i == 2:   # are not going to retry again
-                raise
-            else:
-                print console_encode('Retrying (retry #%s)...' % (i+1))
+    repos = get_repos(options.scheme, options.server, options.token,
+                      options.verbose, options.debug)
 
     # If using --limit, filter repos we don’t want to backup.
     if options.limit:
