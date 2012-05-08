@@ -51,7 +51,7 @@ def _find_kilnauth_token(domain):
     raise KeyError('FATAL: Cannot find a %s fbToken in ~/.hgcookies' % domain)
 
 
-def _create_new_callsign(repo_name, existing_callsigns):
+def _create_new_phabricator_callsign(repo_name, existing_callsigns):
     """Create a small, unique, legal callsign out of the repo-name."""
     # Callsigns must be capital letters.
     repo_name = repo_name.upper()
@@ -77,7 +77,8 @@ def _create_new_callsign(repo_name, existing_callsigns):
 
     # Dunno what to do if the name *still* isn't unique...
     raise NameError('Cannot find a unique callsign.  Will need to modify '
-                    'update_phabricator_repositories:_create_new_callsign.')
+                    'update_phabricator_repositories:'
+                    '_create_new_phabricator_callsign.')
 
 
 def _get_repos_to_add(phabctl, verbose):
@@ -148,7 +149,7 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
         raise NameError('Unknown repo type: Must update prefix_map in '
                         'update_phabricator_repositories.py')
 
-    callsign = _create_new_callsign(name, existing_callsigns)
+    callsign = _create_new_phabricator_callsign(name, existing_callsigns)
     destdir = os.path.join(repo_rootdir, vcs_type, name)
     print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
            % (name, repo_clone_url, callsign, vcs_type, destdir))
