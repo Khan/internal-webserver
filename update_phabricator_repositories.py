@@ -48,7 +48,12 @@ def _find_kilnauth_token(domain):
                 if line.startswith(prefix):
                     return line[len(prefix):].strip()
             f.close()   # might as well be nice
-    raise KeyError('FATAL: Cannot find a %s fbToken in ~/.hgcookies' % domain)
+    hg_tokenfetch_cmd = ('hg clone --noupdate https://khanacademy.kilnhg.com/'
+                         'Code/Mobile-Apps/Group/android /tmp/test_repo')
+    raise KeyError('FATAL: Cannot find a %s fbToken in ~/.hgcookies.\n'
+                   'Try running "%s".\n'
+                   'And make sure your .hgrc has kilnauth in [extensions]!'
+                   % (domain, hg_tokenfetch_cmd))
 
 
 def _create_new_phabricator_callsign(repo_name, existing_callsigns):
@@ -89,6 +94,7 @@ def _get_repos_to_add(phabctl, verbose):
                                                  verbose, verbose)
     kiln_repos = set(r['cloneUrl'] for r in kiln_repo_info)
 
+    # TODO(csilvers): get private repos as well.
     git_project = 'Khan'
     git_api_url = 'https://github.com/api/v2/json/repos/show/%s' % git_project
     if verbose:
