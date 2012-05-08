@@ -195,11 +195,12 @@ def _check_daemons(need_to_restart, verbose):
         _run_command_with_logging([phd, 'stop'], env, verbose)
 
     existing_daemons = _run_command_with_logging([phd, 'status'], env, verbose)
-    if not 'Fetch' in existing_daemons:
+    if not 'PhabricatorRepository' in existing_daemons:
         _run_command_with_logging([phd, 'repository-launch-master'],
                                   env, verbose)
-    if not 'Taskmaster' in existing_daemons:
-        _run_command_with_logging([phd, 'launch', 'taskmaster'],
+    if not 'PhabricatorTaskmaster' in existing_daemons:
+        # We'll launch two taskmasters.  One seems like too few.
+        _run_command_with_logging([phd, 'launch', '2', 'taskmaster'],
                                   env, verbose)
 
 
