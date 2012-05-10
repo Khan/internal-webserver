@@ -2,7 +2,7 @@
 username = Kiln Mirrorbot <csilvers@khanacademy.org>
 
 [extensions]
-kilnauth=~/hg_mirrors/kilnauth.py
+kilnauth=~/internal-webserver/hg_mirrors/kilnauth.py
 
 [auth]
 kiln.prefix = https://khanacademy.kilnhg.com
