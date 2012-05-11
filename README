@@ -46,6 +46,7 @@ Install instructions:
      # For jenkins builds running the website's Makefile.
    $ sudo apt-get install make
      # For jenkins python builds.
+   $ sudo apt-get install git mercurial subversion
    $ sudo pip install virtualenv
 
 2) On the ec2 machine, run
