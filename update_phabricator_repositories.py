@@ -20,6 +20,7 @@ import json
 import optparse
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -36,6 +37,18 @@ import phabricator
 # We also load kiln_local_backup to make it easier to id kiln repos.
 sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'hg_mirrors'))
 import kiln_local_backup
+
+
+def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
+    """Retry cmd up to times times, if it gives an exception in exceptions."""
+    for i in xrange(times):
+        try:
+            return cmd()
+        except exceptions, why:
+            if i + 1 == times:    # ran out of tries
+                raise
+            if verbose:
+                print 'Error running "%s": %s.  Retrying' % (cmd, why)
 
 
 def _find_kilnauth_token(domain):
@@ -102,13 +115,14 @@ def _get_repos_to_add(phabctl, verbose):
     git_repo_info = json.loads(urllib.urlopen(git_api_url).read())
     git_repos = set(r['url'] for r in git_repo_info['repositories'])
 
-    phabricator_domain = 'http://phabricator.khanacademy.org'
     if phabctl.certificate is None:
         raise KeyError('You must set up your .arcrc via '
-                       '"arc install-certificate %s"' % phabricator_domain)
+                       '"arc install-certificate %s"' % phabctl.host)
     if verbose:
-        print 'Fetching list of repositories from %s' % phabricator_domain
-    phabricator_repo_info = phabctl.repository.query()
+        print 'Fetching list of repositories from %s' % phabctl.host
+    phabricator_repo_info = _retry(phabctl.repository.query,
+                                   times=3, exceptions=(socket.timeout,),
+                                   verbose=verbose)
     phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
@@ -184,33 +198,14 @@ def _run_command_with_logging(cmd_as_list, env, verbose):
     return output
 
 
-def _check_daemons(need_to_restart, verbose):
-    """Restart the phabricator daemons, as needed if we add new repos."""
-                           # c.f. http://www.phabricator.com/docs/phabricator/article/Diffusion_User_Guide.html#running-diffusion-daemon
-    phd = os.path.join(_INTERNAL_WEBSERVER_ROOT, 'phabricator/bin/phd')
-    env = os.environ.copy()
-    env['PHABRICATOR_ENV'] = 'khan'   # our config file for phabricator
-
-    if need_to_restart:
-        _run_command_with_logging([phd, 'stop'], env, verbose)
-
-    existing_daemons = _run_command_with_logging([phd, 'status'], env, verbose)
-    if not 'PhabricatorRepository' in existing_daemons:
-        _run_command_with_logging([phd, 'repository-launch-master'],
-                                  env, verbose)
-    if not 'PhabricatorTaskmaster' in existing_daemons:
-        # We'll launch two taskmasters.  One seems like too few.
-        _run_command_with_logging([phd, 'launch', '2', 'taskmaster'],
-                                  env, verbose)
-
-
 def main(repo_rootdir, options):
     """New repositories will be placed under repo_rootdir/vcs_type/name."""
     if options.verbose:
         print
         print 'START: %s' % time.ctime()
 
-    phabctl = phabricator.Phabricator()
+    phabricator_domain = 'http://phabricator.khanacademy.org'
+    phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
     (new_repos, existing_callsigns) = _get_repos_to_add(phabctl,
                                                         options.verbose)
 
@@ -227,11 +222,6 @@ def main(repo_rootdir, options):
             print >>sys.stderr, ('ERROR: Unable to add repository %s: %s'
                                  % (repo, why))
             num_failures += 1
-
-    # Even if there are no new repositories, this is useful to run
-    # to make sure the daemons are always up and running.
-    need_to_restart = len(new_repos) > num_failures   # we added some repos
-    _check_daemons(need_to_restart, options.verbose)
 
     if options.verbose:
         print 'DONE: %s' % time.ctime()
