@@ -22,10 +22,15 @@ final class DiffusionGitBranchQuery extends DiffusionBranchQuery {
     $drequest = $this->getRequest();
     $repository = $drequest->getRepository();
 
-    $local_path = $repository->getDetail('local-path');
+    // We need to add 1 in case we pick up HEAD.
+
+    $count = $this->getOffset() + $this->getLimit() + 1;
 
     list($stdout) = $repository->execxLocalCommand(
-      'branch -r --verbose --no-abbrev');
+      'for-each-ref %C --sort=-creatordate --format=%s refs/remotes',
+      $count ? '--count='.(int)$count : null,
+      '%(refname:short) %(objectname)'
+    );
 
     $branch_list = self::parseGitRemoteBranchOutput(
       $stdout,
@@ -41,6 +46,18 @@ final class DiffusionGitBranchQuery extends DiffusionBranchQuery {
       $branch->setName($name);
       $branch->setHeadCommitIdentifier($head);
       $branches[] = $branch;
+    }
+
+    $offset = $this->getOffset();
+    if ($offset) {
+      $branches = array_slice($branches, $offset);
+    }
+
+    // We might have too many even after offset slicing, if there was no HEAD
+    // for some reason.
+    $limit = $this->getLimit();
+    if ($limit) {
+      $branches = array_slice($branches, 0, $limit);
     }
 
     return $branches;
@@ -75,21 +92,26 @@ final class DiffusionGitBranchQuery extends DiffusionBranchQuery {
     foreach ($lines as $line) {
       $matches = null;
       if (preg_match('/^  (\S+)\s+-> (\S+)$/', $line, $matches)) {
-        // This is a line like:
-        //
-        //   origin/HEAD          -> origin/master
-        //
-        // ...which we don't currently do anything interesting with, although
-        // in theory we could use it to automatically choose the default
-        // branch.
-        continue;
+          // This is a line like:
+          //
+          //   origin/HEAD          -> origin/master
+          //
+          // ...which we don't currently do anything interesting with, although
+          // in theory we could use it to automatically choose the default
+          // branch.
+          continue;
       }
-      if (!preg_match('/^[ *] (\S+)\s+([a-z0-9]{40}) /', $line, $matches)) {
+      if (!preg_match('/^ *(\S+)\s+([a-z0-9]{40})/', $line, $matches)) {
         throw new Exception("Failed to parse {$line}!");
       }
 
       $remote_branch = $matches[1];
       $branch_head = $matches[2];
+
+      if (strpos($remote_branch, 'HEAD') !== false) {
+        // let's assume that no one will call their remote or branch HEAD
+        continue;
+      }
 
       if ($only_this_remote) {
         $matches = null;
