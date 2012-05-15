@@ -8,6 +8,10 @@ Install instructions:
    # -- BASIC SETUP:
    $ sudo apt-get install python-pip
      # Type of mail server: 'internet site', hostname: 'toby.khanacademy.org'
+   $ sudo apt-get install ntp
+     sudo service ntp stop
+     sudo ntpdate {0,1,2,3}.ubuntu.pool.ntp.org
+     sudo service ntp start
    $ sudo apt-get install postfix
    $ sudo apt-get install lighttpd
 
