@@ -1,9 +1,0 @@
-# TODO(csilvers): send mail if the timeout ... command fails for any reason
-MAILTO = toby-admin+crontab@khanacademy.org
-PATH = /usr/local/bin:/usr/bin:/bin
-
-# We can serve as a git mirror for these.
-  */5 *  *   *   *     sh -c 'cd git_mirrors && /usr/bin/timeout 4m ./update_mirrors.sh >>cron.log'
-
-# Check for new repositories, and check up on daemons, every 5 minutes
-  */5 *  *   *   *     sh -c '/usr/bin/timeout 4m python internal-webserver/update_phabricator_repositories.py $HOME/phabricator/repositories'
