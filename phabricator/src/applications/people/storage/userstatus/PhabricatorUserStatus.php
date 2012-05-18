@@ -21,9 +21,32 @@ final class PhabricatorUserStatus extends PhabricatorUserDAO {
   const STATUS_AWAY = 1;
   const STATUS_SPORADIC = 2;
 
+  private static $statusTexts = array(
+    self::STATUS_AWAY => 'away',
+    self::STATUS_SPORADIC => 'sporadic',
+  );
+
   protected $userPHID;
   protected $dateFrom;
   protected $dateTo;
   protected $status;
+
+  public function getTextStatus() {
+    return self::$statusTexts[$this->status];
+  }
+
+  public function getStatusDescription(PhabricatorUser $viewer) {
+    $until = phabricator_date($this->dateTo, $viewer);
+    if ($this->status == PhabricatorUserStatus::STATUS_SPORADIC) {
+      return 'Sporadic until '.$until;
+    } else {
+      return 'Away until '.$until;
+    }
+  }
+
+  public function setTextStatus($status) {
+    $statuses = array_flip(self::$statusTexts);
+    return $this->setStatus($statuses[$status]);
+  }
 
 }
