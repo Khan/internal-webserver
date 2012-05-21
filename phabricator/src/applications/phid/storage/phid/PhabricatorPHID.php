@@ -16,32 +16,20 @@
  * limitations under the License.
  */
 
-final class PhabricatorPHID extends PhabricatorPHIDDAO {
+final class PhabricatorPHID {
 
   protected $phid;
   protected $phidType;
   protected $ownerPHID;
   protected $parentPHID;
 
-  public static function generateNewPHID($type, array $config = array()) {
-    $owner  = idx($config, 'owner');
-    $parent = idx($config, 'parent');
-
+  public static function generateNewPHID($type) {
     if (!$type) {
       throw new Exception("Can not generate PHID with no type.");
     }
 
     $uniq = Filesystem::readRandomCharacters(20);
-    $phid = 'PHID-'.$type.'-'.$uniq;
-
-    $phid_rec = new PhabricatorPHID();
-    $phid_rec->setPHIDType($type);
-    $phid_rec->setOwnerPHID($owner);
-    $phid_rec->setParentPHID($parent);
-    $phid_rec->setPHID($phid);
-    $phid_rec->save();
-
-    return $phid;
+    return 'PHID-'.$type.'-'.$uniq;
   }
 
 }

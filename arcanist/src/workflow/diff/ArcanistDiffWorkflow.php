@@ -1539,18 +1539,20 @@ EOTEXT
       throw new ArcanistUsageException(
         "You can not be a reviewer for your own revision.");
     } else {
-      $statuses = $this->getConduit()->callMethodSynchronous(
-        'user.getcurrentstatus',
+      $users = $this->getConduit()->callMethodSynchronous(
+        'user.query',
         array(
-          'userPHIDs' => $reviewers,
+          'phids' => $reviewers,
         ));
-      foreach ($statuses as $key => $status) {
-        if ($status['status'] != 'away') {
-          unset($statuses[$key]);
+      $untils = array();
+      foreach ($users as $user) {
+        if (idx($user, 'currentStatus') == 'away') {
+          $untils[] = $user['currentStatusUntil'];
         }
       }
-      if (count($statuses) == count($reviewers)) {
-        $confirm = "All reviewers are away. Continue anyway?";
+      if (count($untils) == count($reviewers)) {
+        $until = date('l, M j Y', min($untils));
+        $confirm = "All reviewers are away until {$until}. Continue anyway?";
         if (!phutil_console_confirm($confirm)) {
           throw new ArcanistUsageException(
             'Specify available reviewers and retry.');
@@ -1631,20 +1633,22 @@ EOTEXT
   }
 
   private function getDefaultCreateFields() {
-    $empty = array(array(), array(), array());
+    $result = array(array(), array(), array());
 
     if ($this->isRawDiffSource()) {
-      return $empty;
+      return $result;
     }
 
     $repository_api = $this->getRepositoryAPI();
     if ($repository_api instanceof ArcanistGitAPI) {
-      return $this->getGitCreateFields();
+      $result = $this->getGitCreateFields();
     }
 
     // TODO: Load default fields in Mercurial.
 
-    return $empty;
+    $result[0] = $this->dispatchWillBuildEvent($result[0]);
+
+    return $result;
   }
 
   private function getGitCreateFields() {
@@ -2034,6 +2038,18 @@ EOTEXT
         'name'    => $name,
         'data'    => $data,
       ));
+  }
+
+  private function dispatchWillBuildEvent(array $fields) {
+    $event = new PhutilEvent(
+      ArcanistEventType::TYPE_DIFF_WILLBUILDMESSAGE,
+      array(
+        'fields'      => $fields,
+      ));
+
+    PhutilEventEngine::dispatchEvent($event);
+
+    return $event->getValue('fields');
   }
 
 }

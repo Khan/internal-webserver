@@ -19,46 +19,49 @@
 /**
  * @group conduit
  */
-final class ConduitAPI_user_getcurrentstatus_Method
+final class ConduitAPI_user_disable_Method
   extends ConduitAPI_user_Method {
 
-  public function getMethodStatus() {
-    return self::METHOD_STATUS_UNSTABLE;
-  }
-
   public function getMethodDescription() {
-    return "Get current status (away or sporadic) of specified users.";
+    return "Permanently disable specified users (admin only).";
   }
 
   public function defineParamTypes() {
     return array(
-      'userPHIDs' => 'required list',
+      'phids' => 'required list<phid>',
     );
   }
 
   public function defineReturnType() {
-    return 'dict';
+    return 'void';
   }
 
   public function defineErrorTypes() {
     return array(
+      'ERR-PERMISSIONS' => 'Only admins can call this method.',
+      'ERR-BAD-PHID' => 'Non existent user PHID.',
     );
   }
 
   protected function execute(ConduitAPIRequest $request) {
-    $statuses = id(new PhabricatorUserStatus())->loadAllWhere(
-      'userPHID IN (%Ls) AND UNIX_TIMESTAMP() BETWEEN dateFrom AND dateTo',
-      $request->getValue('userPHIDs'));
-
-    $return = array();
-    foreach ($statuses as $status) {
-      $return[$status->getUserPHID()] = array(
-        'fromEpoch' => $status->getDateFrom(),
-        'toEpoch' => $status->getDateTo(),
-        'status' => $status->getTextStatus(),
-      );
+    if (!$request->getUser()->getIsAdmin()) {
+      throw new ConduitException('ERR-PERMISSIONS');
     }
-    return $return;
+
+    $phids = $request->getValue('phids');
+
+    $users = id(new PhabricatorUser())->loadAllWhere(
+      'phid IN (%Ls)',
+      $phids);
+
+    if (count($phids) != count($users)) {
+      throw new ConduitException('ERR-BAD-PHID');
+    }
+
+    foreach ($users as $user) {
+      $user->setIsDisabled(true);
+      $user->save();
+    }
   }
 
 }

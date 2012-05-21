@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-final class ArcanistEventType extends PhutilEventType {
+abstract class HarbormasterDAO extends PhabricatorLiskDAO {
 
-  const TYPE_COMMIT_WILLCOMMITSVN   = 'commit.willCommitSVN';
-  const TYPE_DIFF_WILLBUILDMESSAGE  = 'diff.willBuildMessage';
+  public function getApplicationName() {
+    return 'harbormaster';
+  }
 
 }

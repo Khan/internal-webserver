@@ -187,6 +187,21 @@ td.phabricator-login-details {
   text-decoration: line-through;
 }
 
+a.handle-status-away,
+a.handle-status-sporadic {
+  padding-left: 12px;
+  background-repeat: no-repeat;
+  background-position: -4px center;
+}
+
+a.handle-status-away {
+  background-image: url(/rsrc/image/icon/fatcow/bullet_red.png);
+}
+
+a.handle-status-sporadic {
+  background-image: url(/rsrc/image/icon/fatcow/bullet_orange.png);
+}
+
 a.handle-disabled {
   background: #999999;
   color: #cccccc;

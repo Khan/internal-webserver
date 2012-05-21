@@ -6,7 +6,7 @@
 
 
 
-phutil_require_module('phutil', 'filesystem');
+phutil_require_module('phabricator', 'view/base');
 
 
-phutil_require_source('PhabricatorPHID.php');
+phutil_require_source('AphrontCalendarEventView.php');
