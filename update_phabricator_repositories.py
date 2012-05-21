@@ -99,8 +99,8 @@ def _create_new_phabricator_callsign(repo_name, existing_callsigns):
                     '_create_new_phabricator_callsign.')
 
 
-def _get_repos_to_add(phabctl, verbose):
-    """Query github, kiln, phabricator, etc; return a set of clone-urls."""
+def _get_repos_to_add_and_delete(phabctl, verbose):
+    """Query github, kiln, phabricator, etc; return sets of clone-urls."""
     hg_domain = 'khanacademy.kilnhg.com'
     hg_token = _find_kilnauth_token(hg_domain)
     kiln_repo_info = kiln_local_backup.get_repos('https', hg_domain, hg_token,
@@ -128,8 +128,10 @@ def _get_repos_to_add(phabctl, verbose):
     # store the existing callsigns to ensure uniqueness for new ones.
     existing_callsigns = set(r['callsign'] for r in phabricator_repo_info)
 
-    new_repos = (kiln_repos | git_repos) - phabricator_repos
-    return (new_repos, existing_callsigns)
+    actual_repos = kiln_repos | git_repos
+    new_repos = actual_repos - phabricator_repos
+    deleted_repos = phabricator_repos - actual_repos
+    return (new_repos, deleted_repos, existing_callsigns)
 
 
 def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
@@ -181,6 +183,12 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
     existing_callsigns.add(callsign)
 
 
+def delete_repository(phabctl, repo_rootdir, repo_clone_url, options):
+    """Because it's scary to delete automatically, for now I just warn."""
+    print ('Repository %s has been deleted: should delete from phabricator'
+           % repo_clone_url)
+
+
 def _run_command_with_logging(cmd_as_list, env, verbose):
     """Run cmd, raise an exception if it fails and log the output."""
     if verbose:
@@ -206,8 +214,8 @@ def main(repo_rootdir, options):
 
     phabricator_domain = 'http://phabricator.khanacademy.org'
     phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
-    (new_repos, existing_callsigns) = _get_repos_to_add(phabctl,
-                                                        options.verbose)
+    (new_repos, deleted_repos, existing_callsigns) = (
+        _get_repos_to_add_and_delete(phabctl, options.verbose))
 
     if options.verbose:
         print 'Adding %d new repositories to phabricator' % len(new_repos)
@@ -222,6 +230,12 @@ def main(repo_rootdir, options):
             print >>sys.stderr, ('ERROR: Unable to add repository %s: %s'
                                  % (repo, why))
             num_failures += 1
+
+    if options.verbose:
+        print ('Removing %d deleted repositories from phabricator'
+               % len(deleted_repos))
+    for repo in sorted(deleted_repos):
+        delete_repository(phabctl, repo_rootdir, repo, options)
 
     if options.verbose:
         print 'DONE: %s' % time.ctime()
