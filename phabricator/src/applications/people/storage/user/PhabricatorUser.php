@@ -41,6 +41,7 @@ final class PhabricatorUser extends PhabricatorUserDAO {
   protected $isDisabled = 0;
 
   private $preferences = null;
+  private $primaryEmail;
 
   protected function readField($field) {
     switch ($field) {
@@ -418,6 +419,19 @@ final class PhabricatorUser extends PhabricatorUserDAO {
       1);
   }
 
+  public function attachPrimaryEmail(PhabricatorUserEmail $email) {
+    $this->primaryEmail = $email;
+    return $this;
+  }
+
+  public function getPrimaryEmail() {
+    if ($this->primaryEmail === null) {
+      throw new Exception(
+        "Call attachPrimaryEmail() before getPrimaryEmail()!");
+    }
+    return $this->primaryEmail;
+  }
+
   public function loadPreferences() {
     if ($this->preferences) {
       return $this->preferences;
@@ -565,6 +579,10 @@ EOBODY;
     }
 
     return self::getDefaultProfileImageURI();
+  }
+
+  public function getFullName() {
+    return $this->getUsername().' ('.$this->getRealName().')';
   }
 
   public static function loadOneWithEmailAddress($address) {
