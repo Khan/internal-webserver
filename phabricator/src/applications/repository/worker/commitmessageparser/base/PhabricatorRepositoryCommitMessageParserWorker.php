@@ -23,7 +23,9 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
     PhabricatorRepository $repository,
     PhabricatorRepositoryCommit $commit);
 
-  final protected function updateCommitData($author, $message) {
+  final protected function updateCommitData($author, $message,
+    $committer = null) {
+
     $commit = $this->commit;
 
     $data = id(new PhabricatorRepositoryCommitData())->loadOneWhere(
@@ -35,6 +37,12 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
     $data->setCommitID($commit->getID());
     $data->setAuthorName($author);
     $data->setCommitMessage($message);
+
+    if ($committer) {
+      $details = $data->getCommitDetails();
+      $details['committer'] = $committer;
+      $data->setCommitDetails($details);
+    }
 
     $repository = $this->repository;
     $detail_parser = $repository->getDetail(
@@ -92,6 +100,14 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
           DifferentialRevision::TABLE_COMMIT,
           $revision->getID(),
           $commit->getPHID());
+        $commit_is_new = $conn_w->getAffectedRows();
+
+        $message = null;
+        $committer = $data->getCommitDetail('authorPHID');
+        if (!$committer) {
+          $committer = $revision->getAuthorPHID();
+          $message = 'Closed by '.$data->getAuthorName().'.';
+        }
 
         $status_closed = ArcanistDifferentialRevisionStatus::CLOSED;
         $should_close = ($revision->getStatus() != $status_closed) &&
@@ -99,13 +115,6 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
 
         if ($should_close) {
           $revision->setDateCommitted($commit->getEpoch());
-
-          $message = null;
-          $committer = $data->getCommitDetail('authorPHID');
-          if (!$committer) {
-            $committer = $revision->getAuthorPHID();
-            $message = 'Closed by '.$data->getAuthorName().'.';
-          }
           $editor = new DifferentialCommentEditor(
             $revision,
             $committer,
@@ -113,8 +122,47 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
           $editor->setIsDaemonWorkflow(true);
           $editor->setMessage($message)->save();
         }
+
+        if ($commit_is_new) {
+          $this->attachToRevision($revision, $committer);
+        }
       }
     }
+  }
+
+  private function attachToRevision(
+    DifferentialRevision $revision,
+    $committer) {
+
+    $drequest = DiffusionRequest::newFromDictionary(array(
+      'repository' => $this->repository,
+      'commit' => $this->commit->getCommitIdentifier(),
+    ));
+
+    $raw_diff = DiffusionRawDiffQuery::newFromDiffusionRequest($drequest)
+      ->loadRawDiff();
+
+    $changes = id(new ArcanistDiffParser())->parseDiff($raw_diff);
+    $diff = DifferentialDiff::newFromRawChanges($changes)
+      ->setRevisionID($revision->getID())
+      ->setAuthorPHID($committer)
+      ->setCreationMethod('commit')
+      ->setSourceControlSystem($this->repository->getVersionControlSystem())
+      ->setLintStatus(DifferentialLintStatus::LINT_SKIP)
+      ->setUnitStatus(DifferentialUnitStatus::UNIT_SKIP)
+      ->setDateCreated($this->commit->getEpoch())
+      ->setDescription(
+        'Commit r'.
+        $this->repository->getCallsign().
+        $this->commit->getCommitIdentifier());
+
+    $parents = DiffusionCommitParentsQuery::newFromDiffusionRequest($drequest)
+      ->loadParents();
+    if ($parents) {
+      $diff->setSourceControlBaseRevision(head_key($parents));
+    }
+
+    $diff->save();
   }
 
   /**
