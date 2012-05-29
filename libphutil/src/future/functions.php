@@ -17,9 +17,12 @@
  */
 
 /**
- * API while running in the context of a commit hook
+ * Convenience function for instantiating a new @{class:FutureIterator}.
+ *
+ * @param list              List of @{class:Future}s.
+ * @return FutureIterator   New @{class:FutureIterator} over those futures.
+ * @group futures
  */
-abstract class ArcanistHookAPI {
-  abstract public function getCurrentFileData($path);
-  abstract public function getUpstreamFileData($path);
+function Futures($futures) {
+  return new FutureIterator($futures);
 }

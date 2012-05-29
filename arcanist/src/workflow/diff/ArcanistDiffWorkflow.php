@@ -449,7 +449,7 @@ EOTEXT
         $revision['id'] = $message->getRevisionID();
         $this->revisionID = $revision['id'];
 
-        $update_message = $this->getUpdateMessage();
+        $update_message = $this->getUpdateMessage($revision['fields']);
 
         $revision['message'] = $update_message;
         $future = $conduit->callMethod(
@@ -1117,17 +1117,11 @@ EOTEXT
       $this->unresolvedLint = $lint_workflow->getUnresolvedMessages();
       if ($continue) {
         if ($this->getArgument('excuse')) {
-          $this->unitExcuse = $this->getArgument('excuse');
+          $this->lintExcuse = $this->getArgument('excuse');
         } else {
-          $template = "\n\n# Provide an explanation for these lint failures:\n";
-          foreach ($this->unresolvedLint as $message) {
-            $template = $template."# ".
-              $message->getPath().":".
-              $message->getLine()." ".
-              $message->getCode()." :: ".
-              $message->getDescription()."\n";
-          }
-          $this->lintExcuse = $this->getErrorExcuse($template);
+          $this->lintExcuse = $this->getErrorExcuse(
+            "Explanation:",
+            $repository_api->getScratchFilePath('lint-excuses'));
         }
       }
 
@@ -1197,22 +1191,9 @@ EOTEXT
         if ($this->getArgument('excuse')) {
           $this->unitExcuse = $this->getArgument('excuse');
         } else {
-          $template = "\n\n".
-            "# Provide an explanation for these unit test failures:\n";
-          foreach ($this->testResults as $test) {
-            $testResult = $test->getResult();
-            switch ($testResult) {
-              case ArcanistUnitTestResult::RESULT_FAIL:
-              case ArcanistUnitTestResult::RESULT_BROKEN:
-                $template = $template."# ".
-                  $test->getName()." :: ".
-                  $test->getResult()."\n";
-                break;
-              default:
-                break;
-            }
-          }
-          $this->unitExcuse = $this->getErrorExcuse($template);
+          $this->unitExcuse = $this->getErrorExcuse(
+            "Explanation:",
+            $repository_api->getScratchFilePath('unit-excuses'));
         }
       }
 
@@ -1226,17 +1207,15 @@ EOTEXT
     return null;
   }
 
-  private function getErrorExcuse($template) {
-    $new_template = id(new PhutilInteractiveEditor($template))
-      ->setName('error-excuse')
-      ->editInteractively();
+  private function getErrorExcuse($prompt, $history = '') {
+    $return = phutil_console_prompt($prompt, $history);
 
-    if ($new_template == $template) {
+    if ($return == '') {
       throw new ArcanistUsageException(
         "No explanation provided.");
     }
 
-    return ArcanistCommentRemover::removeComments($new_template);
+    return $return;
   }
 
 
@@ -1389,10 +1368,14 @@ EOTEXT
       foreach ($included as $k => $commit) {
         $included[$k] = '        '.$commit;
       }
+      $in_branch = '';
+      if (!$this->isRawDiffSource()) {
+        $in_branch = ' in branch '.$this->getRepositoryAPI()->getBranchName();
+      }
       $included = array_merge(
         array(
           "",
-          "Included commits:",
+          "Included commits{$in_branch}:",
           "",
         ),
         $included,
@@ -1424,7 +1407,7 @@ EOTEXT
     $done = false;
     $first = true;
     while (!$done) {
-      $template = rtrim($template)."\n\n";
+      $template = rtrim($template, "\r\n")."\n\n";
       foreach ($issues as $issue) {
         $template .= '# '.$issue."\n";
       }
@@ -1583,7 +1566,7 @@ EOTEXT
   /**
    * @task message
    */
-  private function getUpdateMessage() {
+  private function getUpdateMessage(array $fields) {
     $comments = $this->getArgument('message');
     if (strlen($comments)) {
       return $comments;
@@ -1611,6 +1594,8 @@ EOTEXT
     $template =
       rtrim($comments).
       "\n\n".
+      "# Updating D{$fields['revisionID']}: {$fields['title']}\n".
+      "#\n".
       "# Enter a brief description of the changes included in this update.\n".
       "# The first line is used as subject, next lines as comment.\n".
       "#\n".

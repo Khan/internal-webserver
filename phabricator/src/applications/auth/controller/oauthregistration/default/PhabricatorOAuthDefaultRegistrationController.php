@@ -36,6 +36,26 @@ final class PhabricatorOAuthDefaultRegistrationController
 
     $new_email = $provider->retrieveUserEmail();
 
+    if ($new_email) {
+      // If the user's OAuth provider account has an email address but the
+      // email address domain is not allowed by the Phabricator configuration,
+      // we just pretend the provider did not supply an address.
+      //
+      // For instance, if the user uses Google OAuth and their Google address
+      // is "joe@personal.com" but Phabricator is configured to require users
+      // use "@company.com" addresses, we show a prompt below and tell the user
+      // to provide their "@company.com" address. They can still use the OAuth
+      // account to login, they just need to associate their account with an
+      // allowed address.
+      //
+      // If the OAuth address is fine, we just use it and don't prompt the user.
+      if (!PhabricatorUserEmail::isAllowedAddress($new_email)) {
+        $new_email = null;
+      }
+    }
+
+    $show_email_input = ($new_email === null);
+
     if ($request->isFormPost()) {
 
       $user->setUsername($request->getStr('username'));
@@ -57,6 +77,14 @@ final class PhabricatorOAuthDefaultRegistrationController
           $errors[] = 'Email is required.';
         } else {
           $e_email = null;
+        }
+      }
+
+      if ($new_email) {
+        $email_ok = PhabricatorUserEmail::isAllowedAddress($new_email);
+        if (!$email_ok) {
+          $e_email = 'Invalid';
+          $errors[] = PhabricatorUserEmail::describeAllowedAddresses();
         }
       }
 
@@ -83,7 +111,6 @@ final class PhabricatorOAuthDefaultRegistrationController
         }
 
         try {
-          $user->save();
 
           // NOTE: We don't verify OAuth email addresses by default because
           // OAuth providers might associate email addresses with accounts that
@@ -92,12 +119,14 @@ final class PhabricatorOAuthDefaultRegistrationController
           // verifying an email address are high because having a corporate
           // address at a company is sometimes the key to the castle.
 
-          $new_email = id(new PhabricatorUserEmail())
-            ->setUserPHID($user->getPHID())
+
+          $email_obj = id(new PhabricatorUserEmail())
             ->setAddress($new_email)
-            ->setIsPrimary(1)
-            ->setIsVerified(0)
-            ->save();
+            ->setIsVerified(0);
+
+          id(new PhabricatorUserEditor())
+            ->setActor($user)
+            ->createNewUser($user, $email_obj);
 
           $oauth_info->setUserID($user->getID());
           $oauth_info->save();
@@ -106,7 +135,7 @@ final class PhabricatorOAuthDefaultRegistrationController
           $request->setCookie('phusr', $user->getUsername());
           $request->setCookie('phsid', $session_key);
 
-          $new_email->sendVerificationEmail($user);
+          $email_obj->sendVerificationEmail($user);
 
           return id(new AphrontRedirectResponse())->setURI('/');
         } catch (AphrontQueryDuplicateKeyException $exception) {
@@ -159,16 +188,17 @@ final class PhabricatorOAuthDefaultRegistrationController
           ->setValue($user->getUsername())
           ->setError($e_username));
 
-    if ($provider->retrieveUserEmail() === null) {
+    if ($show_email_input) {
       $form->appendChild(
         id(new AphrontFormTextControl())
           ->setLabel('Email')
           ->setName('email')
           ->setValue($request->getStr('email'))
+          ->setCaption(PhabricatorUserEmail::describeAllowedAddresses())
           ->setError($e_email));
     }
 
-    if ($provider->retrieveUserRealName () === null) {
+    if ($provider->retrieveUserRealName() === null) {
       $form->appendChild(
         id(new AphrontFormTextControl())
           ->setLabel('Real Name')
