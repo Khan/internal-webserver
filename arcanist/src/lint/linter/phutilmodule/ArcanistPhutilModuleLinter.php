@@ -86,11 +86,6 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
     return $info['module'];
   }
 
-  private function isModuleStandalone($key) {
-    $info = $this->moduleInfo[$key];
-    return $info['standalone'];
-  }
-
   private function isPhutilLibraryMetadata($path) {
     $file = basename($path);
     return !strncmp('__phutil_library_', $file, strlen('__phutil_library_'));
@@ -108,6 +103,7 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
     $moduleinfo = array();
 
     $project_root = $this->getEngine()->getWorkingCopy()->getProjectRoot();
+    $bootloader = PhutilBootloader::getInstance();
 
     foreach ($paths as $path) {
       $absolute_path = $project_root.'/'.$path;
@@ -119,6 +115,12 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
         continue;
       }
       $library_name = phutil_get_library_name_for_root($library_root);
+
+      $version = $bootloader->getLibraryFormatVersion($library_name);
+      if ($version != 1) {
+        continue;
+      }
+
       if (!is_dir($path)) {
         $path = dirname($path);
       }
@@ -128,16 +130,14 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
       if ($path == $library_root) {
         continue;
       }
-      $map = PhutilBootloader::getInstance()->getLibraryMap($library_name);
       $module_name = Filesystem::readablePath($path, $library_root);
       $module_key = $library_name.':'.$module_name;
       if (empty($modules[$module_key])) {
         $modules[$module_key] = $module_key;
         $this->setModuleInfo($module_key, array(
-          'library'    => $library_name,
-          'root'       => $library_root,
-          'module'     => $module_name,
-          'standalone' => !empty($map['standalone']),
+          'library' => $library_name,
+          'root'    => $library_root,
+          'module'  => $module_name,
         ));
       }
     }
@@ -176,10 +176,6 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
     foreach ($requirements as $key => $requirement) {
       foreach ($requirement['messages'] as $message) {
         list($where, $text, $code, $description) = $message;
-        if ($this->isModuleStandalone($key) &&
-            $code == self::LINT_ANALYZER_NO_INIT) {
-          continue;
-        }
         if ($where) {
           $where = array($where);
         }
@@ -197,12 +193,10 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
         } else {
           list($library_name, $module_name) = explode(':', $req_module);
           $library_root = phutil_get_library_root($library_name);
-          $map = PhutilBootloader::getInstance()->getLibraryMap($library_name);
           $this->setModuleInfo($req_module, array(
-            'library'    => $library_name,
-            'root'       => $library_root,
-            'module'     => $module_name,
-            'standalone' => !empty($map['standalone']),
+            'library' => $library_name,
+            'root'    => $library_root,
+            'module'  => $module_name,
           ));
           $disk_path = $this->getModulePathOnDisk($req_module);
           if (Filesystem::pathExists($disk_path)) {
@@ -248,15 +242,13 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
           $name,
           $deps);
         if (!$declared) {
-          if (!$this->isModuleStandalone($key)) {
-            $module = $this->getModuleDisplayName($key);
-            $message = $this->raiseLintInModule(
-              $key,
-              $lint_code,
-              "Module '{$module}' uses {$type} '{$name}' but does not include ".
-              "any module which declares it.",
-              $places);
-          }
+          $module = $this->getModuleDisplayName($key);
+          $message = $this->raiseLintInModule(
+            $key,
+            $lint_code,
+            "Module '{$module}' uses {$type} '{$name}' but does not include ".
+            "any module which declares it.",
+            $places);
 
           if ($type == 'class' || $type == 'interface') {
             $loader = new PhutilSymbolLoader();
@@ -274,10 +266,8 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
                 $loaded = false;
               }
               if ($loaded) {
-                if (!$this->isModuleStandalone($key)) {
-                  $resolvable[] = $message;
-                  $need_classes[$name] = $class_spec;
-                }
+                $resolvable[] = $message;
+                $need_classes[$name] = $class_spec;
               } else {
                 if (empty($this->unknownClasses[$name])) {
                   $this->unknownClasses[$name] = true;
@@ -319,12 +309,8 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
                 $loaded = false;
               }
               if ($loaded) {
-                // TODO: Check if the function is loaded in
-                // __phutil_library_init__.php for standalone modules.
-                if (!$this->isModuleStandalone($key)) {
-                  $resolvable[] = $message;
-                  $need_functions[$name] = $func_spec;
-                }
+                $resolvable[] = $message;
+                $need_functions[$name] = $func_spec;
               } else {
                 if (empty($this->unknownFunctions[$name])) {
                   $this->unknownFunctions[$name] = true;
@@ -381,16 +367,14 @@ final class ArcanistPhutilModuleLinter extends ArcanistLinter {
       }
     }
 
-    if (!$this->isModuleStandalone($key)) {
-      foreach ($spec['declares']['source'] as $file => $ignored) {
-        if (empty($spec['requires']['source'][$file])) {
-          $module = $this->getModuleDisplayName($key);
-          $resolvable[] = $this->raiseLintInModule(
-            $key,
-            self::LINT_UNUSED_SOURCE,
-            "Module '{$module}' does not include source file '{$file}'.",
-            null);
-        }
+    foreach ($spec['declares']['source'] as $file => $ignored) {
+      if (empty($spec['requires']['source'][$file])) {
+        $module = $this->getModuleDisplayName($key);
+        $resolvable[] = $this->raiseLintInModule(
+          $key,
+          self::LINT_UNUSED_SOURCE,
+          "Module '{$module}' does not include source file '{$file}'.",
+          null);
       }
     }
 
