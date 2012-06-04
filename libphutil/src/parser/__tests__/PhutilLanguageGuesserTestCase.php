@@ -17,11 +17,26 @@
  */
 
 /**
- * Shows lint messages to the user.
- *
- * @group lint
+ * @group testcase
  */
-interface ArcanistLintRenderer {
-  public function renderLintResult(ArcanistLintResult $result);
-  public function renderOkayResult();
+final class PhutilLanguageGuesserTestCase extends ArcanistPhutilTestCase {
+
+  public function testGuessing() {
+    $dir = dirname(__FILE__).'/languageguesser/';
+    foreach (Filesystem::listDirectory($dir, $hidden = false) as $test) {
+      $source = Filesystem::readFile($dir.$test);
+
+      if (strpos($test, '.') !== false) {
+        $expect = head(explode('.', $test));
+      } else {
+        $expect = null;
+      }
+
+      $this->assertEqual(
+        $expect,
+        PhutilLanguageGuesser::guessLanguage($source),
+        "Guessed language for '{$test}'.");
+    }
+  }
+
 }

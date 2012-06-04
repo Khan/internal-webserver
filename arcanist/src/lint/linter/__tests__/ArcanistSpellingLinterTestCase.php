@@ -17,11 +17,22 @@
  */
 
 /**
- * Shows lint messages to the user.
+ * Test cases for @{class:ArcanistSpellingLinter}.
  *
- * @group lint
+ * @group testcase
  */
-interface ArcanistLintRenderer {
-  public function renderLintResult(ArcanistLintResult $result);
-  public function renderOkayResult();
+final class ArcanistSpellingLinterTestCase extends ArcanistLinterTestCase {
+
+  public function testSpellingLint() {
+    $linter = new ArcanistSpellingLinter();
+    $linter->removeLintRule('acc'.'out');
+    $linter->addPartialWordRule('supermn', 'superman');
+    $linter->addWholeWordRule('batmn', 'batman');
+    $working_copy = ArcanistWorkingCopyIdentity::newFromPath(__FILE__);
+    return $this->executeTestsInDirectory(
+      dirname(__FILE__).'/spelling/',
+      $linter,
+      $working_copy);
+  }
+
 }

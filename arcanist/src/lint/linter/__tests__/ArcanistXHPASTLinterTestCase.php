@@ -17,11 +17,26 @@
  */
 
 /**
- * Shows lint messages to the user.
+ * Tests for @{class:ArcanistXHPASTLinter}.
  *
- * @group lint
+ * @group testcase
  */
-interface ArcanistLintRenderer {
-  public function renderLintResult(ArcanistLintResult $result);
-  public function renderOkayResult();
+final class ArcanistXHPASTLinterTestCase extends ArcanistLinterTestCase {
+
+  public function testXHPASTLint() {
+    $linter = new ArcanistXHPASTLinter();
+
+    $linter->setCustomSeverityMap(
+      array(
+        ArcanistXHPASTLinter::LINT_RAGGED_CLASSTREE_EDGE
+          => ArcanistLintSeverity::SEVERITY_WARNING,
+      ));
+
+    $working_copy = ArcanistWorkingCopyIdentity::newFromPath(__FILE__);
+    return $this->executeTestsInDirectory(
+      dirname(__FILE__).'/xhpast/',
+      $linter,
+      $working_copy);
+  }
+
 }

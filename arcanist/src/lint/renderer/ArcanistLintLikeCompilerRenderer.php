@@ -21,7 +21,7 @@
  *
  * @group lint
  */
-final class ArcanistLintLikeCompilerRenderer {
+final class ArcanistLintLikeCompilerRenderer implements ArcanistLintRenderer {
   public function renderLintResult(ArcanistLintResult $result) {
     $lines = array();
     $messages = $result->getMessages();

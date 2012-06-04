@@ -17,11 +17,19 @@
  */
 
 /**
- * Shows lint messages to the user.
+ * Test cases for @{class:ArcanistTextLinter}.
  *
- * @group lint
+ * @group testcase
  */
-interface ArcanistLintRenderer {
-  public function renderLintResult(ArcanistLintResult $result);
-  public function renderOkayResult();
+final class ArcanistTextLinterTestCase extends ArcanistLinterTestCase {
+
+  public function testTextLint() {
+    $linter = new ArcanistTextLinter();
+    $working_copy = ArcanistWorkingCopyIdentity::newFromPath(__FILE__);
+    return $this->executeTestsInDirectory(
+      dirname(__FILE__).'/text/',
+      $linter,
+      $working_copy);
+  }
+
 }
