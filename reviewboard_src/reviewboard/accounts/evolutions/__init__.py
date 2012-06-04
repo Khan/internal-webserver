@@ -1,3 +1,0 @@
-SEQUENCE = [
-    'is_private',
-]

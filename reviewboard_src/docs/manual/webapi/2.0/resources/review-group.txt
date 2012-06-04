@@ -1,4 +1,0 @@
-.. webapi-resource::
-   :classname: reviewboard.webapi.resources.ReviewGroupResource
-
-.. comment: vim: ft=rst et ts=3
