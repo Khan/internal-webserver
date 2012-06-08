@@ -26,6 +26,7 @@ final class PhutilUnitTestEngine extends ArcanistBaseUnitTestEngine {
   public function run() {
 
     $bootloader = PhutilBootloader::getInstance();
+    $project_root = $this->getWorkingCopy()->getProjectRoot();
 
     $look_here = array();
 
@@ -48,7 +49,7 @@ final class PhutilUnitTestEngine extends ArcanistBaseUnitTestEngine {
           "      operation is not supported.");
       }
 
-      $path = Filesystem::resolvePath($path, dirname($library_root));
+      $path = Filesystem::resolvePath($path, $project_root);
 
       if (!is_dir($path)) {
         $path = dirname($path);
@@ -76,6 +77,13 @@ final class PhutilUnitTestEngine extends ArcanistBaseUnitTestEngine {
       } while ($library_path != '.');
     }
 
+    $skip = array();
+    foreach ($this->getSkipFiles() as $skip_path) {
+      $skip_path = Filesystem::resolvePath($skip_path);
+      $skip_path = Filesystem::readablePath($skip_path, $library_root);
+      $skip[$skip_path] = true;
+    }
+
     // Look for any class that extends ArcanistPhutilTestCase inside a
     // __tests__ directory in any parent directory of every affected file.
     //
@@ -99,6 +107,9 @@ final class PhutilUnitTestEngine extends ArcanistBaseUnitTestEngine {
         ->selectAndLoadSymbols();
 
       foreach ($symbols as $symbol) {
+        if (isset($skip[$symbol['where']])) {
+          continue;
+        }
         $run_tests[$symbol['name']] = true;
       }
     }
@@ -125,7 +136,7 @@ final class PhutilUnitTestEngine extends ArcanistBaseUnitTestEngine {
     foreach ($run_tests as $test_class) {
       $test_case = newv($test_class, array());
       $test_case->setEnableCoverage($enable_coverage);
-      $test_case->setProjectRoot($this->getWorkingCopy()->getProjectRoot());
+      $test_case->setProjectRoot($project_root);
       $test_case->setPaths($this->getPaths());
       $results[] = $test_case->run();
     }

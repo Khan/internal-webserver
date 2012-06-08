@@ -549,8 +549,53 @@ EOBODY;
       ->saveAndSend();
   }
 
+  public function sendUsernameChangeEmail(
+    PhabricatorUser $admin,
+    $old_username) {
+
+    $admin_username = $admin->getUserName();
+    $admin_realname = $admin->getRealName();
+    $new_username = $this->getUserName();
+
+    $password_instructions = null;
+    if (PhabricatorEnv::getEnvConfig('auth.password-auth-enabled')) {
+      $uri = $this->getEmailLoginURI();
+      $password_instructions = <<<EOTXT
+If you use a password to login, you'll need to reset it before you can login
+again. You can reset your password by following this link:
+
+  {$uri}
+
+And, of course, you'll need to use your new username to login from now on. If
+you use OAuth to login, nothing should change.
+
+EOTXT;
+    }
+
+    $body = <<<EOBODY
+{$admin_username} ({$admin_realname}) has changed your Phabricator username.
+
+  Old Username: {$old_username}
+  New Username: {$new_username}
+
+{$password_instructions}
+EOBODY;
+
+    $mail = id(new PhabricatorMetaMTAMail())
+      ->addTos(array($this->getPHID()))
+      ->setSubject('[Phabricator] Username Changed')
+      ->setBody($body)
+      ->setFrom($admin->getPHID())
+      ->saveAndSend();
+  }
+
+  public static function describeValidUsername() {
+    return 'Usernames must contain only numbers, letters, period, underscore '.
+           'and hyphen, and can not end with a period.';
+  }
+
   public static function validateUsername($username) {
-    return (bool)preg_match('/^[a-zA-Z0-9]+$/', $username);
+    return (bool)preg_match('/^[a-zA-Z0-9._-]*[a-zA-Z0-9_-]$/', $username);
   }
 
   public static function getDefaultProfileImageURI() {

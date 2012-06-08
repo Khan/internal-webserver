@@ -37,8 +37,8 @@ final class DifferentialDefaultFieldSelector
         new DifferentialReviewersFieldSpecification(),
         new DifferentialReviewedByFieldSpecification(),
         new DifferentialCCsFieldSpecification(),
-        new DifferentialUnitFieldSpecification(),
         new DifferentialLintFieldSpecification(),
+        new DifferentialUnitFieldSpecification(),
         new DifferentialCommitsFieldSpecification(),
         new DifferentialDependenciesFieldSpecification(),
         new DifferentialManiphestTasksFieldSpecification(),
@@ -83,6 +83,30 @@ final class DifferentialDefaultFieldSelector
         'DifferentialReviewersFieldSpecification',
         'DifferentialDateModifiedFieldSpecification',
         'DifferentialDateCreatedFieldSpecification',
+      )) + $map;
+
+    return array_values($map);
+  }
+
+  public function sortFieldsForMail(array $fields) {
+    assert_instances_of($fields, 'DifferentialFieldSpecification');
+
+    $map = array();
+    foreach ($fields as $field) {
+      $map[get_class($field)] = $field;
+    }
+
+    $map = array_select_keys(
+      $map,
+      array(
+        'DifferentialReviewersFieldSpecification',
+        'DifferentialSummaryFieldSpecification',
+        'DifferentialTestPlanFieldSpecification',
+        'DifferentialRevisionIDFieldSpecification',
+        'DifferentialManiphestTasksFieldSpecification',
+        'DifferentialBranchFieldSpecification',
+        'DifferentialArcanistProjectFieldSpecification',
+        'DifferentialCommitsFieldSpecification',
       )) + $map;
 
     return array_values($map);

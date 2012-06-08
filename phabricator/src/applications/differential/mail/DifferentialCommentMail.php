@@ -161,43 +161,7 @@ final class DifferentialCommentMail extends DifferentialMail {
       $body[] = null;
     }
 
-    $body[] = $this->renderRevisionDetailLink();
-    $body[] = null;
-
-    $revision = $this->getRevision();
-    $status = $revision->getStatus();
-
-    if ($status == ArcanistDifferentialRevisionStatus::NEEDS_REVISION ||
-        $status == ArcanistDifferentialRevisionStatus::ACCEPTED) {
-      $diff = $revision->loadActiveDiff();
-      if ($diff) {
-        $branch = $diff->getBranch();
-        if ($branch) {
-          $body[] = "BRANCH\n  $branch";
-          $body[] = null;
-        }
-      }
-    }
-
-    if ($status == ArcanistDifferentialRevisionStatus::CLOSED) {
-      $phids = $revision->loadCommitPHIDs();
-      if ($phids) {
-        $handles = id(new PhabricatorObjectHandleData($phids))->loadHandles();
-        if (count($handles) == 1) {
-          $body[] = "COMMIT";
-        } else {
-          // This is unlikely to ever happen since we'll send this mail the
-          // first time we discover a commit, but it's not impossible if data
-          // was migrated, etc.
-          $body[] = "COMMITS";
-        }
-
-        foreach ($handles as $handle) {
-          $body[] = '  '.PhabricatorEnv::getProductionURI($handle->getURI());
-        }
-        $body[] = null;
-      }
-    }
+    $body[] = $this->renderAuxFields(DifferentialMailPhase::COMMENT);
 
     return implode("\n", $body);
   }

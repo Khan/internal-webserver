@@ -9,6 +9,9 @@ if ($argc != 2) {
   exit(1);
 }
 
+phutil_require_module('phutil', 'filesystem');
+phutil_require_module('phutil', 'future/exec');
+
 $files = JavelinSyncSpec::getFilesToSync();
 $packages = JavelinSyncSpec::getPackageMap();
 
