@@ -28,8 +28,8 @@ try_several_times() {
 echo
 date
 
-for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["url"] for x in json.loads(urllib.urlopen("https://github.com/api/v2/json/repos/show/Khan").read())["repositories"])'`; do
-   dirname=`basename $repo`.git    # the rest is 'https://github.com/Khan'
+for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_url"] for x in json.loads(urllib.urlopen("https://api.github.com/orgs/Khan/repos").read()))'`; do
+   dirname=`basename $repo`    # the rest is 'https://github.com/Khan'
    if [ -d "$dirname" ]; then
      echo "Running git fetch -q in $dirname"
      ( cd $dirname;

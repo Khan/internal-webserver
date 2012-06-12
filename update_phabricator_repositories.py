@@ -109,11 +109,16 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
 
     # TODO(csilvers): get private repos as well.
     git_project = 'Khan'
-    git_api_url = 'https://github.com/api/v2/json/repos/show/%s' % git_project
+    git_api_url = 'https://api.github.com/orgs/%s/repos' % git_project
     if verbose:
         print 'Fetching url %s' % git_api_url
     git_repo_info = json.loads(urllib.urlopen(git_api_url).read())
-    git_repos = set(r['url'] for r in git_repo_info['repositories'])
+    git_repos = set()
+    for repo in git_repo_info:
+        if repo['clone_url'].endswith('.git'):
+            git_repos.add(repo['clone_url'][:-len('.git')])
+        else:
+            git_repos.add(repo['clone_url'])
 
     if phabctl.certificate is None:
         raise KeyError('You must set up your .arcrc via '
