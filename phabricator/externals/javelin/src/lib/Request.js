@@ -34,21 +34,38 @@ JX.install('Request', {
     _block : null,
     _data : null,
 
-    getTransport : function() {
-      var xport = this._transport;
-      if (!xport) {
+    _getSameOriginTransport : function() {
+      try {
         try {
-          try {
-            xport = new XMLHttpRequest();
-          } catch (x) {
-            xport = new ActiveXObject("Msxml2.XMLHTTP");
-          }
+          return new XMLHttpRequest();
         } catch (x) {
-          xport = new ActiveXObject("Microsoft.XMLHTTP");
+          return new ActiveXObject("Msxml2.XMLHTTP");
         }
-        this._transport = xport;
+      } catch (x) {
+        return new ActiveXObject("Microsoft.XMLHTTP");
       }
-      return xport;
+    },
+
+    _getCORSTransport : function() {
+      try {
+        var xport = new XMLHttpRequest();
+        if ('withCredentials' in xport) {
+          // XHR supports CORS
+        } else if (typeof XDomainRequest != 'undefined') {
+          xport = new XDomainRequest();
+        }
+        return xport;
+      } catch (x) {
+        return new XDomainRequest();
+      }
+    },
+
+    getTransport : function() {
+      if (!this._transport) {
+        this._transport = this.getCORS() ? this._getCORSTransport() :
+                                           this._getSameOriginTransport();
+      }
+      return this._transport;
     },
 
     send : function() {
@@ -78,7 +95,7 @@ JX.install('Request', {
       var xport = this.getTransport();
       xport.onreadystatechange = JX.bind(this, this._onreadystatechange);
       if (xport.upload) {
-        xport.upload.progress = JX.bind(this, this._onuploadprogress);
+        xport.upload.onprogress = JX.bind(this, this._onuploadprogress);
       }
 
       var method = this.getMethod().toUpperCase();
@@ -182,25 +199,26 @@ JX.install('Request', {
         }
 
         if (__DEV__) {
+          var expect_guard = this.getExpectCSRFGuard();
+
           if (!xport.responseText.length) {
             JX.$E(
               'JX.Request("'+this.getURI()+'", ...): '+
               'server returned an empty response.');
           }
-          if (xport.responseText.indexOf('for (;;);') != 0) {
+          if (expect_guard && xport.responseText.indexOf('for (;;);') != 0) {
             JX.$E(
               'JX.Request("'+this.getURI()+'", ...): '+
               'server returned an invalid response.');
           }
-          if (xport.responseText == 'for (;;);') {
+          if (expect_guard && xport.responseText == 'for (;;);') {
             JX.$E(
               'JX.Request("'+this.getURI()+'", ...): '+
               'server returned an empty response.');
           }
         }
 
-        var text = xport.responseText.substring('for (;;);'.length);
-        response = JX.JSON.parse(text);
+        response = this._extractResponse(xport);
         if (!response) {
           JX.$E(
             'JX.Request("'+this.getURI()+'", ...): '+
@@ -218,21 +236,59 @@ JX.install('Request', {
       }
 
       try {
-        if (response.error) {
-          this._fail(response.error);
-        } else {
-          JX.Stratcom.mergeData(
-            this._block,
-            response.javelin_metadata || {});
-          this._done(response);
-          JX.initBehaviors(response.javelin_behaviors || {});
-        }
+        this._handleResponse(response);
+        this._cleanup();
       } catch (exception) {
         //  In Firefox+Firebug, at least, something eats these. :/
         setTimeout(function() {
           throw exception;
         }, 0);
       }
+    },
+
+    _extractResponse : function(xport) {
+      var text = xport.responseText;
+
+      if (this.getExpectCSRFGuard()) {
+        text = text.substring('for (;;);'.length);
+      }
+
+      var type = this.getResponseType().toUpperCase();
+      if (type == 'TEXT') {
+        return text;
+      } else if (type == 'JSON' || type == 'JAVELIN') {
+        return JX.JSON.parse(text);
+      } else if (type == 'XML') {
+        var doc;
+        try {
+          if (typeof DOMParser != 'undefined') {
+            var parser = new DOMParser();
+            doc = parser.parseFromString(text, "text/xml");
+          } else {  // IE
+            // an XDomainRequest
+            doc = new ActiveXObject("Microsoft.XMLDOM");
+            doc.async = false;
+            doc.loadXML(xport.responseText);
+          }
+
+          return doc.documentElement;
+        } catch (exception) {
+          if (__DEV__) {
+            JX.log(
+              'JX.Request("'+this.getURI()+'", ...): '+
+              'caught exception extracting response: '+exception);
+          }
+          this._fail();
+          return null;
+        }
+      }
+
+      if (__DEV__) {
+        JX.$E(
+          'JX.Request("'+this.getURI()+'", ...): '+
+          'unrecognized response type.');
+      }
+      return null;
     },
 
     _fail : function(error) {
@@ -295,8 +351,25 @@ JX.install('Request', {
     setDataWithListOfPairs : function(list_of_pairs) {
       this._data = list_of_pairs;
       return this;
-    }
+    },
 
+    _handleResponse : function(response) {
+      if (this.getResponseType().toUpperCase() == 'JAVELIN') {
+        if (response.error) {
+          this._fail(response.error);
+        } else {
+          JX.Stratcom.mergeData(
+            this._block,
+            response.javelin_metadata || {});
+          this._done(response);
+          JX.initBehaviors(response.javelin_behaviors || {});
+        }
+      } else {
+        this._cleanup();
+        this.invoke('done', response, this);
+        this.invoke('finally');
+      }
+    }
   },
 
   statics : {
@@ -359,7 +432,29 @@ JX.install('Request', {
      *
      * @param int Timeout, in milliseconds (e.g. 3000 = 3 seconds).
      */
-    timeout : null
+    timeout : null,
+
+    /**
+     * Whether or not we should expect the CSRF guard in the response.
+     *
+     * @param bool
+     */
+    expectCSRFGuard : true,
+
+    /**
+     * Whether it should be a CORS (Cross-Origin Resource Sharing) request to
+     * a third party domain other than the current site.
+     *
+     * @param bool
+     */
+    CORS : false,
+
+    /**
+     * Type of the response.
+     *
+     * @param enum 'JAVELIN', 'JSON', 'XML', 'TEXT'
+     */
+    responseType : 'JAVELIN'
   }
 
 });
