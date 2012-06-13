@@ -16,23 +16,19 @@
  * limitations under the License.
  */
 
-final class DifferentialCCWelcomeMail extends DifferentialReviewRequestMail {
+/**
+ * Test for @{class:PhutilUnitTestEngineTestCase}.
+ *
+ * @group testcase
+ */
+final class ArcanistPhutilTestCaseTestCase extends ArcanistPhutilTestCase {
 
-  protected function renderVaryPrefix() {
-    return '[Added to CC]';
+  public function testFail() {
+    $this->assertFailure('This test is expected to fail.');
   }
 
-  protected function renderBody() {
-
-    $actor = $this->getActorName();
-    $name  = $this->getRevision()->getTitle();
-    $body = array();
-
-    $body[] = "{$actor} added you to the CC list for the revision \"{$name}\".";
-    $body[] = null;
-
-    $body[] = $this->renderReviewRequestBody();
-
-    return implode("\n", $body);
+  public function testSkip() {
+    $this->assertSkipped('This test is expected to skip.');
   }
+
 }
