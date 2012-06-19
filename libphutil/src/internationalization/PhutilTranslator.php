@@ -16,6 +16,9 @@
  * limitations under the License.
  */
 
+/**
+ * @group internationalization
+ */
 final class PhutilTranslator {
   static private $instance;
 
@@ -27,6 +30,10 @@ final class PhutilTranslator {
       self::$instance = new PhutilTranslator();
     }
     return self::$instance;
+  }
+
+  public static function setInstance(PhutilTranslator $instance) {
+    self::$instance = $instance;
   }
 
   public function setLanguage($language) {

@@ -16,6 +16,9 @@
  * limitations under the License.
  */
 
+/**
+ * @group testcase
+ */
 final class PhutilTranslatorTestCase extends ArcanistPhutilTestCase {
 
   public function testEnglish() {
@@ -84,6 +87,22 @@ final class PhutilTranslatorTestCase extends ArcanistPhutilTestCase {
     $this->assertEqual(
       'Test (f) napsala.',
       $translator->translate('%s wrote.', $person));
+  }
+
+  public function testSetInstance() {
+    $original = PhutilTranslator::getInstance();
+    $this->assertEqual('color', pht('color'));
+
+    $british = new PhutilTranslator();
+    $british->addTranslations(
+      array(
+        'color' => 'colour',
+      ));
+    PhutilTranslator::setInstance($british);
+    $this->assertEqual('colour', pht('color'));
+
+    PhutilTranslator::setInstance($original);
+    $this->assertEqual('color', pht('color'));
   }
 
 }
