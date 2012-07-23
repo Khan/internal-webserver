@@ -27,8 +27,13 @@ final class PhutilPHPObjectProtocolChannel extends PhutilProtocolChannel {
   const MODE_LENGTH = 'length';
   const MODE_OBJECT = 'object';
 
+  /**
+   * Size of the "length" frame of the protocol in bytes.
+   */
+  const SIZE_LENGTH = 4;
+
   private $mode                   = self::MODE_LENGTH;
-  private $byteLengthOfNextChunk  = 4;
+  private $byteLengthOfNextChunk  = self::SIZE_LENGTH;
   private $buf                    = '';
 
 
@@ -72,8 +77,8 @@ final class PhutilPHPObjectProtocolChannel extends PhutilProtocolChannel {
     while (strlen($this->buf) >= $this->byteLengthOfNextChunk) {
       switch ($this->mode) {
         case self::MODE_LENGTH:
-          $len = substr($this->buf, 0, 4);
-          $this->buf = substr($this->buf, 4);
+          $len = substr($this->buf, 0, self::SIZE_LENGTH);
+          $this->buf = substr($this->buf, self::SIZE_LENGTH);
 
           $this->mode = self::MODE_OBJECT;
           $this->byteLengthOfNextChunk = head(unpack('N', $len));
@@ -90,7 +95,7 @@ final class PhutilPHPObjectProtocolChannel extends PhutilProtocolChannel {
           }
 
           $this->mode = self::MODE_LENGTH;
-          $this->byteLengthOfNextChunk = 4;
+          $this->byteLengthOfNextChunk = self::SIZE_LENGTH;
           break;
       }
     }

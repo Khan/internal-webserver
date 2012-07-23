@@ -19,7 +19,7 @@
 final class PhutilPHPObjectProtocolChannelTestCase
   extends ArcanistPhutilTestCase {
 
-  public function testChannelBasics() {
+  public function testPHPObjectChannelBasics() {
     list($x, $y) = PhutilSocketChannel::newChannelPair();
     $xp = new PhutilPHPObjectProtocolChannel($x);
     $yp = new PhutilPHPObjectProtocolChannel($y);
