@@ -105,15 +105,37 @@ final class ArcanistWorkingCopyIdentity {
       '.hg',
       '.svn',
     );
+    $found_meta_dir = false;
     foreach ($vc_dirs as $dir) {
-      $local_path = Filesystem::resolvePath(
-        $dir.'/arc/config',
+      $meta_path = Filesystem::resolvePath(
+        $dir,
         $this->projectRoot);
-      if (Filesystem::pathExists($local_path)) {
-        $file = Filesystem::readFile($local_path);
-        if ($file) {
-          $this->localConfig = json_decode($file, true);
-          break;
+      if (Filesystem::pathExists($meta_path)) {
+        $found_meta_dir = true;
+        $local_path = Filesystem::resolvePath(
+          'arc/config',
+          $meta_path);
+        if (Filesystem::pathExists($local_path)) {
+          $file = Filesystem::readFile($local_path);
+          if ($file) {
+            $this->localConfig = json_decode($file, true);
+          }
+        }
+        break;
+      }
+    }
+
+    if (!$found_meta_dir) {
+      // Try for a single higher-level .svn directory as used by svn 1.7+
+      foreach (Filesystem::walkToRoot($this->projectRoot) as $parent_path) {
+        $local_path = Filesystem::resolvePath(
+          '.svn/arc/config',
+          $parent_path);
+        if (Filesystem::pathExists($local_path)) {
+          $file = Filesystem::readFile($local_path);
+          if ($file) {
+            $this->localConfig = json_decode($file, true);
+          }
         }
       }
     }
@@ -135,6 +157,9 @@ final class ArcanistWorkingCopyIdentity {
 
 /* -(  Config  )------------------------------------------------------------- */
 
+  public function getProjectConfig() {
+    return $this->projectConfig;
+  }
 
   /**
    * Read a configuration directive from project configuration. This reads ONLY
@@ -149,7 +174,26 @@ final class ArcanistWorkingCopyIdentity {
    * @task config
    */
   public function getConfig($key, $default = null) {
-    return idx($this->projectConfig, $key, $default);
+    $settings = new ArcanistSettings();
+
+    $pval = idx($this->projectConfig, $key);
+
+    // Test for older names in the per-project config only, since
+    // they've only been used there.
+    if ($pval === null) {
+      $legacy = $settings->getLegacyName($key);
+      if ($legacy) {
+        $pval = $this->getConfig($legacy);
+      }
+    }
+
+    if ($pval === null) {
+      $pval = $default;
+    } else {
+      $pval = $settings->willReadValue($key, $pval);
+    }
+
+    return $pval;
   }
 
 
@@ -180,6 +224,7 @@ final class ArcanistWorkingCopyIdentity {
    * @task config
    */
   public function getConfigFromAnySource($key, $default = null) {
+    $settings = new ArcanistSettings();
 
     // try local config first
     $pval = $this->getLocalConfig($key);
@@ -189,20 +234,22 @@ final class ArcanistWorkingCopyIdentity {
       $pval = $this->getConfig($key);
     }
 
-    // Test for older names in the per-project config only, since
-    // they've only been used there
-    static $deprecated_names = array(
-      'lint.engine' => 'lint_engine',
-      'unit.engine' => 'unit_engine',
-    );
-    if ($pval === null && isset($deprecated_names[$key])) {
-      $pval = $this->getConfig($deprecated_names[$key]);
-    }
-
-    // lastly, try global (i.e. user-level) config
+    // now try global (i.e. user-level) config
     if ($pval === null) {
       $global_config = ArcanistBaseWorkflow::readGlobalArcConfig();
-      $pval = idx($global_config, $key, $default);
+      $pval = idx($global_config, $key);
+    }
+
+    // Finally, try system-level config.
+    if ($pval === null) {
+      $system_config = ArcanistBaseWorkflow::readSystemArcConfig();
+      $pval = idx($system_config, $key);
+    }
+
+    if ($pval === null) {
+      $pval = $default;
+    } else {
+      $pval = $settings->willReadValue($key, $pval);
     }
 
     return $pval;

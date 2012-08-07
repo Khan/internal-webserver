@@ -265,24 +265,28 @@ abstract class ArcanistBaseWorkflow {
     }
 
     $this->establishConduit();
-
     $credentials = $this->conduitCredentials;
-    if (!$credentials) {
-      throw new Exception(
-        "Set conduit credentials with setConduitCredentials() before ".
-        "authenticating conduit!");
-    }
-
-    if (empty($credentials['user']) || empty($credentials['certificate'])) {
-      throw new Exception(
-        "Credentials must include a 'user' and a 'certificate'.");
-    }
-
-    $description = idx($credentials, 'description', '');
-    $user        = $credentials['user'];
-    $certificate = $credentials['certificate'];
 
     try {
+      if (!$credentials) {
+        throw new Exception(
+          "Set conduit credentials with setConduitCredentials() before ".
+          "authenticating conduit!");
+      }
+
+      if (empty($credentials['user'])) {
+        throw new ConduitClientException('ERR-INVALID-USER',
+                                         'Empty user in credentials.');
+      }
+      if (empty($credentials['certificate'])) {
+        throw new ConduitClientException('ERR-NO-CERTIFICATE',
+                                         'Empty certificate in credentials.');
+      }
+
+      $description = idx($credentials, 'description', '');
+      $user        = $credentials['user'];
+      $certificate = $credentials['certificate'];
+
       $connection = $this->getConduit()->callMethodSynchronous(
         'conduit.connect',
         array(
@@ -965,6 +969,29 @@ abstract class ArcanistBaseWorkflow {
     return $argv;
   }
 
+  public static function getSystemArcConfigLocation() {
+    if (phutil_is_windows()) {
+      // this is a horrible place to put this, but there doesn't seem to be a
+      // non-horrible place on Windows
+      return Filesystem::resolvePath(
+        'Phabricator/Arcanist/config',
+        getenv('PROGRAMFILES'));
+    } else {
+      return '/etc/arcconfig';
+    }
+  }
+
+  public static function readSystemArcConfig() {
+    $system_config = array();
+    $system_config_path = self::getSystemArcConfigLocation();
+    if (Filesystem::pathExists($system_config_path)) {
+      $file = Filesystem::readFile($system_config_path);
+      if ($file) {
+        $system_config = json_decode($file, true);
+      }
+    }
+    return $system_config;
+  }
   public static function getUserConfigurationFileLocation() {
     if (phutil_is_windows()) {
       return getenv('APPDATA').'/.arcrc';
@@ -1067,9 +1094,9 @@ abstract class ArcanistBaseWorkflow {
     $repository_api = $this->getRepositoryAPI();
     $working_copy = $this->getWorkingCopy();
 
-    $project_config = $working_copy->getConfigFromAnySource('immutable_history');
-    if ($project_config !== null) {
-      return $project_config;
+    $config = $working_copy->getConfigFromAnySource('history.immutable');
+    if ($config !== null) {
+      return $config;
     }
 
     return $repository_api->isHistoryDefaultImmutable();
@@ -1241,16 +1268,21 @@ abstract class ArcanistBaseWorkflow {
     return $this->repositoryEncoding;
   }
 
-  protected static function formatConfigValueForDisplay($value) {
-    if (is_array($value)) {
-      // TODO: Both json_encode() and PhutilJSON do a bad job with one-liners.
-      // PhutilJSON splits them across a bunch of lines, while json_encode()
-      // escapes all kinds of stuff like "/". It would be nice if PhutilJSON
-      // had a mode for pretty one-liners.
-      $value = json_encode($value);
-      return $value;
+  protected function newInteractiveEditor($text) {
+    $editor = new PhutilInteractiveEditor($text);
+
+    $preferred = $this->getWorkingCopy()->getConfigFromAnySource('editor');
+    if ($preferred) {
+      $editor->setPreferredEditor($preferred);
     }
-    return $value;
+
+    return $editor;
+  }
+
+  protected function newDiffParser() {
+    $parser = new ArcanistDiffParser();
+    $parser->setWriteDiffOnFailure(true);
+    return $parser;
   }
 
 }
