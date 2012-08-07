@@ -40,9 +40,29 @@ final class PhabricatorProjectProfileController
       $profile = new PhabricatorProjectProfile();
     }
 
+<<<<<<< HEAD
     $picture = $profile->loadProfileImageURI();
     $members = $project->loadMemberPHIDs();
     $member_map = array_fill_keys($members, true);
+||||||| merged common ancestors
+    $src_phid = $profile->getProfileImagePHID();
+    if (!$src_phid) {
+      $src_phid = $user->getProfileImagePHID();
+    }
+    $file = id(new PhabricatorFile())->loadOneWhere('phid = %s',
+                                                    $src_phid);
+    if ($file) {
+      $picture = $file->getBestURI();
+    } else {
+      $picture = PhabricatorUser::getDefaultProfileImageURI();
+    }
+
+    $members = mpull($project->loadAffiliations(), null, 'getUserPHID');
+=======
+    $picture = $profile->loadProfileImageURI();
+
+    $members = mpull($project->loadAffiliations(), null, 'getUserPHID');
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     $nav_view = $this->buildLocalNavigation($project);
 

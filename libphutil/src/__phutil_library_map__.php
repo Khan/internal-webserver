@@ -110,10 +110,16 @@ phutil_register_library_map(array(
     'PhutilExcessiveServiceCallsDaemon' => 'daemon/torture/PhutilExcessiveServiceCallsDaemon.php',
     'PhutilExecChannel' => 'channel/PhutilExecChannel.php',
     'PhutilFatalDaemon' => 'daemon/torture/PhutilFatalDaemon.php',
+<<<<<<< HEAD
     'PhutilFileLock' => 'filesystem/PhutilFileLock.php',
     'PhutilFileLockTestCase' => 'filesystem/__tests__/PhutilFileLockTestCase.php',
     'PhutilGitURI' => 'parser/PhutilGitURI.php',
     'PhutilGitURITestCase' => 'parser/__tests__/PhutilGitURITestCase.php',
+||||||| merged common ancestors
+=======
+    'PhutilFileLock' => 'filesystem/PhutilFileLock.php',
+    'PhutilFileLockTestCase' => 'filesystem/__tests__/PhutilFileLockTestCase.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhutilHangForeverDaemon' => 'daemon/torture/PhutilHangForeverDaemon.php',
     'PhutilHelpArgumentWorkflow' => 'parser/argument/workflow/PhutilHelpArgumentWorkflow.php',
     'PhutilInteractiveEditor' => 'console/PhutilInteractiveEditor.php',
@@ -264,8 +270,13 @@ phutil_register_library_map(array(
     'xsprintf_callback_example' => 'xsprintf/xsprintf.php',
     'xsprintf_command' => 'xsprintf/csprintf.php',
     'xsprintf_javascript' => 'xsprintf/jsprintf.php',
+<<<<<<< HEAD
     'xsprintf_ldap' => 'xsprintf/ldapsprintf.php',
     'xsprintf_query' => 'xsprintf/qsprintf.php',
+||||||| merged common ancestors
+=======
+    'xsprintf_ldap' => 'xsprintf/ldapsprintf.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   ),
   'xmap' =>
   array(
@@ -338,9 +349,15 @@ phutil_register_library_map(array(
     'PhutilExcessiveServiceCallsDaemon' => 'PhutilTortureTestDaemon',
     'PhutilExecChannel' => 'PhutilChannel',
     'PhutilFatalDaemon' => 'PhutilTortureTestDaemon',
+<<<<<<< HEAD
     'PhutilFileLock' => 'PhutilLock',
     'PhutilFileLockTestCase' => 'ArcanistPhutilTestCase',
     'PhutilGitURITestCase' => 'ArcanistPhutilTestCase',
+||||||| merged common ancestors
+=======
+    'PhutilFileLock' => 'PhutilLock',
+    'PhutilFileLockTestCase' => 'ArcanistPhutilTestCase',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhutilHangForeverDaemon' => 'PhutilTortureTestDaemon',
     'PhutilHelpArgumentWorkflow' => 'PhutilArgumentWorkflow',
     'PhutilJSONProtocolChannel' => 'PhutilProtocolChannel',

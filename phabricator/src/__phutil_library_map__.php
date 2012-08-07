@@ -23,7 +23,15 @@ phutil_register_library_map(array(
     'AphrontContextBarView' => 'view/layout/AphrontContextBarView.php',
     'AphrontController' => 'aphront/AphrontController.php',
     'AphrontCrumbsView' => 'view/layout/AphrontCrumbsView.php',
+<<<<<<< HEAD
     'AphrontCursorPagerView' => 'view/control/AphrontCursorPagerView.php',
+||||||| merged common ancestors
+    'AphrontDatabaseConnection' => 'storage/connection/AphrontDatabaseConnection.php',
+    'AphrontDatabaseTransactionState' => 'storage/AphrontDatabaseTransactionState.php',
+=======
+    'AphrontDatabaseConnection' => 'infrastructure/storage/connection/AphrontDatabaseConnection.php',
+    'AphrontDatabaseTransactionState' => 'infrastructure/storage/connection/AphrontDatabaseTransactionState.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'AphrontDefaultApplicationConfiguration' => 'aphront/configuration/AphrontDefaultApplicationConfiguration.php',
     'AphrontDialogResponse' => 'aphront/response/AphrontDialogResponse.php',
     'AphrontDialogView' => 'view/AphrontDialogView.php',
@@ -58,7 +66,17 @@ phutil_register_library_map(array(
     'AphrontHeadsupActionListView' => 'view/layout/headsup/AphrontHeadsupActionListView.php',
     'AphrontHeadsupActionView' => 'view/layout/headsup/AphrontHeadsupActionView.php',
     'AphrontHeadsupView' => 'view/layout/headsup/AphrontHeadsupView.php',
+<<<<<<< HEAD
     'AphrontIsolatedDatabaseConnectionTestCase' => 'infrastructure/storage/__tests__/AphrontIsolatedDatabaseConnectionTestCase.php',
+||||||| merged common ancestors
+    'AphrontIDPagerView' => 'view/control/AphrontIDPagerView.php',
+    'AphrontIsolatedDatabaseConnection' => 'storage/connection/AphrontIsolatedDatabaseConnection.php',
+    'AphrontIsolatedDatabaseConnectionTestCase' => 'storage/connection/__tests__/AphrontIsolatedDatabaseConnectionTestCase.php',
+=======
+    'AphrontIDPagerView' => 'view/control/AphrontIDPagerView.php',
+    'AphrontIsolatedDatabaseConnection' => 'infrastructure/storage/connection/AphrontIsolatedDatabaseConnection.php',
+    'AphrontIsolatedDatabaseConnectionTestCase' => 'infrastructure/storage/connection/__tests__/AphrontIsolatedDatabaseConnectionTestCase.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'AphrontIsolatedHTTPSink' => 'aphront/sink/AphrontIsolatedHTTPSink.php',
     'AphrontJSONResponse' => 'aphront/response/AphrontJSONResponse.php',
     'AphrontJavelinView' => 'view/AphrontJavelinView.php',
@@ -66,7 +84,19 @@ phutil_register_library_map(array(
     'AphrontListFilterView' => 'view/layout/AphrontListFilterView.php',
     'AphrontMiniPanelView' => 'view/layout/AphrontMiniPanelView.php',
     'AphrontMoreView' => 'view/layout/AphrontMoreView.php',
+<<<<<<< HEAD
     'AphrontMySQLDatabaseConnectionTestCase' => 'infrastructure/storage/__tests__/AphrontMySQLDatabaseConnectionTestCase.php',
+||||||| merged common ancestors
+    'AphrontMySQLDatabaseConnection' => 'storage/connection/mysql/AphrontMySQLDatabaseConnection.php',
+    'AphrontMySQLDatabaseConnectionBase' => 'storage/connection/mysql/AphrontMySQLDatabaseConnectionBase.php',
+    'AphrontMySQLDatabaseConnectionTestCase' => 'storage/connection/__tests__/AphrontMySQLDatabaseConnectionTestCase.php',
+    'AphrontMySQLiDatabaseConnection' => 'storage/connection/mysql/AphrontMySQLiDatabaseConnection.php',
+=======
+    'AphrontMySQLDatabaseConnection' => 'infrastructure/storage/connection/mysql/AphrontMySQLDatabaseConnection.php',
+    'AphrontMySQLDatabaseConnectionBase' => 'infrastructure/storage/connection/mysql/AphrontMySQLDatabaseConnectionBase.php',
+    'AphrontMySQLDatabaseConnectionTestCase' => 'infrastructure/storage/connection/__tests__/AphrontMySQLDatabaseConnectionTestCase.php',
+    'AphrontMySQLiDatabaseConnection' => 'infrastructure/storage/connection/mysql/AphrontMySQLiDatabaseConnection.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'AphrontNullView' => 'view/AphrontNullView.php',
     'AphrontPHPHTTPSink' => 'aphront/sink/AphrontPHPHTTPSink.php',
     'AphrontPageView' => 'view/page/AphrontPageView.php',
@@ -74,6 +104,32 @@ phutil_register_library_map(array(
     'AphrontPanelView' => 'view/layout/AphrontPanelView.php',
     'AphrontPlainTextResponse' => 'aphront/response/AphrontPlainTextResponse.php',
     'AphrontProxyResponse' => 'aphront/response/AphrontProxyResponse.php',
+<<<<<<< HEAD
+||||||| merged common ancestors
+    'AphrontQueryAccessDeniedException' => 'storage/exception/AphrontQueryAccessDeniedException.php',
+    'AphrontQueryConnectionException' => 'storage/exception/AphrontQueryConnectionException.php',
+    'AphrontQueryConnectionLostException' => 'storage/exception/AphrontQueryConnectionLostException.php',
+    'AphrontQueryCountException' => 'storage/exception/AphrontQueryCountException.php',
+    'AphrontQueryDeadlockException' => 'storage/exception/AphrontQueryDeadlockException.php',
+    'AphrontQueryDuplicateKeyException' => 'storage/exception/AphrontQueryDuplicateKeyException.php',
+    'AphrontQueryException' => 'storage/exception/AphrontQueryException.php',
+    'AphrontQueryObjectMissingException' => 'storage/exception/AphrontQueryObjectMissingException.php',
+    'AphrontQueryParameterException' => 'storage/exception/AphrontQueryParameterException.php',
+    'AphrontQueryRecoverableException' => 'storage/exception/AphrontQueryRecoverableException.php',
+    'AphrontQuerySchemaException' => 'storage/exception/AphrontQuerySchemaException.php',
+=======
+    'AphrontQueryAccessDeniedException' => 'infrastructure/storage/exception/AphrontQueryAccessDeniedException.php',
+    'AphrontQueryConnectionException' => 'infrastructure/storage/exception/AphrontQueryConnectionException.php',
+    'AphrontQueryConnectionLostException' => 'infrastructure/storage/exception/AphrontQueryConnectionLostException.php',
+    'AphrontQueryCountException' => 'infrastructure/storage/exception/AphrontQueryCountException.php',
+    'AphrontQueryDeadlockException' => 'infrastructure/storage/exception/AphrontQueryDeadlockException.php',
+    'AphrontQueryDuplicateKeyException' => 'infrastructure/storage/exception/AphrontQueryDuplicateKeyException.php',
+    'AphrontQueryException' => 'infrastructure/storage/exception/AphrontQueryException.php',
+    'AphrontQueryObjectMissingException' => 'infrastructure/storage/exception/AphrontQueryObjectMissingException.php',
+    'AphrontQueryParameterException' => 'infrastructure/storage/exception/AphrontQueryParameterException.php',
+    'AphrontQueryRecoverableException' => 'infrastructure/storage/exception/AphrontQueryRecoverableException.php',
+    'AphrontQuerySchemaException' => 'infrastructure/storage/exception/AphrontQuerySchemaException.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'AphrontRedirectException' => 'aphront/exception/AphrontRedirectException.php',
     'AphrontRedirectResponse' => 'aphront/response/AphrontRedirectResponse.php',
     'AphrontReloadResponse' => 'aphront/response/AphrontReloadResponse.php',
@@ -648,6 +704,7 @@ phutil_register_library_map(array(
     'PhabricatorEvent' => 'infrastructure/events/PhabricatorEvent.php',
     'PhabricatorEventEngine' => 'infrastructure/events/PhabricatorEventEngine.php',
     'PhabricatorEventType' => 'infrastructure/events/constant/PhabricatorEventType.php',
+<<<<<<< HEAD
     'PhabricatorExampleEventListener' => 'infrastructure/events/PhabricatorExampleEventListener.php',
     'PhabricatorFactAggregate' => 'applications/fact/storage/PhabricatorFactAggregate.php',
     'PhabricatorFactChartController' => 'applications/fact/controller/PhabricatorFactChartController.php',
@@ -669,6 +726,10 @@ phutil_register_library_map(array(
     'PhabricatorFactSimpleSpec' => 'applications/fact/spec/PhabricatorFactSimpleSpec.php',
     'PhabricatorFactSpec' => 'applications/fact/spec/PhabricatorFactSpec.php',
     'PhabricatorFactUpdateIterator' => 'applications/fact/extract/PhabricatorFactUpdateIterator.php',
+||||||| merged common ancestors
+=======
+    'PhabricatorExampleEventListener' => 'infrastructure/events/PhabricatorExampleEventListener.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhabricatorFeedBuilder' => 'applications/feed/builder/PhabricatorFeedBuilder.php',
     'PhabricatorFeedConstants' => 'applications/feed/constants/PhabricatorFeedConstants.php',
     'PhabricatorFeedController' => 'applications/feed/controller/PhabricatorFeedController.php',
@@ -771,6 +832,7 @@ phutil_register_library_map(array(
     'PhabricatorMailImplementationSendGridAdapter' => 'applications/metamta/adapter/PhabricatorMailImplementationSendGridAdapter.php',
     'PhabricatorMailImplementationTestAdapter' => 'applications/metamta/adapter/PhabricatorMailImplementationTestAdapter.php',
     'PhabricatorMailReplyHandler' => 'applications/metamta/replyhandler/PhabricatorMailReplyHandler.php',
+<<<<<<< HEAD
     'PhabricatorMainMenuGroupView' => 'view/page/menu/PhabricatorMainMenuGroupView.php',
     'PhabricatorMainMenuIconView' => 'view/page/menu/PhabricatorMainMenuIconView.php',
     'PhabricatorMainMenuSearchView' => 'view/page/menu/PhabricatorMainMenuSearchView.php',
@@ -778,6 +840,13 @@ phutil_register_library_map(array(
     'PhabricatorMarkupCache' => 'applications/cache/storage/PhabricatorMarkupCache.php',
     'PhabricatorMarkupEngine' => 'infrastructure/markup/PhabricatorMarkupEngine.php',
     'PhabricatorMarkupInterface' => 'infrastructure/markup/PhabricatorMarkupInterface.php',
+||||||| merged common ancestors
+    'PhabricatorMarkupEngine' => 'applications/markup/PhabricatorMarkupEngine.php',
+=======
+    'PhabricatorMarkupCache' => 'applications/cache/storage/PhabricatorMarkupCache.php',
+    'PhabricatorMarkupEngine' => 'infrastructure/markup/PhabricatorMarkupEngine.php',
+    'PhabricatorMarkupInterface' => 'infrastructure/markup/PhabricatorMarkupInterface.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhabricatorMercurialGraphStream' => 'applications/repository/daemon/PhabricatorMercurialGraphStream.php',
     'PhabricatorMetaMTAAttachment' => 'applications/metamta/storage/PhabricatorMetaMTAAttachment.php',
     'PhabricatorMetaMTAController' => 'applications/metamta/controller/PhabricatorMetaMTAController.php',
@@ -1132,11 +1201,25 @@ phutil_register_library_map(array(
     'PhrictionEditController' => 'applications/phriction/controller/PhrictionEditController.php',
     'PhrictionHistoryController' => 'applications/phriction/controller/PhrictionHistoryController.php',
     'PhrictionListController' => 'applications/phriction/controller/PhrictionListController.php',
+<<<<<<< HEAD
     'QueryFormattingTestCase' => 'infrastructure/storage/__tests__/QueryFormattingTestCase.php',
+||||||| merged common ancestors
+    'QueryFormattingTestCase' => 'storage/__tests__/QueryFormattingTestCase.php',
+=======
+    'QueryFormattingTestCase' => 'infrastructure/storage/query/__tests__/QueryFormattingTestCase.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   ),
   'function' =>
   array(
     '_phabricator_date_format' => 'view/viewutils.php',
+<<<<<<< HEAD
+||||||| merged common ancestors
+    '_qsprintf_check_scalar_type' => 'storage/qsprintf.php',
+    '_qsprintf_check_type' => 'storage/qsprintf.php',
+=======
+    '_qsprintf_check_scalar_type' => 'infrastructure/storage/query/qsprintf.php',
+    '_qsprintf_check_type' => 'infrastructure/storage/query/qsprintf.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'celerity_generate_unique_node_id' => 'infrastructure/celerity/api.php',
     'celerity_get_resource_uri' => 'infrastructure/celerity/api.php',
     'celerity_register_resource_map' => 'infrastructure/celerity/map.php',
@@ -1155,7 +1238,31 @@ phutil_register_library_map(array(
     'phabricator_time' => 'view/viewutils.php',
     'phid_get_type' => 'applications/phid/utils.php',
     'phid_group_by_type' => 'applications/phid/utils.php',
+<<<<<<< HEAD
+||||||| merged common ancestors
+    'qsprintf' => 'storage/qsprintf.php',
+    'queryfx' => 'storage/queryfx.php',
+    'queryfx_all' => 'storage/queryfx.php',
+    'queryfx_one' => 'storage/queryfx.php',
+=======
+    'qsprintf' => 'infrastructure/storage/query/qsprintf.php',
+    'queryfx' => 'infrastructure/storage/query/queryfx.php',
+    'queryfx_all' => 'infrastructure/storage/query/queryfx.php',
+    'queryfx_one' => 'infrastructure/storage/query/queryfx.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'require_celerity_resource' => 'infrastructure/celerity/api.php',
+<<<<<<< HEAD
+||||||| merged common ancestors
+    'vqsprintf' => 'storage/qsprintf.php',
+    'vqueryfx' => 'storage/queryfx.php',
+    'vqueryfx_all' => 'storage/queryfx.php',
+    'xsprintf_query' => 'storage/qsprintf.php',
+=======
+    'vqsprintf' => 'infrastructure/storage/query/qsprintf.php',
+    'vqueryfx' => 'infrastructure/storage/query/queryfx.php',
+    'vqueryfx_all' => 'infrastructure/storage/query/queryfx.php',
+    'xsprintf_query' => 'infrastructure/storage/query/qsprintf.php',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   ),
   'xmap' =>
   array(
@@ -1566,7 +1673,12 @@ phutil_register_library_map(array(
     'LiskIsolationTestCase' => 'PhabricatorTestCase',
     'LiskIsolationTestDAO' => 'LiskDAO',
     'LiskIsolationTestDAOException' => 'Exception',
+<<<<<<< HEAD
     'LiskMigrationIterator' => 'PhutilBufferedIterator',
+||||||| merged common ancestors
+=======
+    'LiskMigrationIterator' => 'Iterator',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'ManiphestAction' => 'ManiphestConstants',
     'ManiphestAuxiliaryFieldDefaultSpecification' => 'ManiphestAuxiliaryFieldSpecification',
     'ManiphestAuxiliaryFieldTypeException' => 'Exception',
@@ -1723,6 +1835,7 @@ phutil_register_library_map(array(
     'PhabricatorErrorExample' => 'PhabricatorUIExample',
     'PhabricatorEvent' => 'PhutilEvent',
     'PhabricatorEventType' => 'PhutilEventType',
+<<<<<<< HEAD
     'PhabricatorExampleEventListener' => 'PhutilEventListener',
     'PhabricatorFactAggregate' => 'PhabricatorFactDAO',
     'PhabricatorFactChartController' => 'PhabricatorFactController',
@@ -1742,12 +1855,23 @@ phutil_register_library_map(array(
     'PhabricatorFactRaw' => 'PhabricatorFactDAO',
     'PhabricatorFactSimpleSpec' => 'PhabricatorFactSpec',
     'PhabricatorFactUpdateIterator' => 'PhutilBufferedIterator',
+||||||| merged common ancestors
+=======
+    'PhabricatorExampleEventListener' => 'PhutilEventListener',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhabricatorFeedController' => 'PhabricatorController',
     'PhabricatorFeedDAO' => 'PhabricatorLiskDAO',
     'PhabricatorFeedPublicStreamController' => 'PhabricatorFeedController',
+<<<<<<< HEAD
     'PhabricatorFeedQuery' => 'PhabricatorCursorPagedPolicyQuery',
     'PhabricatorFeedStory' => 'PhabricatorPolicyInterface',
     'PhabricatorFeedStoryAggregate' => 'PhabricatorFeedStory',
+||||||| merged common ancestors
+=======
+    'PhabricatorFeedQuery' => 'PhabricatorIDPagedPolicyQuery',
+    'PhabricatorFeedStory' => 'PhabricatorPolicyInterface',
+    'PhabricatorFeedStoryAggregate' => 'PhabricatorFeedStory',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhabricatorFeedStoryAudit' => 'PhabricatorFeedStory',
     'PhabricatorFeedStoryCommit' => 'PhabricatorFeedStory',
     'PhabricatorFeedStoryData' => 'PhabricatorFeedDAO',
@@ -1826,11 +1950,16 @@ phutil_register_library_map(array(
     'PhabricatorMailImplementationPHPMailerLiteAdapter' => 'PhabricatorMailImplementationAdapter',
     'PhabricatorMailImplementationSendGridAdapter' => 'PhabricatorMailImplementationAdapter',
     'PhabricatorMailImplementationTestAdapter' => 'PhabricatorMailImplementationAdapter',
+<<<<<<< HEAD
     'PhabricatorMainMenuGroupView' => 'AphrontView',
     'PhabricatorMainMenuIconView' => 'AphrontView',
     'PhabricatorMainMenuSearchView' => 'AphrontView',
     'PhabricatorMainMenuView' => 'AphrontView',
     'PhabricatorMarkupCache' => 'PhabricatorCacheDAO',
+||||||| merged common ancestors
+=======
+    'PhabricatorMarkupCache' => 'PhabricatorCacheDAO',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     'PhabricatorMetaMTAController' => 'PhabricatorController',
     'PhabricatorMetaMTADAO' => 'PhabricatorLiskDAO',
     'PhabricatorMetaMTAEmailBodyParserTestCase' => 'PhabricatorTestCase',

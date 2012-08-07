@@ -30,6 +30,7 @@ final class PhabricatorEventType extends PhutilEventType {
   const TYPE_DIFFERENTIAL_WILLSENDMAIL      = 'differential.willSendMail';
   const TYPE_DIFFERENTIAL_WILLMARKGENERATED = 'differential.willMarkGenerated';
 
+<<<<<<< HEAD
   const TYPE_DIFFUSION_DIDDISCOVERCOMMIT    = 'diffusion.didDiscoverCommit';
   const TYPE_DIFFUSION_LOOKUPUSER           = 'diffusion.lookupUser';
 
@@ -38,4 +39,14 @@ final class PhabricatorEventType extends PhutilEventType {
 
   const TYPE_TEST_DIDRUNTEST                = 'test.didRunTest';
 
+||||||| merged common ancestors
+=======
+  const TYPE_DIFFUSION_DIDDISCOVERCOMMIT    = 'diffusion.didDiscoverCommit';
+
+  const TYPE_EDGE_WILLEDITEDGES             = 'edge.willEditEdges';
+  const TYPE_EDGE_DIDEDITEDGES              = 'edge.didEditEdges';
+
+  const TYPE_TEST_DIDRUNTEST                = 'test.didRunTest';
+
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 }

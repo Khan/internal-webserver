@@ -221,6 +221,7 @@ final class PhabricatorStandardPageView extends AphrontPageView {
       }
     }
 
+<<<<<<< HEAD
     $viewport_tag = null;
     if (PhabricatorEnv::getEnvConfig('preview.viewport-meta-tag')) {
       $viewport_tag = phutil_render_tag(
@@ -243,6 +244,20 @@ final class PhabricatorStandardPageView extends AphrontPageView {
       '</style>'.
       $response->renderSingleResource('javelin-magical-init');
 
+||||||| merged common ancestors
+=======
+    $head =
+      '<script type="text/javascript">'.
+        $framebust.
+        'window.__DEV__=1;'.
+      '</script>'.
+      $response->renderResourcesOfType('css').
+      '<style type="text/css">'.
+        '.PhabricatorMonospaced { font: '.$monospaced.'; }'.
+      '</style>'.
+      $response->renderSingleResource('javelin-magical-init');
+
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     return $head;
   }
 

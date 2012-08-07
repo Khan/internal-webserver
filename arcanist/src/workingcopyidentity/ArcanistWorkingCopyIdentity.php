@@ -242,6 +242,7 @@ final class ArcanistWorkingCopyIdentity {
 
     // Finally, try system-level config.
     if ($pval === null) {
+<<<<<<< HEAD
       $system_config = ArcanistBaseWorkflow::readSystemArcConfig();
       $pval = idx($system_config, $key);
     }
@@ -250,6 +251,22 @@ final class ArcanistWorkingCopyIdentity {
       $pval = $default;
     } else {
       $pval = $settings->willReadValue($key, $pval);
+||||||| merged common ancestors
+      $global_config = ArcanistBaseWorkflow::readGlobalArcConfig();
+      $pval = idx($global_config, $key, $default);
+=======
+      $global_config = ArcanistBaseWorkflow::readGlobalArcConfig();
+      $pval = idx($global_config, $key);
+    }
+
+    if ($pval === null) {
+      $system_config = ArcanistBaseWorkflow::readSystemArcConfig();
+      $pval = idx($system_config, $key);
+    }
+
+    if ($pval === null) {
+      $pval = $default;
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     }
 
     return $pval;

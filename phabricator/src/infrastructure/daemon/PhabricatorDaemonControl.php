@@ -53,6 +53,7 @@ final class PhabricatorDaemonControl {
     foreach ($daemons as $daemon) {
       $name = $daemon->getName();
       if (!$daemon->isRunning()) {
+<<<<<<< HEAD
         $daemon_log = $daemon->loadDaemonLog();
         if ($daemon_log) {
           $daemon_log->setStatus(PhabricatorDaemonLog::STATUS_DEAD);
@@ -61,6 +62,15 @@ final class PhabricatorDaemonControl {
 
         $status = 2;
         $name = '<DEAD> '.$name;
+||||||| merged common ancestors
+        $name = '<DEAD> '.$name;
+        if ($daemon->getPIDFile()) {
+          Filesystem::remove($daemon->getPIDFile());
+        }
+=======
+        $status = 2;
+        $name = '<DEAD> '.$name;
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
       }
       printf(
         "%5s\t%-24s\t%s\n",

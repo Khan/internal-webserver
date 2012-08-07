@@ -151,6 +151,7 @@ final class PhutilSocketChannel extends PhutilChannel {
     }
   }
 
+<<<<<<< HEAD
   private function closeSockets() {
     foreach (array($this->readSocket, $this->writeSocket) as $socket) {
       if (!$socket) {
@@ -161,6 +162,22 @@ final class PhutilSocketChannel extends PhutilChannel {
       // with it (for example 'Unexpected object type PlainFile'). We depend
       // just on fclose() until it is fixed.
       @fclose($socket);
+||||||| merged common ancestors
+  private function closeSocket() {
+    if ($this->socket) {
+      @stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+      @fclose($this->socket);
+      $this->socket = null;
+=======
+  private function closeSockets() {
+    foreach (array($this->readSocket, $this->writeSocket) as $socket) {
+      if (!$socket) {
+        continue;
+      }
+
+      @stream_socket_shutdown($socket, STREAM_SHUT_RDWR);
+      @fclose($socket);
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     }
     $this->readSocket = null;
     $this->writeSocket = null;

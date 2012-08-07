@@ -100,6 +100,29 @@ final class PhabricatorAuditListView extends AphrontView {
     return $commit->getCommitData()->getSummary();
   }
 
+<<<<<<< HEAD
+  public function getHighlightedAudits() {
+    if ($this->highlightedAudits === null) {
+      $this->highlightedAudits = array();
+
+      $user = $this->user;
+      $authority = array_fill_keys($this->authorityPHIDs, true);
+
+      foreach ($this->audits as $audit) {
+        $has_authority = !empty($authority[$audit->getAuditorPHID()]);
+        if ($has_authority) {
+          $commit_phid = $audit->getCommitPHID();
+          $commit_author = $this->commits[$commit_phid]->getAuthorPHID();
+
+          // You don't have authority over package and project audits on your
+          // own commits.
+
+          $auditor_is_user = ($audit->getAuditorPHID() == $user->getPHID());
+          $user_is_author = ($commit_author == $user->getPHID());
+||||||| merged common ancestors
+  public function render() {
+    $user = $this->user;
+=======
   public function getHighlightedAudits() {
     if ($this->highlightedAudits === null) {
       $this->highlightedAudits = array();
@@ -125,9 +148,24 @@ final class PhabricatorAuditListView extends AphrontView {
         }
       }
     }
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
+
+<<<<<<< HEAD
+          if ($auditor_is_user || !$user_is_author) {
+            $this->highlightedAudits[$audit->getID()] = $audit;
+          }
+        }
+      }
+    }
 
     return $this->highlightedAudits;
   }
+||||||| merged common ancestors
+    $authority = array_fill_keys($this->authorityPHIDs, true);
+=======
+    return $this->highlightedAudits;
+  }
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
   public function render() {
     $rowc = array();

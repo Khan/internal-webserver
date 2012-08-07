@@ -210,6 +210,7 @@ final class DiffusionBrowseFileController extends DiffusionController {
         $rows = $this->buildDisplayRows($text_list, $rev_list, $blame_dict,
           $needs_blame, $drequest, $file_query, $selected);
 
+<<<<<<< HEAD
         $id = celerity_generate_unique_node_id();
 
         $projects = $drequest->loadArcanistProjects();
@@ -245,6 +246,43 @@ final class DiffusionBrowseFileController extends DiffusionController {
         }
 
         $corpus_table = javelin_render_tag(
+||||||| merged common ancestors
+        $corpus_table = phutil_render_tag(
+=======
+        $id = celerity_generate_unique_node_id();
+
+        $projects = $drequest->loadArcanistProjects();
+        $langs = array();
+        foreach ($projects as $project) {
+          $ls = $project->getSymbolIndexLanguages();
+          if (!$ls) {
+            continue;
+          }
+          $dep_projects = $project->getSymbolIndexProjects();
+          $dep_projects = mpull($dep_projects, 'getPHID');
+          $dep_projects[] = $project->getPHID();
+          foreach ($ls as $lang) {
+            if (!isset($langs[$lang])) {
+              $langs[$lang] = array();
+            }
+            $langs[$lang] += $dep_projects + array($project);
+          }
+        }
+
+        $lang = last(explode('.', $drequest->getPath()));
+
+        if (isset($langs[$lang])) {
+          Javelin::initBehavior(
+            'repository-crossreference',
+            array(
+              'container' => $id,
+              'lang' => $lang,
+              'projects' => $langs[$lang],
+            ));
+        }
+
+        $corpus_table = phutil_render_tag(
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
           'table',
           array(
             'class' => "diffusion-source remarkup-code PhabricatorMonospaced",

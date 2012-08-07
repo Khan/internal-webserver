@@ -33,6 +33,8 @@ final class PhabricatorUserPreferences extends PhabricatorUserDAO {
   const PREFERENCE_DIFFUSION_VIEW    = 'diffusion-view';
   const PREFERENCE_DIFFUSION_SYMBOLS = 'diffusion-symbols';
 
+  const PREFERENCE_DIFFUSION_VIEW  = 'diffusion-view';
+
   protected $userPHID;
   protected $preferences = array();
 

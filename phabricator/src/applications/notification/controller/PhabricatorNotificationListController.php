@@ -41,6 +41,7 @@ final class PhabricatorNotificationListController
 
     $query = new PhabricatorNotificationQuery();
     $query->setUserPHID($user->getPHID());
+<<<<<<< HEAD
 
     switch ($filter) {
       case 'unread':
@@ -55,6 +56,24 @@ final class PhabricatorNotificationListController
     }
 
     $notifications = $query->executeWithOffsetPager($pager);
+||||||| merged common ancestors
+    $notifications = $query->executeWithPager($pager);
+=======
+
+    switch ($filter) {
+      case 'unread':
+        $query->withUnread(true);
+        $header = pht('Unread Notifications');
+        $no_data = pht('You have no unread notifications.');
+        break;
+      default:
+        $header = pht('Notifications');
+        $no_data = pht('You have no notifications.');
+        break;
+    }
+
+    $notifications = $query->executeWithPager($pager);
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     if ($notifications) {
       $builder = new PhabricatorNotificationBuilder($notifications);

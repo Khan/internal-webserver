@@ -19,8 +19,13 @@
 final class DiffusionCommitChangeTableView extends DiffusionView {
 
   private $pathChanges;
+<<<<<<< HEAD
   private $ownersPaths = array();
   private $renderingReferences;
+||||||| merged common ancestors
+=======
+  private $ownersPaths = array();
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
   public function setPathChanges(array $path_changes) {
     assert_instances_of($path_changes, 'DiffusionPathChange');
@@ -28,6 +33,7 @@ final class DiffusionCommitChangeTableView extends DiffusionView {
     return $this;
   }
 
+<<<<<<< HEAD
   public function setOwnersPaths(array $owners_paths) {
     assert_instances_of($owners_paths, 'PhabricatorOwnersPath');
     $this->ownersPaths = $owners_paths;
@@ -39,6 +45,15 @@ final class DiffusionCommitChangeTableView extends DiffusionView {
     return $this;
   }
 
+||||||| merged common ancestors
+=======
+  public function setOwnersPaths(array $owners_paths) {
+    assert_instances_of($owners_paths, 'PhabricatorOwnersPath');
+    $this->ownersPaths = $owners_paths;
+    return $this;
+  }
+
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   public function render() {
     $rows = array();
     $rowc = array();

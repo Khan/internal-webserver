@@ -67,6 +67,27 @@ class AphrontDefaultApplicationConfiguration
       '/phid/' => array(
         '' => 'PhabricatorPHIDLookupController',
       ),
+<<<<<<< HEAD
+||||||| merged common ancestors
+      '/people/' => array(
+        '' => 'PhabricatorPeopleListController',
+        'logs/' => 'PhabricatorPeopleLogsController',
+        'edit/(?:(?P<id>\d+)/(?:(?P<view>\w+)/)?)?'
+          => 'PhabricatorPeopleEditController',
+      ),
+      '/p/(?P<username>[\w._-]+)/(?:(?P<page>\w+)/)?'
+        => 'PhabricatorPeopleProfileController',
+=======
+      '/people/' => array(
+        '' => 'PhabricatorPeopleListController',
+        'logs/' => 'PhabricatorPeopleLogsController',
+        'edit/(?:(?P<id>\d+)/(?:(?P<view>\w+)/)?)?'
+          => 'PhabricatorPeopleEditController',
+        'ldap/' => 'PhabricatorPeopleLdapController',
+      ),
+      '/p/(?P<username>[\w._-]+)/(?:(?P<page>\w+)/)?'
+        => 'PhabricatorPeopleProfileController',
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
       '/conduit/' => array(
         '' => 'PhabricatorConduitListController',
         'method/(?P<method>[^/]+)/' => 'PhabricatorConduitConsoleController',

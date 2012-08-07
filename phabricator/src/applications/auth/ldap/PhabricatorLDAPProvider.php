@@ -61,6 +61,10 @@ final class PhabricatorLDAPProvider {
   public function getLDAPVersion() {
     return PhabricatorEnv::getEnvConfig('ldap.version');
   }
+  
+  public function getLDAPReferrals() {
+    return PhabricatorEnv::getEnvConfig('ldap.referrals');
+  }
 
   public function getLDAPReferrals() {
     return PhabricatorEnv::getEnvConfig('ldap.referrals');
@@ -81,8 +85,16 @@ final class PhabricatorLDAPProvider {
     $real_name = '';
     if (is_array($name_attributes)) {
       foreach ($name_attributes AS $attribute) {
+<<<<<<< HEAD
         if (isset($data[$attribute][0])) {
           $real_name .= $data[$attribute][0].' ';
+||||||| merged common ancestors
+        if (isset($this->userData[$attribute][0])) {
+          $real_name .= $this->userData[$attribute][0] . ' ';
+=======
+        if (isset($data[$attribute][0])) {
+          $real_name .= $data[$attribute][0] . ' ';
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
         }
       }
 
@@ -113,8 +125,14 @@ final class PhabricatorLDAPProvider {
 
       ldap_set_option($this->connection, LDAP_OPT_PROTOCOL_VERSION,
         $this->getLDAPVersion());
+<<<<<<< HEAD
       ldap_set_option($this->connection, LDAP_OPT_REFERRALS,
        $this->getLDAPReferrals());
+||||||| merged common ancestors
+=======
+      ldap_set_option($this->connection, LDAP_OPT_REFERRALS, 
+       $this->getLDAPReferrals());
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     }
 
     return $this->connection;
@@ -124,6 +142,7 @@ final class PhabricatorLDAPProvider {
     return $this->userData;
   }
 
+<<<<<<< HEAD
   private function invalidLDAPUserErrorMessage($errno, $errmsg) {
     return "LDAP Error #".$errno.": ".$errmsg;
   }
@@ -131,8 +150,31 @@ final class PhabricatorLDAPProvider {
   public function auth($username, PhutilOpaqueEnvelope $password) {
     if (strlen(trim($username)) == 0) {
       throw new Exception('Username can not be empty');
+||||||| merged common ancestors
+  public function auth($username, $password) {
+    if (strlen(trim($username)) == 0 || strlen(trim($password)) == 0) {
+      throw new Exception('Username and/or password can not be empty');
+=======
+  public function auth($username, PhutilOpaqueEnvelope $password) {
+    if (strlen(trim($username)) == 0) {
+      throw new Exception('Username can not be empty');
     }
 
+    $activeDirectoryDomain =
+      PhabricatorEnv::getEnvConfig('ldap.activedirectory_domain');
+
+    if ($activeDirectoryDomain) {
+      $dn = $username . '@' . $activeDirectoryDomain;
+    } else {
+      $dn = ldap_sprintf(
+        '%Q=%s,%Q',
+        $this->getSearchAttribute(),
+        $username,
+        $this->getBaseDN());
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
+    }
+
+<<<<<<< HEAD
     if (PhabricatorEnv::getEnvConfig('ldap.search-first')) {
       // To protect against people phishing for accounts we catch the
       // exception and present the default exception that would be presented
@@ -168,18 +210,40 @@ final class PhabricatorLDAPProvider {
     DarkConsoleErrorLogPluginAPI::enableDiscardMode();
     $result = @ldap_bind($conn, $dn, $password->openEnvelope());
     DarkConsoleErrorLogPluginAPI::disableDiscardMode();
+||||||| merged common ancestors
+    $result = ldap_bind($this->getConnection(),
+              $this->getSearchAttribute() . '=' . $username . ',' .
+              $this->getBaseDN(),
+              $password);
+=======
+    $conn = $this->getConnection();
+
+    // NOTE: It is very important we suppress any messages that occur here,
+    // because it logs passwords if it reaches an error log of any sort.
+    DarkConsoleErrorLogPluginAPI::enableDiscardMode();
+    $result = @ldap_bind($conn, $dn, $password->openEnvelope());
+    DarkConsoleErrorLogPluginAPI::disableDiscardMode();
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     if (!$result) {
+<<<<<<< HEAD
       throw new Exception(
         $this->invalidLDAPUserErrorMessage(
           ldap_errno($conn),
           ldap_error($conn)));
+||||||| merged common ancestors
+      throw new Exception('Bad username/password.');
+=======
+      throw new Exception(
+        "LDAP Error #".ldap_errno($conn).": ".ldap_error($conn));
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     }
 
     $this->userData = $this->getUser($this->getSearchAttribute(), $username);
     return $this->userData;
   }
 
+<<<<<<< HEAD
   private function getUser($attribute, $username) {
     $conn = $this->getConnection();
 
@@ -189,6 +253,21 @@ final class PhabricatorLDAPProvider {
       $username);
 
     $result = ldap_search($conn, $this->getBaseDN(), $query);
+||||||| merged common ancestors
+  private function getUser($username) {
+    $result = ldap_search($this->getConnection(), $this->getBaseDN(),
+              $this->getSearchAttribute() . '=' . $username);
+=======
+  private function getUser($username) {
+    $conn = $this->getConnection();
+
+    $query = ldap_sprintf(
+      '%Q=%S',
+      $this->getSearchAttribute(),
+      $username);
+
+    $result = ldap_search($conn, $this->getBaseDN(), $query);
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     if (!$result) {
       throw new Exception('Search failed. Please check your LDAP and HTTP '.

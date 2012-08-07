@@ -63,6 +63,7 @@ abstract class PhamePostListBaseController
     if (empty($posts)) {
       return array();
     }
+<<<<<<< HEAD
 
     $blogger_phids = mpull($posts, 'getBloggerPHID', 'getBloggerPHID');
 
@@ -76,6 +77,27 @@ abstract class PhamePostListBaseController
     $posts = $query->executeWithOffsetPager($pager);
 
     $bloggers =  $this->loadBloggersFromPosts($posts);
+||||||| merged common ancestors
+    $query    = new PhamePostQuery();
+    $query->withBloggerPHID($phid);
+    $query->withVisibility($post_visibility);
+    $posts    = $query->executeWithPager($pager);
+    $bloggers = array($blogger->getPHID() => $blogger);
+=======
+
+    $blogger_phids = mpull($posts, 'getBloggerPHID', 'getBloggerPHID');
+
+    return
+      id(new PhabricatorObjectHandleData($blogger_phids))->loadHandles();
+  }
+
+  protected function buildPostListPageResponse() {
+    $pager = $this->getPager();
+    $query = $this->getPhamePostQuery();
+    $posts = $query->executeWithPager($pager);
+
+    $bloggers =  $this->loadBloggersFromPosts($posts);
+>>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     $panel = id(new PhamePostListView())
       ->setUser($this->getRequest()->getUser())
