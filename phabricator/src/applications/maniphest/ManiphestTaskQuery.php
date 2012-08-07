@@ -48,6 +48,9 @@ final class ManiphestTaskQuery {
 
   private $priority         = null;
 
+  private $minPriority      = null;
+  private $maxPriority      = null;
+
   private $groupBy          = 'group-none';
   const GROUP_NONE          = 'group-none';
   const GROUP_PRIORITY      = 'group-priority';
@@ -59,6 +62,7 @@ final class ManiphestTaskQuery {
   const ORDER_PRIORITY      = 'order-priority';
   const ORDER_CREATED       = 'order-created';
   const ORDER_MODIFIED      = 'order-modified';
+  const ORDER_TITLE         = 'order-title';
 
   private $limit            = null;
   const DEFAULT_PAGE_SIZE   = 1000;
@@ -116,6 +120,12 @@ final class ManiphestTaskQuery {
 
   public function withPriority($priority) {
     $this->priority = $priority;
+    return $this;
+  }
+
+  public function withPrioritiesBetween($min, $max) {
+    $this->minPriority = $min;
+    $this->maxPriority = $max;
     return $this;
   }
 
@@ -316,14 +326,20 @@ final class ManiphestTaskQuery {
   }
 
   private function buildPriorityWhereClause($conn) {
-    if ($this->priority === null) {
-      return null;
+    if ($this->priority !== null) {
+      return qsprintf(
+        $conn,
+        'priority = %d',
+        $this->priority);
+    } elseif ($this->minPriority !== null && $this->maxPriority !== null) {
+      return qsprintf(
+        $conn,
+        'priority >= %d AND priority <= %d',
+        $this->minPriority,
+        $this->maxPriority);
     }
 
-    return qsprintf(
-      $conn,
-      'priority = %d',
-      $this->priority);
+    return null;
   }
 
   private function buildAuthorWhereClause($conn) {
@@ -505,6 +521,9 @@ final class ManiphestTaskQuery {
       case self::ORDER_MODIFIED:
         $order[] = 'dateModified';
         break;
+      case self::ORDER_TITLE:
+        $order[] = 'title';
+        break;
       default:
         throw new Exception("Unknown order query '{$this->orderBy}'!");
     }
@@ -519,6 +538,7 @@ final class ManiphestTaskQuery {
       switch ($column) {
         case 'subpriority':
         case 'ownerOrdering':
+        case 'title':
           $order[$k] = "task.{$column} ASC";
           break;
         default:

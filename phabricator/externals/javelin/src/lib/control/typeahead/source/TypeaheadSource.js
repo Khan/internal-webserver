@@ -151,10 +151,6 @@ JX.install('TypeaheadSource', {
     addResult : function(obj) {
       obj = (this.getTransformer() || this._defaultTransformer)(obj);
 
-      if (obj && obj.id && this._excludeIDs[obj.id]) {
-        return;
-      }
-
       if (obj.id in this._raw) {
         // We're already aware of this result. This will happen if someone
         // searches for "zeb" and then for "zebra" with a
@@ -185,6 +181,20 @@ JX.install('TypeaheadSource', {
       this.invoke('waiting');
       return this;
     },
+
+
+    /**
+     * Get the raw state of a result by its ID. A number of other events and
+     * mechanisms give a list of result IDs and limited additional data; if you
+     * need to act on the full result data you can look it up here.
+     *
+     * @param scalar Result ID.
+     * @return dict Corresponding raw result.
+     */
+    getResult : function(id) {
+      return this._raw[id];
+    },
+
 
     matchResults : function(value) {
 
@@ -245,7 +255,7 @@ JX.install('TypeaheadSource', {
 
       var hits = [];
       for (var k in match_count) {
-        if (match_count[k] == t.length) {
+        if (match_count[k] == t.length && !this._excludeIDs[k]) {
           hits.push(k);
         }
       }

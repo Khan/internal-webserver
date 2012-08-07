@@ -121,6 +121,51 @@ abstract class PhabricatorBaseEnglishTranslation
       'changed %d revision(s), added %d: %s; removed %d: %s' =>
         'changed revisions, added %3$s; removed %5$s',
 
+      'There are %d raw fact(s) in storage.' => array(
+        'There is %d raw fact in storage.',
+        'There are %d raw facts in storage.',
+      ),
+
+      'There are %d aggregate fact(s) in storage.' => array(
+        'There is %d aggregate fact in storage.',
+        'There are %d aggregate facts in storage.',
+      ),
+
+      '%d Commit(s) Awaiting Audit' => array(
+        '%d Commit Awaiting Audit',
+        '%d Commits Awaiting Audit',
+      ),
+
+      '%d Problem Commit(s)' => array(
+        '%d Problem Commit',
+        '%d Problem Commits',
+      ),
+
+      '%d Review(s) Need Attention' => array(
+        '%d Review Needs Attention',
+        '%d Reviews Need Attention',
+      ),
+
+      '%d Review(s) Waiting on Others' => array(
+        '%d Review Waiting on Others',
+        '%d Reviews Waiting on Others',
+      ),
+
+      '%d Flagged Object(s)' => array(
+        '%d Flagged Object',
+        '%d Flagged Objects',
+      ),
+
+      '%d Unbreak Now Task(s)!' => array(
+        '%d Unbreak Now Task!',
+        '%d Unbreak Now Tasks!',
+      ),
+
+      '%d Assigned Task(s)' => array(
+        '%d Assigned Task',
+        '%d Assigned Tasks',
+      ),
+
     );
   }
 

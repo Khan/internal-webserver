@@ -50,7 +50,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $this->createAudits($commit, $audit_phids, $rules);
     }
 
-    $this->createAuditsFromCommitMessage($commit, $data);
+    $explicit_auditors = $this->createAuditsFromCommitMessage($commit, $data);
 
     if ($repository->getDetail('herald-disabled')) {
       // This just means "disable email"; audits are (mostly) idempotent.
@@ -59,7 +59,12 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $this->publishFeedStory($repository, $commit, $data);
 
-    $email_phids = $adapter->getEmailPHIDs();
+    $herald_targets = $adapter->getEmailPHIDs();
+
+    $email_phids = array_unique(
+      array_merge(
+        $explicit_auditors,
+        $herald_targets));
     if (!$email_phids) {
       return;
     }
@@ -217,7 +222,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $matches = null;
     if (!preg_match('/^Auditors:\s*(.*)$/im', $message, $matches)) {
-      return;
+      return array();
     }
 
     $phids = DifferentialFieldSpecification::parseCommitMessageObjectList(
@@ -226,7 +231,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $allow_partial = true);
 
     if (!$phids) {
-      return;
+      return array();
     }
 
     $requests = id(new PhabricatorRepositoryAuditRequest())->loadAllWhere(
@@ -255,6 +260,8 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $commit->updateAuditStatus($requests);
     $commit->save();
+
+    return $phids;
   }
 
   private function publishFeedStory(

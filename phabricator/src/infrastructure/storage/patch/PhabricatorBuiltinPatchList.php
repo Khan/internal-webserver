@@ -932,6 +932,14 @@ final class PhabricatorBuiltinPatchList extends PhabricatorSQLPatchList {
         'type'    => 'php',
         'name'    => $this->getPatchPath('migrate-maniphest-revisions.php'),
       ),
+      'daemonstatus.sql' => array(
+        'type'    => 'sql',
+        'name'    => $this->getPatchPath('daemonstatus.sql'),
+      ),
+      'symbolcontexts.sql' => array(
+        'type'    => 'sql',
+        'name'    => $this->getPatchPath('symbolcontexts.sql'),
+      ),
     );
   }
 

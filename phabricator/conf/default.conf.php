@@ -56,15 +56,6 @@ return array(
   'security.hmac-key' => '[D\t~Y7eNmnQGJ;rnH6aF;m2!vJ8@v8C=Cs:aQS\.Qw',
 
 
-// -- Customization --------------------------------------------------------- //
-
-  // If you want to use a custom logo (e.g., for your company or organization),
-  // copy 'webroot/rsrc/image/custom/example_template.png' to
-  // 'webroot/rsrc/image/custom/custom.png' and set this to the URI you want it
-  // to link to (like http://www.yourcompany.com/).
-  'phabricator.custom.logo'   => null,
-
-
 // -- Internationalization -------------------------------------------------- //
 
   // This allows customizing texts used in Phabricator. The class must extend
@@ -303,13 +294,11 @@ return array(
   'metamta.mail-adapter'        =>
     'PhabricatorMailImplementationPHPMailerLiteAdapter',
 
-  // When email is sent, try to hand it off to the MTA immediately. This may
-  // be worth disabling if your MTA infrastructure is slow or unreliable. If you
-  // disable this option, you must run the 'metamta_mta.php' daemon or mail
-  // won't be handed off to the MTA. If you're using Amazon SES it can be a
-  // little slugish sometimes so it may be worth disabling this and moving to
-  // the daemon after you've got your install up and running. If you have a
-  // properly configured local MTA it should not be necessary to disable this.
+  // When email is sent, try to hand it off to the MTA immediately instead of
+  // queueing it for delivery by the daemons. If you are running the Phabricator
+  // daemons with "phd start", you should disable this to provide a (sometimes
+  // substantial) performance boost. It's on by default to make setup and
+  // configuration a little easier.
   'metamta.send-immediately'    => true,
 
   // If you're using Amazon SES to send email, provide your AWS access key
@@ -638,11 +627,22 @@ return array(
   // The LDAP server hostname
   'ldap.hostname' => '',
 
+  // The LDAP server port
+  'ldap.port' => 389,
+
   // The LDAP base domain name
   'ldap.base_dn' => '',
 
   // The attribute to be regarded as 'username'. Has to be unique
   'ldap.search_attribute' => '',
+
+  // Perform a search to find a user
+  // Many LDAP installations do not have the username in the dn, if this is
+  // true for you set this to true and configure the username_attribute below
+  'ldap.search-first'         => false,
+
+  // The attribute to search for if you have to search for a user
+  'ldap.username-attribute' => '',
 
   // The attribute(s) to be regarded as 'real name'.
   // If more then one attribute is supplied the values of the attributes in
@@ -652,7 +652,7 @@ return array(
   // A domain name to use when authenticating against Active Directory
   // (e.g. 'example.com')
   'ldap.activedirectory_domain' => '',
-  
+
   // The LDAP version
   'ldap.version' => 3,
 
@@ -1098,7 +1098,10 @@ return array(
 
   // Directory that phd (the Phabricator daemon control script) should use to
   // track running daemons.
-  'phd.pid-directory' => '/var/tmp/phd',
+  'phd.pid-directory' => '/var/tmp/phd/pid',
+
+  // Directory that the Phabricator daemons should use to store the log file
+  'phd.log-directory' => '/var/tmp/phd/log',
 
   // Number of "TaskMaster" daemons that "phd start" should start. You can
   // raise this if you have a task backlog, or explicitly launch more with
@@ -1232,4 +1235,22 @@ return array(
   // only enable it when debugging.
   'debug.profile-every-request'  => false,
 
+
+// -- Previews  ------------------------------------------------------------- //
+
+  // Turn on to enable the "viewport" meta tag. This is a preview feature which
+  // will improve the usability of Phabricator on phones and tablets once it
+  // is ready.
+  'preview.viewport-meta-tag' => false,
+
+// -- Environment  ---------------------------------------------------------- //
+
+  // Phabricator occasionally shells out to other binaries on the server.
+  // An example of this is the "pygmentize" command, used to syntax-highlight
+  // code written in languages other than PHP. By default, it is assumed that
+  // these binaries are in the $PATH of the user running Phabricator (normally
+  // 'apache', 'httpd', or 'nobody'). Here you can add extra directories to
+  // the $PATH environment variable, for when these binaries are in non-standard
+  // locations.
+  'environment.append-paths' => array(),
 );
