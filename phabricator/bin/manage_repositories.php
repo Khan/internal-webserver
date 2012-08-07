@@ -1,1 +1,0 @@
-../scripts/repository/manage_repositories.php

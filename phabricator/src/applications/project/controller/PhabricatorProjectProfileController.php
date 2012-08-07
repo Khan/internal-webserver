@@ -40,17 +40,7 @@ final class PhabricatorProjectProfileController
       $profile = new PhabricatorProjectProfile();
     }
 
-    $src_phid = $profile->getProfileImagePHID();
-    if (!$src_phid) {
-      $src_phid = $user->getProfileImagePHID();
-    }
-    $file = id(new PhabricatorFile())->loadOneWhere('phid = %s',
-                                                    $src_phid);
-    if ($file) {
-      $picture = $file->getBestURI();
-    } else {
-      $picture = PhabricatorUser::getDefaultProfileImageURI();
-    }
+    $picture = $profile->loadProfileImageURI();
 
     $members = mpull($project->loadAffiliations(), null, 'getUserPHID');
 
@@ -88,6 +78,8 @@ final class PhabricatorProjectProfileController
           array(
             $project->getPHID(),
           ));
+        $query->setLimit(50);
+        $query->setViewer($this->getRequest()->getUser());
         $stories = $query->execute();
 
         $content .= $this->renderStories($stories);
@@ -253,18 +245,13 @@ final class PhabricatorProjectProfileController
 
     $query = new PhabricatorFeedQuery();
     $query->setFilterPHIDs(array($project->getPHID()));
+    $query->setViewer($this->getRequest()->getUser());
+    $query->setLimit(100);
     $stories = $query->execute();
 
     if (!$stories) {
       return 'There are no stories about this project.';
     }
-
-    $query = new PhabricatorFeedQuery();
-    $query->setFilterPHIDs(
-      array(
-        $project->getPHID(),
-      ));
-    $stories = $query->execute();
 
     return $this->renderStories($stories);
   }
