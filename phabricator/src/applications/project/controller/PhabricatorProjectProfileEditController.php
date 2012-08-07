@@ -37,29 +37,7 @@ final class PhabricatorProjectProfileEditController
       $profile = new PhabricatorProjectProfile();
     }
 
-<<<<<<< HEAD
     $img_src = $profile->loadProfileImageURI();
-||||||| merged common ancestors
-    if ($project->getSubprojectPHIDs()) {
-      $phids = $project->getSubprojectPHIDs();
-      $handles = id(new PhabricatorObjectHandleData($phids))
-        ->loadHandles();
-      $subprojects = mpull($handles, 'getFullName', 'getPHID');
-    } else {
-      $subprojects = array();
-    }
-=======
-    $img_src = $profile->loadProfileImageURI();
-
-    if ($project->getSubprojectPHIDs()) {
-      $phids = $project->getSubprojectPHIDs();
-      $handles = id(new PhabricatorObjectHandleData($phids))
-        ->loadHandles();
-      $subprojects = mpull($handles, 'getFullName', 'getPHID');
-    } else {
-      $subprojects = array();
-    }
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
     $options = PhabricatorProjectStatus::getStatusMap();
 
@@ -182,22 +160,7 @@ final class PhabricatorProjectProfileEditController
                 'src' => $img_src,
               ))))
       ->appendChild(
-<<<<<<< HEAD
         id(new AphrontFormImageControl())
-||||||| merged common ancestors
-        id(new AphrontFormFileControl())
-=======
-        id(new AphrontFormMarkupControl())
-          ->setLabel('Profile Image')
-          ->setValue(
-            phutil_render_tag(
-              'img',
-              array(
-                'src' => $img_src,
-              ))))
-      ->appendChild(
-        id(new AphrontFormImageControl())
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
           ->setLabel('Change Image')
           ->setName('image')
           ->setError($e_image)

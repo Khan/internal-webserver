@@ -37,13 +37,7 @@ final class PhutilLibraryMapBuilder {
   const LIBRARY_MAP_VERSION       = 2;
 
   const SYMBOL_CACHE_VERSION_KEY  = '__symbol_cache_version__';
-<<<<<<< HEAD
   const SYMBOL_CACHE_VERSION      = 7;
-||||||| merged common ancestors
-  const SYMBOL_CACHE_VERSION      = 4;
-=======
-  const SYMBOL_CACHE_VERSION      = 5;
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
 
 /* -(  Mapping libphutil Libraries  )---------------------------------------- */

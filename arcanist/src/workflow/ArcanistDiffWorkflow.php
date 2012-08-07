@@ -577,14 +577,9 @@ EOTEXT
           }
 
           $repository_api->setIncludeDirectoryStateInDiffs(true);
-<<<<<<< HEAD
           $this->haveUncommittedChanges = true;
         } else {
           throw $ex;
-||||||| merged common ancestors
-=======
-          $this->haveUncommittedChanges = true;
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
         }
       }
     }

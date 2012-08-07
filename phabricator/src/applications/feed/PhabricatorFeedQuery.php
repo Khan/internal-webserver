@@ -16,13 +16,7 @@
  * limitations under the License.
  */
 
-<<<<<<< HEAD
 final class PhabricatorFeedQuery extends PhabricatorCursorPagedPolicyQuery {
-||||||| merged common ancestors
-final class PhabricatorFeedQuery {
-=======
-final class PhabricatorFeedQuery extends PhabricatorIDPagedPolicyQuery {
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 
   private $filterPHIDs;
 

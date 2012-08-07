@@ -649,18 +649,10 @@ return array(
   // the array will be joined
   'ldap.real_name_attributes' => array(),
 
-<<<<<<< HEAD
   // A domain name to use when authenticating against Active Directory
   // (e.g. 'example.com')
   'ldap.activedirectory_domain' => '',
 
-||||||| merged common ancestors
-=======
-  // A domain name to use when authenticating against Active Directory
-  // (e.g. 'example.com')
-  'ldap.activedirectory_domain' => '',
-  
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   // The LDAP version
   'ldap.version' => 3,
 
@@ -1156,20 +1148,8 @@ return array(
   // of classes which extend PhabricatorEventListener here.
   'events.listeners'  => array(),
 
-<<<<<<< HEAD
-// -- Syntax Highlighting --------------------------------------------------- //
-||||||| merged common ancestors
-// -- Pygments -------------------------------------------------------------- //
-=======
 // -- Syntax Highlighting --------------------------------------------------- //
 
-  // Phabricator can highlight PHP by default and use Pygments for other
-  // languages if enabled. You can provide a custom highlighter engine by
-  // extending class PhutilSyntaxHighlighterEngine.
-  'syntax-highlighter.engine' => 'PhutilDefaultSyntaxHighlighterEngine',
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
-
-<<<<<<< HEAD
   // Phabricator can highlight PHP by default and use Pygments for other
   // languages if enabled. You can provide a custom highlighter engine by
   // extending class PhutilSyntaxHighlighterEngine.
@@ -1178,16 +1158,6 @@ return array(
   // If you want syntax highlighting for other languages than PHP then you can
   // install the python package 'Pygments', make sure the 'pygmentize' script is
   //  available in the $PATH of the webserver, and then enable this.
-||||||| merged common ancestors
-  // Phabricator can highlight PHP by default, but if you want syntax
-  // highlighting for other languages you should install the python package
-  // 'Pygments', make sure the 'pygmentize' script is available in the
-  // $PATH of the webserver, and then enable this.
-=======
-  // If you want syntax highlighting for other languages than PHP then you can
-  // install the python package 'Pygments', make sure the 'pygmentize' script is
-  //  available in the $PATH of the webserver, and then enable this.
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   'pygments.enabled'            => false,
 
   // In places that we display a dropdown to syntax-highlight code,
@@ -1243,7 +1213,6 @@ return array(
     '@\.divinerconfig$@' => 'js',
   ),
 
-<<<<<<< HEAD
   // Set the default monospaced font style for users who haven't set a custom
   // style.
   'style.monospace' => '10px "Menlo", "Consolas", "Monaco", monospace',
@@ -1284,29 +1253,4 @@ return array(
   // the $PATH environment variable, for when these binaries are in non-standard
   // locations.
   'environment.append-paths' => array(),
-||||||| merged common ancestors
-=======
-  // Set the default monospaced font style for users who haven't set a custom
-  // style.
-  'style.monospace' => '10px "Menlo", "Consolas", "Monaco", monospace',
-
-
-// -- Debugging ------------------------------------------------------------- //
-
-  // Enable this to change HTTP redirects into normal pages with a link to the
-  // redirection target. For example, after you submit a form you'll get a page
-  // saying "normally, you'd be redirected...". This is useful to examine
-  // service or profiler information on write pathways, or debug redirects. It
-  // also makes the UX horrible for normal use, so you should enable it only
-  // when debugging.
-  //
-  // NOTE: This does not currently work for forms with Javascript "workflow",
-  // since the redirect happens in Javascript.
-  'debug.stop-on-redirect'    => false,
-
-  // Enable this to always profile every page. This is very slow! You should
-  // only enable it when debugging.
-  'debug.profile-every-request'  => false,
-
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
 );

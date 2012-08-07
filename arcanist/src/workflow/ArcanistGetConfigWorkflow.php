@@ -55,19 +55,10 @@ EOTEXT
     $settings = new ArcanistSettings();
 
     $configs = array(
-<<<<<<< HEAD
       'system'  => self::readSystemArcConfig(),
       'global'  => self::readGlobalArcConfig(),
       'project' => $this->getWorkingCopy()->getProjectConfig(),
       'local'   => $this->readLocalArcConfig(),
-||||||| merged common ancestors
-      'global' => self::readGlobalArcConfig(),
-      'local' => $this->readLocalArcConfig(),
-=======
-      'system' => self::readSystemArcConfig(),
-      'global' => self::readGlobalArcConfig(),
-      'local' => $this->readLocalArcConfig(),
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     );
 
     if ($argv) {

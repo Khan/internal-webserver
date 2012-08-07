@@ -84,7 +84,6 @@ try {
 
   PhabricatorEnv::setEnvConfig($conf);
 
-<<<<<<< HEAD
   // This needs to be done before we create the log, because
   // PhabricatorAccessLog::getLog() calls date()
   $tz = PhabricatorEnv::getEnvConfig('phabricator.timezone');
@@ -100,16 +99,6 @@ try {
     putenv('PATH='.$current_env_path.':'.$new_env_paths);
   }
 
-||||||| merged common ancestors
-=======
-  // This needs to be done before we create the log, because
-  // PhabricatorAccessLog::getLog() calls date()
-  $tz = PhabricatorEnv::getEnvConfig('phabricator.timezone');
-  if ($tz) {
-    date_default_timezone_set($tz);
-  }
-
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
   // This is the earliest we can get away with this, we need env config first.
   PhabricatorAccessLog::init();
   $access_log = PhabricatorAccessLog::getLog();

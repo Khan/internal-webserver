@@ -899,7 +899,6 @@ final class PhabricatorBuiltinPatchList extends PhabricatorSQLPatchList {
         'type'    => 'sql',
         'name'    => $this->getPatchPath('usertranslation.sql'),
       ),
-<<<<<<< HEAD
       'differentialbookmarks.sql' => array(
         'type'    => 'sql',
         'name'    => $this->getPatchPath('differentialbookmarks.sql'),
@@ -941,42 +940,6 @@ final class PhabricatorBuiltinPatchList extends PhabricatorSQLPatchList {
         'type'    => 'sql',
         'name'    => $this->getPatchPath('symbolcontexts.sql'),
       ),
-||||||| merged common ancestors
-=======
-      'differentialbookmarks.sql' => array(
-        'type'    => 'sql',
-        'name'    => $this->getPatchPath('differentialbookmarks.sql'),
-      ),
-      'harbormasterobject.sql' => array(
-        'type'    => 'sql',
-        'name'    => $this->getPatchPath('harbormasterobject.sql'),
-      ),
-      'markupcache.sql' => array(
-        'type'    => 'sql',
-        'name'    => $this->getPatchPath('markupcache.sql'),
-      ),
-      'maniphestxcache.sql' => array(
-        'type'    => 'sql',
-        'name'    => $this->getPatchPath('maniphestxcache.sql'),
-      ),
-      'migrate-maniphest-dependencies.php' => array(
-        'type'    => 'php',
-        'name'    => $this->getPatchPath('migrate-maniphest-dependencies.php'),
-      ),
-      'migrate-differential-dependencies.php' => array(
-        'type'    => 'php',
-        'name'    => $this->getPatchPath(
-          'migrate-differential-dependencies.php'),
-      ),
-      'phameblog.sql' => array(
-        'type'    => 'sql',
-        'name'    => $this->getPatchPath('phameblog.sql'),
-      ),
-      'migrate-maniphest-revisions.php' => array(
-        'type'    => 'php',
-        'name'    => $this->getPatchPath('migrate-maniphest-revisions.php'),
-      ),
->>>>>>> 89123d17e0ed054c3b5fd9c83b908405ee43861e
     );
   }
 
