@@ -31,14 +31,7 @@ final class DifferentialBranchFieldSpecification
     $diff = $this->getDiff();
 
     $branch = $diff->getBranch();
-    $bookmark = $diff->getBookmark();
-    $has_branch = ($branch != '');
-    $has_bookmark = ($bookmark != '');
-    if ($has_branch && $has_bookmark) {
-      $branch = "{$bookmark} bookmark on {$branch} branch";
-    } else if ($has_bookmark) {
-      $branch = "{$bookmark} bookmark";
-    } else if (!$has_branch) {
+    if ($branch == '') {
       return null;
     }
 

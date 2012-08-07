@@ -49,12 +49,8 @@ final class DifferentialManiphestTasksFieldSpecification
 
   private function getManiphestTaskPHIDs() {
     $revision = $this->getRevision();
-    if (!$revision->getPHID()) {
-      return array();
-    }
-    return PhabricatorEdgeQuery::loadDestinationPHIDs(
-      $revision->getPHID(),
-      PhabricatorEdgeConfig::TYPE_DREV_HAS_RELATED_TASK);
+    return $revision->getAttachedPHIDs(
+      PhabricatorPHIDConstants::PHID_TYPE_TASK);
   }
 
   /**
@@ -63,28 +59,14 @@ final class DifferentialManiphestTasksFieldSpecification
    * @return void
    */
   public function didWriteRevision(DifferentialRevisionEditor $editor) {
-    $revision = $editor->getRevision();
-    $revision_phid = $revision->getPHID();
-    $edge_type = PhabricatorEdgeConfig::TYPE_DREV_HAS_RELATED_TASK;
-
-    $old_phids = PhabricatorEdgeQuery::loadDestinationPHIDs(
-      $revision_phid,
-      $edge_type);
-    $add_phids = $this->maniphestTasks;
-    $rem_phids = array_diff($old_phids, $add_phids);
-
-    $edge_editor = id(new PhabricatorEdgeEditor())
-      ->setUser($this->getUser());
-
-    foreach ($add_phids as $phid) {
-      $edge_editor->addEdge($revision_phid, $edge_type, $phid);
-    }
-
-    foreach ($rem_phids as $phid) {
-      $edge_editor->removeEdge($revision_phid, $edge_type, $phid);
-    }
-
-    $edge_editor->save();
+    $aeditor = new PhabricatorObjectAttachmentEditor(
+      PhabricatorPHIDConstants::PHID_TYPE_DREV,
+      $editor->getRevision());
+    $aeditor->setUser($this->getUser());
+    $aeditor->attachObjects(
+      PhabricatorPHIDConstants::PHID_TYPE_TASK,
+      $this->maniphestTasks,
+      $two_way = true);
   }
 
   protected function didSetRevision() {

@@ -17,13 +17,9 @@
  */
 
 /**
- * @task markup Markup Interface
  * @group maniphest
  */
-final class ManiphestTransaction extends ManiphestDAO
-  implements PhabricatorMarkupInterface {
-
-  const MARKUP_FIELD_BODY = 'markup:body';
+final class ManiphestTransaction extends ManiphestDAO {
 
   protected $taskID;
   protected $authorPHID;
@@ -31,6 +27,7 @@ final class ManiphestTransaction extends ManiphestDAO
   protected $oldValue;
   protected $newValue;
   protected $comments;
+  protected $cache;
   protected $metadata = array();
   protected $contentSource;
 
@@ -60,11 +57,6 @@ final class ManiphestTransaction extends ManiphestDAO
       case ManiphestTransactionType::TYPE_OWNER:
         $phids[] = $this->getOldValue();
         $phids[] = $this->getNewValue();
-        break;
-      case ManiphestTransactionType::TYPE_EDGE:
-        $phids = array_merge(
-          $phids,
-          array_keys($this->getOldValue() + $this->getNewValue()));
         break;
       case ManiphestTransactionType::TYPE_ATTACH:
         $old = $this->getOldValue();
@@ -144,57 +136,6 @@ final class ManiphestTransaction extends ManiphestDAO
 
   public function getContentSource() {
     return PhabricatorContentSource::newFromSerialized($this->contentSource);
-  }
-
-
-/* -(  Markup Interface  )--------------------------------------------------- */
-
-
-  /**
-   * @task markup
-   */
-  public function getMarkupFieldKey($field) {
-    if ($this->shouldUseMarkupCache($field)) {
-      $id = $this->getID();
-    } else {
-      $id = PhabricatorHash::digest($this->getMarkupText($field));
-    }
-    return "maniphest:x:{$field}:{$id}";
-  }
-
-
-  /**
-   * @task markup
-   */
-  public function getMarkupText($field) {
-    return $this->getComments();
-  }
-
-
-  /**
-   * @task markup
-   */
-  public function newMarkupEngine($field) {
-    return PhabricatorMarkupEngine::newManiphestMarkupEngine();
-  }
-
-
-  /**
-   * @task markup
-   */
-  public function didMarkupText(
-    $field,
-    $output,
-    PhutilMarkupEngine $engine) {
-    return $output;
-  }
-
-
-  /**
-   * @task markup
-   */
-  public function shouldUseMarkupCache($field) {
-    return (bool)$this->getID();
   }
 
 }

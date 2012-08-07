@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # NOTE: This file is a wrapper script instead of a symlink so it will work in
 # the Git Bash environment in Windows.

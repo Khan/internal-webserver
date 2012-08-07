@@ -34,7 +34,6 @@ final class DifferentialDiff extends DifferentialDAO {
   protected $lineCount;
 
   protected $branch;
-  protected $bookmark;
 
   protected $parentRevisionID;
   protected $arcanistProjectPHID;
@@ -148,8 +147,8 @@ final class DifferentialDiff extends DifferentialDAO {
           $changeset->addUnsavedHunk($dhunk);
           $add_lines += $hunk->getAddLines();
           $del_lines += $hunk->getDelLines();
+          $lines += $add_lines + $del_lines;
         }
-        $lines += $add_lines + $del_lines;
       } else {
         // This happens when you add empty files.
         $changeset->attachHunks(array());
@@ -258,7 +257,6 @@ final class DifferentialDiff extends DifferentialDAO {
       'sourceControlPath' => $this->getSourceControlPath(),
       'sourceControlSystem' => $this->getSourceControlSystem(),
       'branch' => $this->getBranch(),
-      'bookmark' => $this->getBookmark(),
       'creationMethod' => $this->getCreationMethod(),
       'description' => $this->getDescription(),
       'unitStatus' => $this->getUnitStatus(),

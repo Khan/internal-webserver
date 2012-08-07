@@ -78,9 +78,7 @@ final class PhabricatorOAuthProviderFacebook extends PhabricatorOAuthProvider {
   }
 
   public function getUserInfoURI() {
-    $fields = array('id', 'name', 'email', 'link', 'security_settings');
-    return 'https://graph.facebook.com/me?fields='.
-      implode(',', $fields);
+    return 'https://graph.facebook.com/me';
   }
 
   public function getMinimumScope() {
@@ -90,17 +88,6 @@ final class PhabricatorOAuthProviderFacebook extends PhabricatorOAuthProvider {
   public function setUserData($data) {
     $data = json_decode($data, true);
     $this->validateUserData($data);
-
-    if (PhabricatorEnv::getEnvConfig('facebook.require-https-auth')) {
-      if (!$data['security_settings']['secure_browsing']['enabled']) {
-        throw new PhabricatorOAuthProviderException(
-          'You must enable Secure Browsing on your Facebook account in'.
-          ' order to log in to Phabricator. For more information, check'.
-          ' out http://www.facebook.com/help/?faq=215897678434749'
-        );
-      }
-    }
-
     $this->userData = $data;
     return $this;
   }

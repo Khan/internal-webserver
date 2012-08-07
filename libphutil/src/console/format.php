@@ -63,37 +63,22 @@ function phutil_console_prompt($prompt, $history = '') {
     throw $ex;
   }
 
-  $use_history = true;
-  if ($history == '') {
-    $use_history = false;
-  } else {
-    // Test if bash is available by seeing if it can run `true`.
-    list($err) = exec_manual('bash -c %s', 'true');
-    if ($err) {
-      $use_history = false;
-    }
-  }
-
-  if (!$use_history) {
+  if ($history == '' || !shell_exec('echo $BASH 2> /dev/null')) {
     echo $prompt;
     $response = fgets(STDIN);
-  } else {
-    // There's around 0% chance that readline() is available directly in PHP,
-    // so we're using bash/read/history instead.
-    $command = csprintf(
-      'bash -c %s',
-      csprintf(
-        'history -r %s 2>/dev/null; '.
-        'read -e -p %s; '.
-        'echo "$REPLY"; '.
-        'history -s "$REPLY" 2>/dev/null; '.
-        'history -w %s 2>/dev/null',
-        $history,
-        $prompt,
-        $history));
 
+  } else {
+    // There's around 0% chance that readline() is available directly in PHP.
     // execx() doesn't work with input, phutil_passthru() doesn't return output.
-    $response = shell_exec($command);
+    $response = shell_exec(csprintf(
+      'history -r %s 2> /dev/null;'.
+      ' read -e -p %s;'.
+      ' echo "$REPLY";'.
+      ' history -s "$REPLY" 2> /dev/null;'.
+      ' history -w %s 2> /dev/null',
+      $history,
+      $prompt,
+      $history));
   }
 
   return rtrim($response, "\r\n");

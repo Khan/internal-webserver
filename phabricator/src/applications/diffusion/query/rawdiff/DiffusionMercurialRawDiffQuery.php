@@ -27,15 +27,9 @@ final class DiffusionMercurialRawDiffQuery extends DiffusionRawDiffQuery {
     // If there's no path, get the entire raw diff.
     $path = nonempty($drequest->getPath(), '.');
 
-    $against = $this->getAgainstCommit();
-    if ($against === null) {
-      $against = $commit.'^';
-    }
-
     $future = $repository->getLocalCommandFuture(
-      'diff -U %d --git --rev %s:%s -- %s',
+      'diff -U %d --git --change %s -- %s',
       $this->getLinesOfContext(),
-      $against,
       $commit,
       $path);
 

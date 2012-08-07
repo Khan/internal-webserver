@@ -22,76 +22,106 @@
 abstract class PhamePostListBaseController
   extends PhameController {
 
-  private $phamePostQuery;
-  private $actions;
-  private $pageTitle;
+  private $bloggerName;
+  private $isDraft;
 
-  protected function setPageTitle($page_title) {
-    $this->pageTitle = $page_title;
+  private function setBloggerName($blogger_name) {
+    $this->bloggerName = $blogger_name;
     return $this;
   }
-  private function getPageTitle() {
-    return $this->pageTitle;
+  private function getBloggerName() {
+    return $this->bloggerName;
   }
 
-  protected function setActions($actions) {
-    $this->actions = $actions;
-    return $this;
-  }
-  private function getActions() {
-    return $this->actions;
-  }
-
-  protected function setPhamePostQuery(PhamePostQuery $query) {
-    $this->phamePostQuery = $query;
-    return $this;
-  }
-  private function getPhamePostQuery() {
-    return $this->phamePostQuery;
-  }
-
-  protected function isDraft() {
-    return false;
-  }
-
-  protected function getNoticeView() {
-    return null;
-  }
-
-  private function loadBloggersFromPosts(array $posts) {
-    assert_instances_of($posts, 'PhamePost');
-    if (empty($posts)) {
+  protected function getSideNavExtraPostFilters() {
+    if ($this->isDraft() || !$this->getBloggerName()) {
       return array();
     }
 
-    $blogger_phids = mpull($posts, 'getBloggerPHID', 'getBloggerPHID');
-
     return
-      id(new PhabricatorObjectHandleData($blogger_phids))->loadHandles();
+        array(array('key'  => $this->getSideNavFilter(),
+                    'name' => 'Posts by '.$this->getBloggerName()));
   }
 
-  protected function buildPostListPageResponse() {
-    $pager = $this->getPager();
-    $query = $this->getPhamePostQuery();
-    $posts = $query->executeWithOffsetPager($pager);
+  protected function getSideNavFilter() {
+    if ($this->getBloggerName()) {
+      $filter = 'posts/'.$this->getBloggerName();
+    } else if ($this->isDraft()) {
+      $filter = 'draft';
+    } else {
+      $filter = 'posts';
+    }
+    return $filter;
+  }
 
-    $bloggers =  $this->loadBloggersFromPosts($posts);
+  private function isDraft() {
+    return (bool) $this->isDraft;
+  }
+  protected function setIsDraft($is_draft) {
+    $this->isDraft = $is_draft;
+    return $this;
+  }
+
+  public function willProcessRequest(array $data) {
+    $this->setBloggerName(idx($data, 'bloggername'));
+  }
+
+  public function processRequest() {
+    $request   = $this->getRequest();
+    $user      = $request->getUser();
+    $pager     = new AphrontPagerView();
+    $page_size = 50;
+    $pager->setURI($request->getRequestURI(), 'offset');
+    $pager->setPageSize($page_size);
+    $pager->setOffset($request->getInt('offset'));
+
+    if ($this->getBloggerName()) {
+      $blogger = id(new PhabricatorUser())->loadOneWhere(
+        'username = %s',
+        $this->getBloggerName());
+      if (!$blogger) {
+        return new Aphront404Response();
+      }
+      $page_title = 'Posts by '.$this->getBloggerName();
+      if ($blogger->getPHID() == $user->getPHID()) {
+        $actions    = array('view', 'edit');
+      } else {
+        $actions    = array('view');
+      }
+      $this->setShowSideNav(false);
+    } else {
+      $blogger    = $user;
+      $page_title = 'Posts by '.$user->getUserName();
+      $actions    = array('view', 'edit');
+      $this->setShowSideNav(true);
+    }
+    $phid = $blogger->getPHID();
+    // user gets to see their own unpublished stuff
+    if ($phid == $user->getPHID() && $this->isDraft()) {
+      $post_visibility = PhamePost::VISIBILITY_DRAFT;
+    } else {
+      $post_visibility = PhamePost::VISIBILITY_PUBLISHED;
+    }
+    $query    = new PhamePostQuery();
+    $query->withBloggerPHID($phid);
+    $query->withVisibility($post_visibility);
+    $posts    = $query->executeWithPager($pager);
+    $bloggers = array($blogger->getPHID() => $blogger);
 
     $panel = id(new PhamePostListView())
-      ->setUser($this->getRequest()->getUser())
+      ->setUser($user)
       ->setBloggers($bloggers)
       ->setPosts($posts)
-      ->setActions($this->getActions())
+      ->setActions($actions)
       ->setDraftList($this->isDraft());
 
     return $this->buildStandardPageResponse(
       array(
-        $this->getNoticeView(),
         $panel,
         $pager
       ),
       array(
-        'title' => $this->getPageTitle(),
+        'title'   => $page_title,
       ));
   }
 }

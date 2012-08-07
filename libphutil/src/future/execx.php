@@ -88,16 +88,12 @@ function phutil_passthru($cmd /*, ... */) {
     $options = array(
       'bypass_shell' => true,
     );
-    $proc = @proc_open($command, $spec, $pipes, null, null, $options);
+    $proc = proc_open($command, $spec, $pipes, null, null, $options);
   } else {
-    $proc = @proc_open($command, $spec, $pipes);
+    $proc = proc_open($command, $spec, $pipes);
   }
-  
-  if ($proc === false) {
-    $err = 1;
-  } else {
-    $err = proc_close($proc);
-  }
+
+  $err = proc_close($proc);
 
   $profiler->endServiceCall(
     $call_id,

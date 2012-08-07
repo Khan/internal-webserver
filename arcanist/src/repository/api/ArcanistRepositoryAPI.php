@@ -195,7 +195,7 @@ abstract class ArcanistRepositoryAPI {
     throw new ArcanistCapabilityNotSupportedException($this);
   }
 
-  public function getCommitMessage($commit) {
+  public function getCommitMessageForRevision($revision) {
     throw new ArcanistCapabilityNotSupportedException($this);
   }
 
@@ -221,17 +221,17 @@ abstract class ArcanistRepositoryAPI {
     throw new ArcanistCapabilityNotSupportedException($this);
   }
 
-  public function execxLocal($pattern /* , ... */) {
+  public function execxLocal($pattern /*, ... */) {
     $args = func_get_args();
     return $this->buildLocalFuture($args)->resolvex();
   }
 
-  public function execManualLocal($pattern /* , ... */) {
+  public function execManualLocal($pattern /*, ... */) {
     $args = func_get_args();
     return $this->buildLocalFuture($args)->resolve();
   }
 
-  public function execFutureLocal($pattern /* , ... */) {
+  public function execFutureLocal($pattern /*, ... */) {
     $args = func_get_args();
     return $this->buildLocalFuture($args);
   }
@@ -409,7 +409,6 @@ abstract class ArcanistRepositoryAPI {
   public function resolveBaseCommit() {
     $working_copy = $this->getWorkingCopyIdentity();
     $global_config = ArcanistBaseWorkflow::readGlobalArcConfig();
-    $system_config = ArcanistBaseWorkflow::readSystemArcConfig();
 
     $parser = new ArcanistBaseCommitParser($this);
     $commit = $parser->resolveBaseCommit(
@@ -418,7 +417,6 @@ abstract class ArcanistRepositoryAPI {
         'local'   => $working_copy->getLocalConfig('base', ''),
         'project' => $working_copy->getConfig('base', ''),
         'global'  => idx($global_config, 'base', ''),
-        'system'  => idx($system_config, 'base', ''),
       ));
 
     return $commit;

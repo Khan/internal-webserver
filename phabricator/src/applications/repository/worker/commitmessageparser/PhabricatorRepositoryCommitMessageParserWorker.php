@@ -52,19 +52,8 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
       $parser_obj->parseCommitDetails();
     }
 
-    $author_phid = $this->lookupUser(
-      $commit,
-      $data->getAuthorName(),
-      $data->getCommitDetail('authorPHID'));
-    $data->setCommitDetail('authorPHID', $author_phid);
-
-    $committer_phid = $this->lookupUser(
-      $commit,
-      $data->getCommitDetail('committer'),
-      $data->getCommitDetail('committerPHID'));
-    $data->setCommitDetail('committerPHID', $committer_phid);
-
-    if ($author_phid != $commit->getAuthorPHID()) {
+    $author_phid = $data->getCommitDetail('authorPHID');
+    if ($author_phid) {
       $commit->setAuthorPHID($author_phid);
       $commit->save();
     }
@@ -232,14 +221,12 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
       'commit');
     foreach ($vs_diff->loadChangesets() as $changeset) {
       $path = $changeset->getAbsoluteRepositoryPath($repository, $vs_diff);
-      $path = ltrim($path, '/');
       $vs_changesets[$path] = $changeset;
     }
 
     $changesets = array();
     foreach ($diff->getChangesets() as $changeset) {
       $path = $changeset->getAbsoluteRepositoryPath($repository, $diff);
-      $path = ltrim($path, '/');
       $changesets[$path] = $changeset;
     }
 
@@ -292,27 +279,9 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
         if ($files[$file_phid]->loadFileData() != $corpus) {
           return $vs_diff;
         }
-      } else {
-        $context = implode("\n", $changeset->makeChangesWithContext());
-        $vs_context = implode("\n", $vs_changeset->makeChangesWithContext());
-
-        // We couldn't just compare $context and $vs_context because following
-        // diffs will be considered different:
-        //
-        //   -(empty line)
-        //   -echo 'test';
-        //    (empty line)
-        //
-        //    (empty line)
-        //   -echo "test";
-        //   -(empty line)
-
-        $hunk = id(new DifferentialHunk())->setChanges($context);
-        $vs_hunk = id(new DifferentialHunk())->setChanges($vs_context);
-        if ($hunk->makeOldFile() != $vs_hunk->makeOldFile() ||
-            $hunk->makeNewFile() != $vs_hunk->makeNewFile()) {
-          return $vs_diff;
-        }
+      } else if ($changeset->makeChangesWithContext() !=
+          $vs_changeset->makeChangesWithContext()) {
+        return $vs_diff;
       }
     }
 
@@ -377,27 +346,4 @@ abstract class PhabricatorRepositoryCommitMessageParserWorker
     $revisions = msort($revisions, 'getDateModified');
     return end($revisions);
   }
-
-  /**
-   * Emit an event so installs can do custom lookup of commit authors who may
-   * not be naturally resolvable.
-   */
-  private function lookupUser(
-    PhabricatorRepositoryCommit $commit,
-    $query,
-    $guess) {
-
-    $type = PhabricatorEventType::TYPE_DIFFUSION_LOOKUPUSER;
-    $data = array(
-      'commit'  => $commit,
-      'query'   => $query,
-      'result'  => $guess,
-    );
-
-    $event = new PhabricatorEvent($type, $data);
-    PhutilEventEngine::dispatchEvent($event);
-
-    return $event->getValue('result');
-  }
-
 }

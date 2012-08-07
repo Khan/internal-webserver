@@ -72,9 +72,6 @@ abstract class ArcanistLintEngine {
   private $commitHookMode = false;
   private $hookAPI;
 
-  private $enableAsyncLint = false;
-  private $postponedLinters = array();
-
   public function __construct() {
 
   }
@@ -127,15 +124,6 @@ abstract class ArcanistLintEngine {
 
   public function getHookAPI() {
     return $this->hookAPI;
-  }
-
-  public function setEnableAsyncLint($enable_async_lint) {
-    $this->enableAsyncLint = $enable_async_lint;
-    return $this;
-  }
-
-  public function getEnableAsyncLint() {
-    return $this->enableAsyncLint;
   }
 
   public function loadData($path) {
@@ -229,8 +217,16 @@ abstract class ArcanistLintEngine {
         if (!ArcanistLintSeverity::isAtLeastAsSevere($message, $minimum)) {
           continue;
         }
-        if (!$this->isRelevantMessage($message)) {
-          continue;
+        // When a user runs "arc lint", we default to raising only warnings on
+        // lines they have changed (errors are still raised anywhere in the
+        // file). The list of $changed lines may be null, to indicate that the
+        // path is a directory or a binary file so we should not exclude
+        // warnings.
+        $changed = $this->getPathChangedLines($message->getPath());
+        if ($changed !== null && !$message->isError() && $message->getLine()) {
+          if (empty($changed[$message->getLine()])) {
+            continue;
+          }
         }
         $result = $this->getResultForPath($message->getPath());
         $result->addMessage($message);
@@ -262,33 +258,6 @@ abstract class ArcanistLintEngine {
   }
 
   abstract protected function buildLinters();
-
-  private function isRelevantMessage($message) {
-    // When a user runs "arc lint", we default to raising only warnings on
-    // lines they have changed (errors are still raised anywhere in the
-    // file). The list of $changed lines may be null, to indicate that the
-    // path is a directory or a binary file so we should not exclude
-    // warnings.
-
-    $changed = $this->getPathChangedLines($message->getPath());
-
-    if ($changed === null || $message->isError() || !$message->getLine()) {
-      return true;
-    }
-
-    $last_line = $message->getLine();
-    if ($message->getOriginalText()) {
-      $last_line += substr_count($message->getOriginalText(), "\n");
-    }
-
-    for ($l = $message->getLine(); $l <= $last_line; $l++) {
-      if (!empty($changed[$l])) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 
   private function getResultForPath($path) {
     if (empty($this->results[$path])) {
@@ -326,13 +295,5 @@ abstract class ArcanistLintEngine {
     return array($line, $char);
   }
 
-  public function getPostponedLinters() {
-    return $this->postponedLinters;
-  }
-
-  public function setPostponedLinters(array $linters) {
-    $this->postponedLinters = $linters;
-    return $this;
-  }
 
 }

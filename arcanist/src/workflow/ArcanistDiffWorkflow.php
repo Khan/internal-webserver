@@ -36,9 +36,6 @@ final class ArcanistDiffWorkflow extends ArcanistBaseWorkflow {
   private $diffID;
   private $revisionID;
   private $unitWorkflow;
-  private $lintWorkflow;
-  private $postponedLinters;
-  private $haveUncommittedChanges = false;
 
   public function getCommandSynopses() {
     return phutil_console_format(<<<EOTEXT
@@ -63,7 +60,6 @@ EOTEXT
 EOTEXT
       );
   }
-
   public function requiresWorkingCopy() {
     return !$this->isRawDiffSource();
   }
@@ -298,7 +294,7 @@ EOTEXT
         'help' => 'Never amend commits in the working copy.',
       ),
       'uncommitted' => array(
-        'help' => 'Suppress warning about uncommitted changes.',
+        'help' => 'Include uncommitted changes without prompting.',
         'supports' => array(
           'hg',
         ),
@@ -390,8 +386,6 @@ EOTEXT
 
     $this->diffID = $diff_info['diffid'];
 
-    $this->dispatchDiffWasCreatedEvent($diff_info['diffid']);
-
     if ($this->unitWorkflow) {
       $this->unitWorkflow->setDifferentialDiffID($diff_info['diffid']);
     }
@@ -452,7 +446,7 @@ EOTEXT
 
         $should_edit = $this->getArgument('edit');
         if ($should_edit) {
-          $remote_corpus = $this->newInteractiveEditor($remote_corpus)
+          $remote_corpus = id(new PhutilInteractiveEditor($remote_corpus))
             ->setName('differential-edit-revision-info')
             ->editInteractively();
         }
@@ -487,8 +481,9 @@ EOTEXT
             'revision_id' => $result['revisionid'],
           ));
 
-        if ($this->shouldAmend()) {
+        if (!$this->isRawDiffSource() && $this->shouldAmend()) {
           $repository_api = $this->getRepositoryAPI();
+
           if ($repository_api->supportsAmend()) {
             echo "Updating commit message...\n";
             $repository_api->amendCommit($revised_message);
@@ -577,9 +572,6 @@ EOTEXT
           }
 
           $repository_api->setIncludeDirectoryStateInDiffs(true);
-          $this->haveUncommittedChanges = true;
-        } else {
-          throw $ex;
         }
       }
     }
@@ -669,7 +661,7 @@ EOTEXT
 
 
   protected function generateChanges() {
-    $parser = $this->newDiffParser();
+    $parser = new ArcanistDiffParser();
 
     $is_raw = $this->isRawDiffSource();
     if ($is_raw) {
@@ -842,19 +834,15 @@ EOTEXT
               }
             }
 
-            if ($try_encoding && $try_encoding != 'UTF-8') {
-              if (!function_exists('mb_convert_encoding')) {
-                throw new ArcanistUsageException(
-                  "This diff includes a file encoded in '{$try_encoding}', ".
-                  "but you don't have the PHP mbstring extension installed ".
-                  "so it can't be converted to UTF-8. Install mbstring.");
-              }
+            if ($try_encoding) {
+              // NOTE: This feature is HIGHLY EXPERIMENTAL and will cause a lot
+              // of issues. Use it at your own risk.
               $corpus = mb_convert_encoding($corpus, 'UTF-8', $try_encoding);
               $name = $change->getCurrentPath();
               if (phutil_is_utf8($corpus)) {
                 $this->writeStatusMessage(
-                  "Converted a '{$name}' hunk from '{$try_encoding}' ".
-                  "to UTF-8.\n");
+                  "[Experimental] Converted a '{$name}' hunk from ".
+                  "'{$try_encoding}' to UTF-8.\n");
                 $hunk->setCorpus($corpus);
                 continue;
               }
@@ -910,8 +898,7 @@ EOTEXT
       // textual data.
       if ($change->getNeedsSyntheticGitHunks()) {
         $diff = $repository_api->getRawDiffText($path, $moves = false);
-        $parser = $this->newDiffParser();
-
+        $parser = new ArcanistDiffParser();
         $raw_changes = $parser->parseDiff($diff);
         foreach ($raw_changes as $raw_change) {
           if ($raw_change->getCurrentPath() == $path) {
@@ -1011,7 +998,7 @@ EOTEXT
     $conduit = $this->getConduit();
     $repository_api = $this->getRepositoryAPI();
 
-    $parser = $this->newDiffParser();
+    $parser = new ArcanistDiffParser();
     $history_messages = $repository_api->getGitHistoryLog();
     if (!$history_messages) {
       // This can occur on the initial commit.
@@ -1074,23 +1061,7 @@ EOTEXT
   }
 
   private function shouldAmend() {
-    if ($this->haveUncommittedChanges) {
-      return false;
-    }
-
-    if ($this->isHistoryImmutable()) {
-      return false;
-    }
-
-    if ($this->getArgument('no-amend')) {
-      return false;
-    }
-
-    if ($this->isRawDiffSource()) {
-      return false;
-    }
-
-    return true;
+    return !$this->isHistoryImmutable() && !$this->getArgument('no-amend');
   }
 
 
@@ -1117,7 +1088,6 @@ EOTEXT
         $argv[] = $repository_api->getRelativeCommit();
       }
       $lint_workflow = $this->buildChildWorkflow('lint', $argv);
-      $this->lintWorkflow = $lint_workflow;
 
       if ($this->shouldAmend()) {
         // TODO: We should offer to create a checkpoint commit.
@@ -1143,15 +1113,9 @@ EOTEXT
             "Lint issued unresolved errors!",
             'lint-excuses');
           break;
-        case ArcanistLintWorkflow::RESULT_POSTPONED:
-          echo phutil_console_format(
-            "<bg:yellow>** LINT POSTPONED **</bg> ".
-            "Lint results are postponed.\n");
-          break;
       }
 
       $this->unresolvedLint = $lint_workflow->getUnresolvedMessages();
-      $this->postponedLinters = $lint_workflow->getPostponedLinters();
 
       return $lint_result;
     } catch (ArcanistNoEngineException $ex) {
@@ -1315,9 +1279,10 @@ EOTEXT
   /**
    * @task message
    */
-  private function getCommitMessageFromCommit($commit) {
-    $text = $this->getRepositoryAPI()->getCommitMessage($commit);
-    $message = ArcanistDifferentialCommitMessage::newFromRawCorpus($text);
+  private function getCommitMessageFromCommit($rev) {
+    $change = $this->getRepositoryAPI()->getCommitMessageForRevision($rev);
+    $message = ArcanistDifferentialCommitMessage::newFromRawCorpus(
+      $change->getMetadata('message'));
     $message->pullDataFromConduit($this->getConduit());
     $this->validateCommitMessage($message);
     return $message;
@@ -1443,7 +1408,7 @@ EOTEXT
       if ($first && $this->getArgument('verbatim') && !$template_is_default) {
         $new_template = $template;
       } else {
-        $new_template = $this->newInteractiveEditor($template)
+        $new_template = id(new PhutilInteractiveEditor($template))
           ->setName('new-commit')
           ->editInteractively();
       }
@@ -1630,7 +1595,7 @@ EOTEXT
       "#  $ arc diff --create\n".
       "\n";
 
-    $comments = $this->newInteractiveEditor($template)
+    $comments = id(new PhutilInteractiveEditor($template))
       ->setName('differential-update-comments')
       ->editInteractively();
 
@@ -1845,7 +1810,7 @@ EOTEXT
   private function getGitUpdateMessage() {
     $repository_api = $this->getRepositoryAPI();
 
-    $parser = $this->newDiffParser();
+    $parser = new ArcanistDiffParser();
     $commit_messages = $repository_api->getGitCommitLog();
     $commit_messages = $parser->parseDiff($commit_messages);
 
@@ -1976,7 +1941,6 @@ EOTEXT
       ArcanistLintWorkflow::RESULT_ERRORS     => 'fail',
       ArcanistLintWorkflow::RESULT_WARNINGS   => 'warn',
       ArcanistLintWorkflow::RESULT_SKIP       => 'skip',
-      ArcanistLintWorkflow::RESULT_POSTPONED  => 'postponed',
     );
     return idx($map, $lint_result, 'none');
   }
@@ -2009,7 +1973,6 @@ EOTEXT
     $parent         = null;
     $source_path    = null;
     $branch         = null;
-    $bookmark       = null;
 
     if (!$this->isRawDiffSource()) {
       $repository_api = $this->getRepositoryAPI();
@@ -2037,15 +2000,7 @@ EOTEXT
       } else if ($repository_api instanceof ArcanistSubversionAPI) {
         $repo_uuid = $repository_api->getRepositorySVNUUID();
       } else if ($repository_api instanceof ArcanistMercurialAPI) {
-
-        $bookmark = $repository_api->getActiveBookmark();
-        $svn_info = $repository_api->getSubversionInfo();
-        $repo_uuid = idx($svn_info, 'uuid');
-        $base_path = idx($svn_info, 'base_path', $base_path);
-        $base_revision = idx($svn_info, 'base_revision', $base_revision);
-
-        // TODO: provide parent info
-
+        // TODO: Provide this information.
       } else {
         throw new Exception("Unsupported repository API!");
       }
@@ -2060,7 +2015,6 @@ EOTEXT
       'sourceMachine'             => php_uname('n'),
       'sourcePath'                => $source_path,
       'branch'                    => $branch,
-      'bookmark'                  => $bookmark,
       'sourceControlSystem'       => $vcs,
       'sourceControlPath'         => $base_path,
       'sourceControlBaseRevision' => $base_revision,
@@ -2084,33 +2038,28 @@ EOTEXT
    * @task diffprop
    */
   private function updateLintDiffProperty() {
-
-    if ($this->unresolvedLint) {
-      $data = array();
-      foreach ($this->unresolvedLint as $message) {
-        $data[] = array(
-          'path'        => $message->getPath(),
-          'line'        => $message->getLine(),
-          'char'        => $message->getChar(),
-          'code'        => $message->getCode(),
-          'severity'    => $message->getSeverity(),
-          'name'        => $message->getName(),
-          'description' => $message->getDescription(),
-        );
-      }
-
-      $this->updateDiffProperty('arc:lint', json_encode($data));
-      if (strlen($this->lintExcuse)) {
-        $this->updateDiffProperty('arc:lint-excuse',
-          json_encode($this->lintExcuse));
-      }
+    if (!$this->unresolvedLint) {
+      return;
     }
 
-    $postponed = $this->postponedLinters;
-    if ($postponed) {
-      $this->updateDiffProperty('arc:lint-postponed', json_encode($postponed));
+    $data = array();
+    foreach ($this->unresolvedLint as $message) {
+      $data[] = array(
+        'path'        => $message->getPath(),
+        'line'        => $message->getLine(),
+        'char'        => $message->getChar(),
+        'code'        => $message->getCode(),
+        'severity'    => $message->getSeverity(),
+        'name'        => $message->getName(),
+        'description' => $message->getDescription(),
+      );
     }
 
+    $this->updateDiffProperty('arc:lint', json_encode($data));
+    if (strlen($this->lintExcuse)) {
+      $this->updateDiffProperty('arc:lint-excuse',
+        json_encode($this->lintExcuse));
+    }
   }
 
 
@@ -2194,13 +2143,4 @@ EOTEXT
     return $event->getValue('fields');
   }
 
-  private function dispatchDiffWasCreatedEvent($diff_id) {
-    $event = new PhutilEvent(
-      ArcanistEventType::TYPE_DIFF_WASCREATED,
-      array(
-        'diffID' => $diff_id,
-      ));
-
-    PhutilEventEngine::dispatchEvent($event);
-  }
 }

@@ -138,11 +138,6 @@ final class PhabricatorMetaMTAMail extends PhabricatorMetaMTADAO {
       }
       $return = $translation;
     }
-
-    if (!$return) {
-      $return = $default_translation;
-    }
-
     return $return;
   }
 
@@ -448,23 +443,12 @@ final class PhabricatorMetaMTAMail extends PhabricatorMetaMTADAO {
 
             $prefs = null;
             if ($use_prefs) {
-
-              // If multiplexing is enabled, some recipients will be in "Cc"
-              // rather than "To". We'll move them to "To" later (or supply a
-              // dummy "To") but need to look for the recipient in either the
-              // "To" or "Cc" fields here.
-              $target_phid = head(idx($params, 'to', array()));
-              if (!$target_phid) {
-                $target_phid = head(idx($params, 'cc', array()));
-              }
-
-              if ($target_phid) {
-                $user = id(new PhabricatorUser())->loadOneWhere(
-                  'phid = %s',
-                  $target_phid);
-                if ($user) {
-                  $prefs = $user->loadPreferences();
-                }
+              $to = idx($params, 'to', array());
+              $user = id(new PhabricatorUser())->loadOneWhere(
+                'phid = %s',
+                head($to));
+              if ($user) {
+                $prefs = $user->loadPreferences();
               }
             }
 
@@ -617,22 +601,16 @@ final class PhabricatorMetaMTAMail extends PhabricatorMetaMTADAO {
       }
 
 
-      $empty_to =
-        PhabricatorEnv::getEnvConfig('metamta.placeholder-to-recipient');
-      if ($empty_to !== null && !$add_to) {
-        $mailer->addTos(array($empty_to));
-      }
       if ($add_to) {
         $mailer->addTos($add_to);
-      }
-      if ($add_cc) {
-        if ($empty_to !== null) {
+        if ($add_cc) {
           $mailer->addCCs($add_cc);
-        } else {
-          $mailer->addTos($add_cc);
         }
-      }
-      if (!$add_to && !$add_cc) {
+      } else if ($add_cc) {
+        // If we have CC addresses but no "to" address, promote the CCs to
+        // "to".
+        $mailer->addTos($add_cc);
+      } else {
         $this->setStatus(self::STATUS_VOID);
         $this->setMessage(
           "Message has no valid recipients: all To/CC are disabled or ".

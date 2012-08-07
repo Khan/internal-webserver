@@ -43,7 +43,6 @@ final class PhabricatorConduitAPIController
 
     $log = new PhabricatorConduitMethodCallLog();
     $log->setMethod($method);
-    $metadata = array();
 
     try {
 

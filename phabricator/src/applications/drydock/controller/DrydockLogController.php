@@ -41,7 +41,7 @@ final class DrydockLogController extends DrydockController {
     $pager->setOffset($request->getInt('offset'));
     $pager->setURI($request->getRequestURI(), 'offset');
 
-    $logs = $query->executeWithOffsetPager($pager);
+    $logs = $query->executeWithPager($pager);
 
     $rows = array();
     foreach ($logs as $log) {

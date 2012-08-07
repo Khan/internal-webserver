@@ -50,7 +50,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $this->createAudits($commit, $audit_phids, $rules);
     }
 
-    $explicit_auditors = $this->createAuditsFromCommitMessage($commit, $data);
+    $this->createAuditsFromCommitMessage($commit, $data);
 
     if ($repository->getDetail('herald-disabled')) {
       // This just means "disable email"; audits are (mostly) idempotent.
@@ -59,12 +59,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $this->publishFeedStory($repository, $commit, $data);
 
-    $herald_targets = $adapter->getEmailPHIDs();
-
-    $email_phids = array_unique(
-      array_merge(
-        $explicit_auditors,
-        $herald_targets));
+    $email_phids = $adapter->getEmailPHIDs();
     if (!$email_phids) {
       return;
     }
@@ -116,29 +111,46 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $files = $adapter->loadAffectedPaths();
     sort($files);
-    $files = implode("\n", $files);
+    $files = implode("\n  ", $files);
 
     $xscript_id = $xscript->getID();
 
-    $manage_uri = '/herald/view/commits/';
-    $why_uri = '/herald/transcript/'.$xscript_id.'/';
+    $manage_uri = PhabricatorEnv::getProductionURI('/herald/view/commits/');
+    $why_uri = PhabricatorEnv::getProductionURI(
+      '/herald/transcript/'.$xscript_id.'/');
 
     $reply_handler = PhabricatorAuditCommentEditor::newReplyHandlerForCommit(
       $commit);
 
-    $template = new PhabricatorMetaMTAMail();
+    $reply_instructions = $reply_handler->getReplyHandlerInstructions();
+    if ($reply_instructions) {
+      $reply_instructions =
+        "\n".
+        "REPLY HANDLER ACTIONS\n".
+        "  ".$reply_instructions."\n";
+    }
 
-    $inline_patch_text = $this->buildPatch($template, $repository, $commit);
 
-    $body = new PhabricatorMetaMTAMailBody();
-    $body->addRawSection($description);
-    $body->addTextSection(pht('DETAILS'), $commit_uri);
-    $body->addTextSection(pht('DIFFERENTIAL REVISION'), $differential);
-    $body->addTextSection(pht('AFFECTED FILES'), $files);
-    $body->addReplySection($reply_handler->getReplyHandlerInstructions());
-    $body->addHeraldSection($manage_uri, $why_uri);
-    $body->addRawSection($inline_patch_text);
-    $body = $body->render();
+    $body = <<<EOBODY
+DESCRIPTION
+{$description}
+
+DETAILS
+  {$commit_uri}
+
+DIFFERENTIAL REVISION
+  {$differential}
+
+AFFECTED FILES
+  {$files}
+{$reply_instructions}
+MANAGE HERALD COMMIT RULES
+  {$manage_uri}
+
+WHY DID I GET THIS EMAIL?
+  {$why_uri}
+
+EOBODY;
 
     $prefix = PhabricatorEnv::getEnvConfig('metamta.diffusion.subject-prefix');
 
@@ -147,6 +159,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $commit);
     list($thread_id, $thread_topic) = $threading;
 
+    $template = new PhabricatorMetaMTAMail();
     $template->setRelatedPHID($commit->getPHID());
     $template->setSubject("{$commit_name}: {$name}");
     $template->setSubjectPrefix($prefix);
@@ -222,7 +235,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $matches = null;
     if (!preg_match('/^Auditors:\s*(.*)$/im', $message, $matches)) {
-      return array();
+      return;
     }
 
     $phids = DifferentialFieldSpecification::parseCommitMessageObjectList(
@@ -231,7 +244,7 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $allow_partial = true);
 
     if (!$phids) {
-      return array();
+      return;
     }
 
     $requests = id(new PhabricatorRepositoryAuditRequest())->loadAllWhere(
@@ -260,8 +273,6 @@ final class PhabricatorRepositoryCommitHeraldWorker
 
     $commit->updateAuditStatus($requests);
     $commit->save();
-
-    return $phids;
   }
 
   private function publishFeedStory(
@@ -301,101 +312,6 @@ final class PhabricatorRepositoryCommitHeraldWorker
       $publisher->setStoryAuthorPHID($author_phid);
     }
     $publisher->publish();
-  }
-
-  private function buildPatch(
-    PhabricatorMetaMTAMail $template,
-    PhabricatorRepository $repository,
-    PhabricatorRepositoryCommit $commit) {
-
-    $attach_key = 'metamta.diffusion.attach-patches';
-    $inline_key = 'metamta.diffusion.inline-patches';
-
-    $attach_patches = PhabricatorEnv::getEnvConfig($attach_key);
-    $inline_patches = PhabricatorEnv::getEnvConfig($inline_key);
-
-    if (!$attach_patches && !$inline_patches) {
-      return;
-    }
-
-    $encoding = $repository->getDetail('encoding', 'utf-8');
-
-    $result = null;
-    $patch_error = null;
-
-    try {
-      $raw_patch = $this->loadRawPatchText($repository, $commit);
-      if ($attach_patches) {
-        $commit_name = $repository->formatCommitName(
-          $commit->getCommitIdentifier());
-
-        $template->addAttachment(
-          new PhabricatorMetaMTAAttachment(
-            $raw_patch,
-            $commit_name.'.patch',
-            'text/x-patch; charset='.$encoding));
-      }
-    } catch (Exception $ex) {
-      phlog($ex);
-      $patch_error = 'Unable to generate: '.$ex->getMessage();
-    }
-
-    if ($patch_error) {
-      $result = $patch_error;
-    } else if ($inline_patches) {
-      $len = substr_count($raw_patch, "\n");
-      if ($len <= $inline_patches) {
-        // We send email as utf8, so we need to convert the text to utf8 if
-        // we can.
-        if (strtolower($encoding) != 'utf-8' &&
-            function_exists('mb_convert_encoding')) {
-          $raw_patch = mb_convert_encoding($raw_patch, 'utf-8', $encoding);
-        }
-        $result = phutil_utf8ize($raw_patch);
-      }
-    }
-
-    if ($result) {
-      $result = "PATCH\n\n{$result}\n";
-    }
-
-    return $result;
-  }
-
-  private function loadRawPatchText(
-    PhabricatorRepository $repository,
-    PhabricatorRepositoryCommit $commit) {
-
-    $drequest = DiffusionRequest::newFromDictionary(
-      array(
-        'repository'  => $repository,
-        'commit'      => $commit->getCommitIdentifier(),
-      ));
-
-    $raw_query = DiffusionRawDiffQuery::newFromDiffusionRequest($drequest);
-    $raw_query->setLinesOfContext(3);
-
-    $time_key = 'metamta.diffusion.time-limit';
-    $byte_key = 'metamta.diffusion.byte-limit';
-    $time_limit = PhabricatorEnv::getEnvConfig($time_key);
-    $byte_limit = PhabricatorEnv::getEnvConfig($byte_key);
-
-    if ($time_limit) {
-      $raw_query->setTimeout($time_limit);
-    }
-
-    $raw_diff = $raw_query->loadRawDiff();
-
-    $size = strlen($raw_diff);
-    if ($byte_limit && $size > $byte_limit) {
-      $pretty_size = phabricator_format_bytes($size);
-      $pretty_limit = phabricator_format_bytes($byte_limit);
-      throw new Exception(
-        "Patch size of {$pretty_size} exceeds configured byte size limit of ".
-        "{$pretty_limit}.");
-    }
-
-    return $raw_diff;
   }
 
 }

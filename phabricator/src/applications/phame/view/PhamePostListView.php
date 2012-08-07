@@ -59,7 +59,7 @@ final class PhamePostListView extends AphrontView {
     return $this->posts;
   }
   public function setBloggers(array $bloggers) {
-    assert_instances_of($bloggers, 'PhabricatorObjectHandle');
+    assert_instances_of($bloggers, 'PhabricatorUser');
     $this->bloggers = $bloggers;
     return $this;
   }
@@ -99,18 +99,17 @@ final class PhamePostListView extends AphrontView {
     foreach ($posts as $post) {
       $blogger_phid = $post->getBloggerPHID();
       $blogger      = $bloggers[$blogger_phid];
-      $blogger_link = $blogger->renderLink();
       $updated      = phabricator_datetime($post->getDateModified(),
                                            $user);
       $body         = $engine->markupText($post->getBody());
       $panel        = id(new AphrontPanelView())
         ->setHeader(phutil_escape_html($post->getTitle()))
-        ->setCaption('Last updated '.$updated.' by '.$blogger_link.'.')
+        ->setCaption('Last updated '.$updated)
         ->appendChild('<div class="phabricator-remarkup">'.$body.'</div>');
       foreach ($actions as $action) {
         switch ($action) {
           case 'view':
-            $uri   = $post->getViewURI($blogger->getName());
+            $uri   = $post->getViewURI($blogger->getUsername());
             $label = 'View '.$noun;
             break;
           case 'edit':

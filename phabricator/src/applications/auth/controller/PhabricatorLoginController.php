@@ -77,14 +77,14 @@ final class PhabricatorLoginController
 
     $password_auth = PhabricatorEnv::getEnvConfig('auth.password-auth-enabled');
 
-    $username_or_email = $request->getCookie('phusr');
-
     $forms = array();
+
 
     $errors = array();
     if ($password_auth) {
       $require_captcha = false;
       $e_captcha = true;
+      $username_or_email = $request->getCookie('phusr');
       if ($request->isFormPost()) {
 
         if (AphrontFormRecaptchaControl::isRecaptchaEnabled()) {
@@ -119,10 +119,7 @@ final class PhabricatorLoginController
         if (!$errors) {
           // Perform username/password tests only if we didn't get rate limited
           // by the CAPTCHA.
-
-          $envelope = new PhutilOpaqueEnvelope($request->getStr('password'));
-
-          if (!$user || !$user->comparePassword($envelope)) {
+          if (!$user || !$user->comparePassword($request->getStr('password'))) {
             $errors[] = 'Bad username/password.';
           }
         }
@@ -191,30 +188,29 @@ final class PhabricatorLoginController
   //    $panel->setCreateButton('Register New Account', '/login/register/');
       $forms['Phabricator Login'] = $form;
 
-    }
+      $ldap_provider = new PhabricatorLDAPProvider();
+      if ($ldap_provider->isProviderEnabled()) {
+        $ldap_form = new AphrontFormView();
+        $ldap_form
+          ->setUser($request->getUser())
+          ->setAction('/ldap/login/')
+          ->appendChild(
+            id(new AphrontFormTextControl())
+            ->setLabel('LDAP username')
+            ->setName('username')
+            ->setValue($username_or_email))
+          ->appendChild(
+            id(new AphrontFormPasswordControl())
+            ->setLabel('Password')
+            ->setName('password'));
 
-    $ldap_provider = new PhabricatorLDAPProvider();
-    if ($ldap_provider->isProviderEnabled()) {
-      $ldap_form = new AphrontFormView();
-      $ldap_form
-        ->setUser($request->getUser())
-        ->setAction('/ldap/login/')
-        ->appendChild(
-          id(new AphrontFormTextControl())
-          ->setLabel('LDAP username')
-          ->setName('username')
-          ->setValue($username_or_email))
-        ->appendChild(
-          id(new AphrontFormPasswordControl())
-          ->setLabel('Password')
-          ->setName('password'));
+        $ldap_form
+          ->appendChild(
+            id(new AphrontFormSubmitControl())
+            ->setValue('Login'));
 
-      $ldap_form
-        ->appendChild(
-          id(new AphrontFormSubmitControl())
-          ->setValue('Login'));
-
-      $forms['LDAP Login'] = $ldap_form;
+        $forms['LDAP Login'] = $ldap_form;
+      }
     }
 
     $providers = PhabricatorOAuthProvider::getAllProviders();

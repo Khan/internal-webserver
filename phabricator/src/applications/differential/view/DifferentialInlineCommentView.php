@@ -90,9 +90,6 @@ final class DifferentialInlineCommentView extends AphrontView {
     );
 
     $sigil = 'differential-inline-comment';
-    if ($this->preview) {
-      $sigil = $sigil . ' differential-inline-comment-preview';
-    }
 
     $content = $inline->getContent();
     $handles = $this->handles;
@@ -180,14 +177,6 @@ final class DifferentialInlineCommentView extends AphrontView {
           'sigil'       => 'differential-inline-preview-jump',
         ),
         'Not Visible');
-      $links[] = javelin_render_tag(
-        'a',
-        array(
-          'href'        => '#',
-          'mustcapture' => true,
-          'sigil'       => 'differential-inline-delete',
-        ),
-        'Delete');
     }
 
     if ($links) {

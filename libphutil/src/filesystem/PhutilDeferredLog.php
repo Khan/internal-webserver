@@ -162,28 +162,25 @@ final class PhutilDeferredLog {
    * @task internals
    */
   private function format() {
+    $byte = "\1";
 
-    // Always convert '%%' to literal '%'.
-    $map = array('%' => '%') + $this->data;
+    $line = $this->format;
+    $line = addcslashes($line, $byte);
+    $line = str_replace("%", $byte, $line);
 
-    $result = '';
-    $saw_percent = false;
-    foreach (phutil_utf8v($this->format) as $c) {
-      if ($saw_percent) {
-        $saw_percent = false;
-        if (array_key_exists($c, $map)) {
-          $result .= addcslashes($map[$c], "\0..\37\\\177..\377");
-        } else {
-          $result .= '-';
-        }
-      } else if ($c == '%') {
-        $saw_percent = true;
-      } else {
-        $result .= $c;
-      }
+    $find = array();
+    $repl = array();
+    foreach ($this->data as $key => $value) {
+      $find[] = $byte.str_replace('%', $byte, $key);
+      $repl[] = addcslashes($value, "\0..\37\\\177..\377");
     }
 
-    return rtrim($result)."\n";
+    $line = str_replace($find, $repl, $line);
+
+    $line = preg_replace("/{$byte}./", '-', $line);
+    $line = rtrim($line)."\n";
+
+    return $line;
   }
 
 }

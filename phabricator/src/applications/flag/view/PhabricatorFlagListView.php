@@ -92,12 +92,12 @@ final class PhabricatorFlagListView extends AphrontView {
       ));
     $table->setColumnClasses(
       array(
-        'narrow',
-        'wrap pri',
-        'wrap',
-        'narrow',
-        'narrow action',
-        'narrow action',
+        '',
+        'pri',
+        'wide',
+        '',
+        'action',
+        'action',
       ));
     $table->setNoDataString('No flags.');
 

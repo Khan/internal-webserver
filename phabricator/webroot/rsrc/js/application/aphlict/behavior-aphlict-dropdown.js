@@ -8,9 +8,9 @@
  */
 
 JX.behavior('aphlict-dropdown', function(config) {
-  var dropdown = JX.$(config.dropdownID);
-  var indicator = JX.$(config.indicatorID);
-  var menu = JX.$(config.menuID);
+  var dropdown = JX.$('phabricator-notification-dropdown');
+  var indicator = JX.$('phabricator-notification-indicator');
+  var menu = JX.$('phabricator-notification-menu');
   var visible = false;
   var request = null;
 
@@ -18,14 +18,15 @@ JX.behavior('aphlict-dropdown', function(config) {
     if (request) { //already fetching
       return;
     }
+
     request = new JX.Request('/notification/panel/', function(response) {
       JX.DOM.setContent(indicator, response.number);
       if (response.number == 0) {
         JX.DOM.alterClass(indicator,
-          "phabricator-main-menu-alert-indicator-unread", false);
+          "phabricator-notification-indicator-unread", false);
       } else {
         JX.DOM.alterClass(indicator,
-          "phabricator-main-menu-alert-indicator-unread", true);
+          "phabricator-notification-indicator-unread", true);
       }
       JX.DOM.setContent(dropdown, JX.$H(response.content));
       request = null;
@@ -33,14 +34,16 @@ JX.behavior('aphlict-dropdown', function(config) {
     request.send();
   }
 
+  //populate panel
   refresh();
 
   JX.Stratcom.listen(
     'click',
     null,
     function(e) {
-      if(e.getNode('phabricator-notification-menu')) {
-         // Click is inside the dropdown.
+      if(e.getNode('aphlict-dropdown') ||
+         e.getNode('aphlict-indicator')) {
+         // Click is inside the dropdown, or on indicator
         return;
       }
 

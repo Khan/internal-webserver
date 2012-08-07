@@ -27,16 +27,11 @@ final class ManiphestTaskDescriptionPreviewController
     $request = $this->getRequest();
     $description = $request->getStr('description');
 
-    $task = new ManiphestTask();
-    $task->setDescription($description);
-
-    $output = PhabricatorMarkupEngine::renderOneObject(
-      $task,
-      ManiphestTask::MARKUP_FIELD_DESCRIPTION);
+    $engine = PhabricatorMarkupEngine::newManiphestMarkupEngine();
 
     $content =
       '<div class="phabricator-remarkup">'.
-        $output.
+        $engine->markupText($description).
       '</div>';
 
     return id(new AphrontAjaxResponse())

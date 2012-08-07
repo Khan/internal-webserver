@@ -323,7 +323,7 @@ final class PhabricatorAuditCommentEditor {
 
     // The user can audit on behalf of all projects they are a member of.
     $query = new PhabricatorProjectQuery();
-    $query->withMemberPHIDs(array($user->getPHID()));
+    $query->setMembers(array($user->getPHID()));
     $projects = $query->execute();
     foreach ($projects as $project) {
       $phids[$project->getPHID()] = true;
@@ -486,9 +486,12 @@ final class PhabricatorAuditCommentEditor {
     $verb = PhabricatorAuditActionConstants::getActionPastTenseVerb(
       $comment->getAction());
 
-    $body = new PhabricatorMetaMTAMailBody();
-    $body->addRawSection("{$name} {$verb} commit {$cname}.");
-    $body->addRawSection($comment->getContent());
+    $body = array();
+    $body[] = "{$name} {$verb} commit {$cname}.";
+
+    if ($comment->getContent()) {
+      $body[] = $comment->getContent();
+    }
 
     if ($inline_comments) {
       $block = array();
@@ -515,16 +518,18 @@ final class PhabricatorAuditCommentEditor {
         $content = $inline->getContent();
         $block[] = "{$path}:{$range} {$content}";
       }
-
-      $body->addTextSection(pht('INLINE COMMENTS'), implode("\n", $block));
+      $body[] = "INLINE COMMENTS\n  ".implode("\n  ", $block);
     }
 
-    $body->addTextSection(
-      pht('COMMIT'),
-      PhabricatorEnv::getProductionURI($handle->getURI()));
-    $body->addReplySection($reply_handler->getReplyHandlerInstructions());
+    $body[] = "COMMIT\n  ".PhabricatorEnv::getProductionURI($handle->getURI());
 
-    return $body->render();
+
+    $reply_instructions = $reply_handler->getReplyHandlerInstructions();
+    if ($reply_instructions) {
+      $body[] = "REPLY HANDLER ACTIONS\n  ".$reply_instructions;
+    }
+
+    return implode("\n\n", $body)."\n";
   }
 
 }

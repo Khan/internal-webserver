@@ -81,18 +81,10 @@ final class PhutilDeferredLogTestCase extends ArcanistPhutilTestCase {
       ));
 
     $this->checkLog(
-      "\1ab\n",
+      "\\001ab\n",
       "\1a%a",
       array(
         'a' => 'b',
-      ));
-
-    $this->checkLog(
-      "a % xb\n",
-      "%a %% x%b",
-      array(
-        'a' => 'a',
-        'b' => 'b',
       ));
 
   }

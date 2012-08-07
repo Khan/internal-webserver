@@ -37,20 +37,7 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
   }
 
   public function getMetadataPath() {
-    static $svn_dir = null;
-    if ($svn_dir === null) {
-      // from svn 1.7, subversion keeps a single .svn directly under
-      // the working copy root.  However, we allow .arcconfigs that
-      // aren't at the working copy root.
-      foreach (Filesystem::walkToRoot($this->getPath()) as $parent) {
-        $possible_svn_dir = Filesystem::resolvePath('.svn', $parent);
-        if (Filesystem::pathExists($possible_svn_dir)) {
-          $svn_dir = $possible_svn_dir;
-          break;
-        }
-      }
-    }
-    return $svn_dir;
+    return $this->getPath('.svn');
   }
 
   protected function buildLocalFuture(array $argv) {
@@ -85,7 +72,7 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
 
   public function getSVNStatus($with_externals = false) {
     if ($this->svnStatus === null) {
-      list($status) = $this->execxLocal('--xml status');
+      list($status) = execx('(cd %s && svn --xml status)', $this->getPath());
       $xml = new SimpleXMLElement($status);
 
       if (count($xml->target) != 1) {
@@ -245,13 +232,17 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
       //
       // Work around this by cd-ing into the directory before executing
       // 'svn info'.
-      return $this->buildLocalFuture(array('info .'));
+      return new ExecFuture(
+        '(cd %s && svn info .)',
+        $this->getPath());
     } else {
       // Note: here and elsewhere we need to append "@" to the path because if
       // a file has a literal "@" in it, everything after that will be
       // interpreted as a revision. By appending "@" with no argument, SVN
       // parses it properly.
-      return $this->buildLocalFuture(array('info %s@', $this->getPath($path)));
+      return new ExecFuture(
+        'svn info %s@',
+        $this->getPath($path));
     }
   }
 
@@ -264,27 +255,11 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
     // itself (such as property changes) and also give us changes to any
     // files within the directory (basically, implicit recursion). We don't
     // want that, so prevent recursive diffing.
-    $root = phutil_get_library_root('arcanist');
-
-    if (phutil_is_windows()) {
-      // TODO: Provide a binary_safe_diff script for Windows.
-      // TODO: Provide a diff command which can take lines of context somehow.
-      return $this->buildLocalFuture(
-        array(
-          'diff --depth empty %s',
-          $path,
-        ));
-    } else {
-      $diff_bin = $root.'/../scripts/repository/binary_safe_diff.sh';
-      $diff_cmd = Filesystem::resolvePath($diff_bin);
-      return $this->buildLocalFuture(
-        array(
-          'diff --depth empty --diff-cmd %s -x -U%d %s',
-          $diff_cmd,
-          $this->getDiffLinesOfContext(),
-          $path,
-        ));
-    }
+    return new ExecFuture(
+      '(cd %s; svn diff --depth empty --diff-cmd diff -x -U%d %s)',
+      $this->getPath(),
+      $this->getDiffLinesOfContext(),
+      $path);
   }
 
   public function primeSVNInfoResult($path, $result) {
@@ -310,9 +285,6 @@ final class ArcanistSubversionAPI extends ArcanistRepositoryAPI {
         throw new Exception(
           "Error #{$err} executing svn info against '{$path}'.");
       }
-
-      // TODO: Hack for Windows.
-      $stdout = str_replace("\r\n", "\n", $stdout);
 
       $patterns = array(
         '/^(URL): (\S+)$/m',
@@ -484,7 +456,10 @@ EODIFF;
   public function getBlame($path) {
     $blame = array();
 
-    list($stdout) = $this->execxLocal('blame %s', $path);
+    list($stdout) = execx(
+      '(cd %s && svn blame %s)',
+      $this->getPath(),
+      $path);
 
     $stdout = trim($stdout);
     if (!strlen($stdout)) {
@@ -509,7 +484,10 @@ EODIFF;
     // SVN issues warnings for nonexistent paths, directories, etc., but still
     // returns no error code. However, for new paths in the working copy it
     // fails. Assume that failure means the original file does not exist.
-    list($err, $stdout) = $this->execManualLocal('cat %s@', $path);
+    list($err, $stdout) = exec_manual(
+      '(cd %s && svn cat %s@)',
+      $this->getPath(),
+      $path);
     if ($err) {
       return null;
     }

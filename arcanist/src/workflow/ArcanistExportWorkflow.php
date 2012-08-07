@@ -103,17 +103,11 @@ EOTEXT
     if ($this->getArgument('revision')) {
       $source = self::SOURCE_REVISION;
       $requested++;
-
-      $source_id = $this->getArgument($source);
-      $this->sourceID = $this->normalizeRevisionID($source_id);
     }
     if ($this->getArgument('diff')) {
       $source = self::SOURCE_DIFF;
       $requested++;
-
-      $this->sourceID = $this->getArgument($source);
     }
-    $this->source = $source;
 
     if ($requested > 1) {
       throw new ArcanistUsageException(
@@ -121,6 +115,8 @@ EOTEXT
       "one change source.");
     }
 
+    $this->source = $source;
+    $this->sourceID = $this->getArgument($source);
 
     $format = null;
     $requested = 0;

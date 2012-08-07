@@ -251,7 +251,8 @@ final class DifferentialRevisionEditor {
       $adapter->setForbiddenCCs($revision->getUnsubscribedPHIDs());
 
       $xscript = HeraldEngine::loadAndApplyRules($adapter);
-      $xscript_uri = '/herald/transcript/'.$xscript->getID().'/';
+      $xscript_uri = PhabricatorEnv::getProductionURI(
+        '/herald/transcript/'.$xscript->getID().'/');
       $xscript_phid = $xscript->getPHID();
       $xscript_header = $xscript->getXHeraldRulesHeader();
 

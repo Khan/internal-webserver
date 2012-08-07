@@ -22,57 +22,59 @@ final class PhabricatorPHIDLookupController
   public function processRequest() {
 
     $request = $this->getRequest();
-    $phids = $request->getStrList('phids');
-    if ($phids) {
-      $handles = id(new PhabricatorObjectHandleData($phids))
-        ->loadHandles();
+    if ($request->isFormPost()) {
+      $phids = $request->getStrList('phids');
+      if ($phids) {
+        $handles = id(new PhabricatorObjectHandleData($phids))
+          ->loadHandles();
 
-      $rows = array();
-      foreach ($handles as $handle) {
-        if ($handle->getURI()) {
-          $link = phutil_render_tag(
-            'a',
-            array(
-              'href' => $handle->getURI(),
-            ),
-            phutil_escape_html($handle->getURI()));
-        } else {
-          $link = null;
+        $rows = array();
+        foreach ($handles as $handle) {
+          if ($handle->getURI()) {
+            $link = phutil_render_tag(
+              'a',
+              array(
+                'href' => $handle->getURI(),
+              ),
+              phutil_escape_html($handle->getURI()));
+          } else {
+            $link = null;
+          }
+
+          $rows[] = array(
+            phutil_escape_html($handle->getPHID()),
+            phutil_escape_html($handle->getType()),
+            phutil_escape_html($handle->getName()),
+            $link,
+          );
         }
 
-        $rows[] = array(
-          phutil_escape_html($handle->getPHID()),
-          phutil_escape_html($handle->getType()),
-          phutil_escape_html($handle->getName()),
-          $link,
-        );
+        $table = new AphrontTableView($rows);
+        $table->setHeaders(
+          array(
+            'PHID',
+            'Type',
+            'Name',
+            'URI',
+          ));
+        $table->setColumnClasses(
+          array(
+            null,
+            null,
+            null,
+            'wide',
+          ));
+
+        $panel = new AphrontPanelView();
+        $panel->setHeader('PHID Handles');
+        $panel->appendChild($table);
+
+        return $this->buildStandardPageResponse(
+          $panel,
+          array(
+            'title' => 'PHID Lookup Results',
+          ));
       }
-
-      $table = new AphrontTableView($rows);
-      $table->setHeaders(
-        array(
-          'PHID',
-          'Type',
-          'Name',
-          'URI',
-        ));
-      $table->setColumnClasses(
-        array(
-          null,
-          null,
-          null,
-          'wide',
-        ));
-
-      $panel = new AphrontPanelView();
-      $panel->setHeader('PHID Handles');
-      $panel->appendChild($table);
-
-      return $this->buildStandardPageResponse(
-        $panel,
-        array(
-          'title' => 'PHID Lookup Results',
-        ));
     }
 
     $lookup_form = new AphrontFormView();

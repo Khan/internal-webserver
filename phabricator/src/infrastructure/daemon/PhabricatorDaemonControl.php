@@ -41,10 +41,9 @@ final class PhabricatorDaemonControl {
 
     if (!$daemons) {
       echo "There are no running Phabricator daemons.\n";
-      return 1;
+      return 0;
     }
 
-    $status = 0;
     printf(
       "%-5s\t%-24s\t%s\n",
       "PID",
@@ -53,14 +52,10 @@ final class PhabricatorDaemonControl {
     foreach ($daemons as $daemon) {
       $name = $daemon->getName();
       if (!$daemon->isRunning()) {
-        $daemon_log = $daemon->loadDaemonLog();
-        if ($daemon_log) {
-          $daemon_log->setStatus(PhabricatorDaemonLog::STATUS_DEAD);
-          $daemon_log->save();
-        }
-
-        $status = 2;
         $name = '<DEAD> '.$name;
+        if ($daemon->getPIDFile()) {
+          Filesystem::remove($daemon->getPIDFile());
+        }
       }
       printf(
         "%5s\t%-24s\t%s\n",
@@ -71,7 +66,7 @@ final class PhabricatorDaemonControl {
         $name);
     }
 
-    return $status;
+    return 0;
   }
 
   public function executeStopCommand($pids = null) {
@@ -116,11 +111,6 @@ final class PhabricatorDaemonControl {
       if (!$daemon->isRunning()) {
         echo "Daemon is not running.\n";
         unset($running[$key]);
-        $daemon_log = $daemon->loadDaemonLog();
-        if ($daemon_log) {
-          $daemon_log->setStatus(PhabricatorDaemonLog::STATUS_EXITED);
-          $daemon_log->save();
-        }
       } else {
         posix_kill($pid, SIGINT);
       }
@@ -184,8 +174,7 @@ final class PhabricatorDaemonControl {
             List available daemons.
 
         **status**
-            List running daemons. This command will exit with a non-zero exit
-            status if any daemons are not running.
+            List running daemons.
 
         **help**
             Show this help.
@@ -194,7 +183,7 @@ final class PhabricatorDaemonControl {
             DEPRECATED. Use 'phd start'.
 
         **repository-launch-readonly**
-            DEPRECATED. Use 'phd launch pulllocal -- --no-discovery'.
+            DEPRECATED. Use 'phd launch pulllocal --no-discovery'.
 
 EOHELP
     );
@@ -254,11 +243,11 @@ EOHELP
     $flags[] = csprintf('--conduit-uri=%s', PhabricatorEnv::getURI('/api/'));
 
     if (!$debug) {
-      $log_file = $this->getLogDirectory().'/daemons.log';
-      $flags[] = csprintf('--log=%s', $log_file);
+      $log_dir = $this->getControlDirectory('log').'/daemons.log';
+      $flags[] = csprintf('--log=%s', $log_dir);
     }
 
-    $pid_dir = $this->getPIDDirectory();
+    $pid_dir = $this->getControlDirectory('pid');
 
     // TODO: This should be a much better user experience.
     Filesystem::assertExists($pid_dir);
@@ -295,28 +284,19 @@ EOHELP
     return;
   }
 
-  private function getControlDirectory($path) {
+  public function getControlDirectory($dir) {
+    $path = PhabricatorEnv::getEnvConfig('phd.pid-directory').'/'.$dir;
     if (!Filesystem::pathExists($path)) {
       list($err) = exec_manual('mkdir -p %s', $path);
       if ($err) {
         throw new Exception(
           "phd requires the directory '{$path}' to exist, but it does not ".
           "exist and could not be created. Create this directory or update ".
-          "'phd.pid-directory' / 'phd.log-directory' in your configuration ".
-          "to point to an existing directory.");
+          "'phd.pid-directory' in your configuration to point to an existing ".
+          "directory.");
       }
     }
     return $path;
-  }
-
-  public function getPIDDirectory() {
-    $path = PhabricatorEnv::getEnvConfig('phd.pid-directory');
-    return $this->getControlDirectory($path);
-  }
-
-  public function getLogDirectory() {
-    $path = PhabricatorEnv::getEnvConfig('phd.log-directory');
-    return $this->getControlDirectory($path);
   }
 
   protected function loadAvailableDaemonClasses() {
@@ -330,7 +310,7 @@ EOHELP
   public function loadRunningDaemons() {
     $results = array();
 
-    $pid_dir = $this->getPIDDirectory();
+    $pid_dir = $this->getControlDirectory('pid');
     $pid_files = Filesystem::listDirectory($pid_dir);
     if (!$pid_files) {
       return $results;

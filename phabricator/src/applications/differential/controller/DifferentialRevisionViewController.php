@@ -66,22 +66,6 @@ final class DifferentialRevisionViewController extends DifferentialController {
       $diff_vs = null;
     }
 
-    $arc_project = $target->loadArcanistProject();
-    $repository = ($arc_project ? $arc_project->loadRepository() : null);
-
-    list($changesets, $vs_map, $vs_changesets, $rendering_references) =
-      $this->loadChangesetsAndVsMap(
-        $target,
-        idx($diffs, $diff_vs),
-        $repository);
-
-    if ($request->getExists('download')) {
-      return $this->buildRawDiffResponse($changesets,
-                                         $vs_changesets,
-                                         $vs_map,
-                                         $repository);
-    }
-
     list($aux_fields, $props) = $this->loadAuxiliaryFieldsAndProperties(
       $revision,
       $target_manual,
@@ -91,6 +75,14 @@ final class DifferentialRevisionViewController extends DifferentialController {
         'arc:unit',
       ));
 
+    $arc_project = $target->loadArcanistProject();
+    $repository = ($arc_project ? $arc_project->loadRepository() : null);
+
+    list($changesets, $vs_map, $rendering_references) =
+      $this->loadChangesetsAndVsMap(
+        $target,
+        idx($diffs, $diff_vs),
+        $repository);
 
     $comments = $revision->loadComments();
     $comments = array_merge(
@@ -200,15 +192,8 @@ final class DifferentialRevisionViewController extends DifferentialController {
         "</strong>");
       $warning = $warning->render();
 
-      $my_inlines = id(new DifferentialInlineComment())->loadAllWhere(
-        'revisionID = %d AND commentID IS NULL AND authorPHID = %s AND '.
-          'changesetID IN (%Ld)',
-        $this->revisionID,
-        $user->getPHID(),
-        mpull($changesets, 'getID'));
-
       $visible_changesets = array();
-      foreach ($inlines + $my_inlines as $inline) {
+      foreach ($inlines as $inline) {
         $changeset_id = $inline->getChangesetID();
         if (isset($changesets[$changeset_id])) {
           $visible_changesets[$changeset_id] = $changesets[$changeset_id];
@@ -520,13 +505,6 @@ final class DifferentialRevisionViewController extends DifferentialController {
       );
     }
 
-    $request_uri = $this->getRequest()->getRequestURI();
-    $links[] = array(
-      'class' => 'action-download',
-      'name'  => 'Download Raw Diff',
-      'href'  => $request_uri->alter('download', 'true')
-    );
-
     return $links;
   }
 
@@ -543,18 +521,13 @@ final class DifferentialRevisionViewController extends DifferentialController {
     $viewer_did_accept = ($viewer_phid === $revision->loadReviewedBy());
     $status = $revision->getStatus();
 
-    $allow_self_accept = PhabricatorEnv::getEnvConfig(
-        'differential.allow-self-accept', false);
-
     if ($viewer_is_owner) {
       switch ($status) {
         case ArcanistDifferentialRevisionStatus::NEEDS_REVIEW:
-          $actions[DifferentialAction::ACTION_ACCEPT] = $allow_self_accept;
           $actions[DifferentialAction::ACTION_ABANDON] = true;
           $actions[DifferentialAction::ACTION_RETHINK] = true;
           break;
         case ArcanistDifferentialRevisionStatus::NEEDS_REVISION:
-          $actions[DifferentialAction::ACTION_ACCEPT] = $allow_self_accept;
           $actions[DifferentialAction::ACTION_ABANDON] = true;
           $actions[DifferentialAction::ACTION_REQUEST] = true;
           break;
@@ -669,43 +642,40 @@ final class DifferentialRevisionViewController extends DifferentialController {
     $changesets = idx($changeset_groups, $target->getID(), array());
     $changesets = mpull($changesets, null, 'getID');
 
-    $refs          = array();
-    $vs_map        = array();
-    $vs_changesets = array();
+    $refs = array();
+    foreach ($changesets as $changeset) {
+      $refs[$changeset->getID()] = $changeset->getID();
+    }
+
+    $vs_map = array();
     if ($diff_vs) {
-      $vs_id                  = $diff_vs->getID();
-      $vs_changesets_path_map = array();
+      $vs_changesets = array();
+      $vs_id = $diff_vs->getID();
       foreach (idx($changeset_groups, $vs_id, array()) as $changeset) {
         $path = $changeset->getAbsoluteRepositoryPath($repository, $diff_vs);
-        $vs_changesets_path_map[$path] = $changeset;
-        $vs_changesets[$changeset->getID()] = $changeset;
+        $vs_changesets[$path] = $changeset;
       }
       foreach ($changesets as $key => $changeset) {
-        $path = $changeset->getAbsoluteRepositoryPath($repository, $target);
-        if (isset($vs_changesets_path_map[$path])) {
-          $vs_map[$changeset->getID()] =
-            $vs_changesets_path_map[$path]->getID();
+        $file = $changeset->getAbsoluteRepositoryPath($repository, $target);
+        if (isset($vs_changesets[$file])) {
+          $vs_map[$changeset->getID()] = $vs_changesets[$file]->getID();
           $refs[$changeset->getID()] =
-            $changeset->getID().'/'.$vs_changesets_path_map[$path]->getID();
-          unset($vs_changesets_path_map[$path]);
+            $changeset->getID().'/'.$vs_changesets[$file]->getID();
+          unset($vs_changesets[$file]);
         } else {
           $refs[$changeset->getID()] = $changeset->getID();
         }
       }
-      foreach ($vs_changesets_path_map as $path => $changeset) {
+      foreach ($vs_changesets as $changeset) {
         $changesets[$changeset->getID()] = $changeset;
-        $vs_map[$changeset->getID()]     = -1;
-        $refs[$changeset->getID()]       = $changeset->getID().'/-1';
-      }
-    } else {
-      foreach ($changesets as $changeset) {
-        $refs[$changeset->getID()] = $changeset->getID();
+        $vs_map[$changeset->getID()] = -1;
+        $refs[$changeset->getID()] = $changeset->getID().'/-1';
       }
     }
 
     $changesets = msort($changesets, 'getSortKey');
 
-    return array($changesets, $vs_map, $vs_changesets, $refs);
+    return array($changesets, $vs_map, $refs);
   }
 
   private function loadAuxiliaryFieldsAndProperties(
@@ -864,121 +834,4 @@ final class DifferentialRevisionViewController extends DifferentialController {
       '</div>';
   }
 
-  /**
-   * Straight copy of the loadFileByPhid method in
-   * @{class:DifferentialReviewRequestMail}.
-   *
-   * This is because of the code similarity between the buildPatch method in
-   * @{class:DifferentialReviewRequestMail} and @{method:buildRawDiffResponse}
-   * in this class. Both of these methods end up using call_user_func and this
-   * piece of code is the lucky function.
-   *
-   * @return mixed (@{class:PhabricatorFile} if found, null if not)
-   */
-  public function loadFileByPHID($phid) {
-    $file = id(new PhabricatorFile())->loadOneWhere(
-      'phid = %s',
-      $phid);
-    if (!$file) {
-      return null;
-    }
-    return $file->loadFileData();
-  }
-
-  /**
-   * Note this code is somewhat similar to the buildPatch method in
-   * @{class:DifferentialReviewRequestMail}.
-   *
-   * @return @{class:AphrontRedirectResponse}
-   */
-  private function buildRawDiffResponse(
-    array $changesets,
-    array $vs_changesets,
-    array $vs_map,
-    PhabricatorRepository $repository = null) {
-
-    assert_instances_of($changesets,    'DifferentialChangeset');
-    assert_instances_of($vs_changesets, 'DifferentialChangeset');
-
-    $engine = new PhabricatorDifferenceEngine();
-    $generated_changesets = array();
-    foreach ($changesets as $changeset) {
-      $changeset->attachHunks($changeset->loadHunks());
-      $vs = idx($vs_map, $changeset->getID());
-      if ($vs) {
-        $choice = $vs_changeset = $vs_changesets[$vs];
-        $vs_changeset->attachHunks($vs_changeset->loadHunks());
-        $right = $vs_changeset->makeNewFile();
-      } else {
-        $choice = $changeset;
-        $right = $changeset->makeOldFile();
-      }
-      $left = $changeset->makeNewFile();
-
-      $synthetic = $engine->generateChangesetFromFileContent(
-        $left,
-        $right);
-
-      if (!$synthetic->getAffectedLineCount()) {
-        $filetype = $choice->getFileType();
-        if ($filetype == DifferentialChangeType::FILE_TEXT ||
-            $filetype == DifferentialChangeType::FILE_SYMLINK) {
-          continue;
-        }
-      }
-
-      $choice->attachHunks($synthetic->getHunks());
-
-      $generated_changesets[] = $choice;
-    }
-
-    $diff = new DifferentialDiff();
-    $diff->attachChangesets($generated_changesets);
-    $diff_dict = $diff->getDiffDict();
-
-    $changes = array();
-    foreach ($diff_dict['changes'] as $changedict) {
-      $changes[] = ArcanistDiffChange::newFromDictionary($changedict);
-    }
-    $bundle = ArcanistBundle::newFromChanges($changes);
-
-    $bundle->setLoadFileDataCallback(array($this, 'loadFileByPHID'));
-
-    $vcs = $repository ? $repository->getVersionControlSystem() : null;
-    switch ($vcs) {
-      case PhabricatorRepositoryType::REPOSITORY_TYPE_GIT:
-      case PhabricatorRepositoryType::REPOSITORY_TYPE_MERCURIAL:
-        $raw_diff = $bundle->toGitPatch();
-        break;
-      case PhabricatorRepositoryType::REPOSITORY_TYPE_SVN:
-      default:
-        $raw_diff = $bundle->toUnifiedDiff();
-        break;
-    }
-
-    $request_uri = $this->getRequest()->getRequestURI();
-
-    // this ends up being something like
-    //   D123.diff
-    // or the verbose
-    //   D123.vs123.id123.whitespaceignore-all.diff
-    // lame but nice to include these options
-    $file_name = ltrim($request_uri->getPath(), '/').'.';
-    foreach ($request_uri->getQueryParams() as $key => $value) {
-      if ($key == 'download') {
-        continue;
-      }
-      $file_name .= $key.$value.'.';
-    }
-    $file_name .= 'diff';
-
-    $file = PhabricatorFile::buildFromFileDataOrHash(
-      $raw_diff,
-      array(
-        'name' => $file_name,
-      ));
-
-    return id(new AphrontRedirectResponse())->setURI($file->getBestURI());
-
-  }
 }

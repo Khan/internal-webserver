@@ -61,6 +61,10 @@ final class PhabricatorFeedStoryPublisher {
   }
 
   public function publish() {
+    if (!$this->relatedPHIDs) {
+      throw new Exception("There are no PHIDs related to this story!");
+    }
+
     if (!$this->storyType) {
       throw new Exception("Call setStoryType() before publishing!");
     }
@@ -70,29 +74,27 @@ final class PhabricatorFeedStoryPublisher {
     $story = new PhabricatorFeedStoryData();
     $story->setStoryType($this->storyType);
     $story->setStoryData($this->storyData);
-    $story->setAuthorPHID((string)$this->storyAuthorPHID);
+    $story->setAuthorPHID($this->storyAuthorPHID);
     $story->setChronologicalKey($chrono_key);
     $story->save();
 
-    if ($this->relatedPHIDs) {
-      $ref = new PhabricatorFeedStoryReference();
+    $ref = new PhabricatorFeedStoryReference();
 
-      $sql = array();
-      $conn = $ref->establishConnection('w');
-      foreach (array_unique($this->relatedPHIDs) as $phid) {
-        $sql[] = qsprintf(
-          $conn,
-          '(%s, %s)',
-          $phid,
-          $chrono_key);
-      }
-
-      queryfx(
+    $sql = array();
+    $conn = $ref->establishConnection('w');
+    foreach (array_unique($this->relatedPHIDs) as $phid) {
+      $sql[] = qsprintf(
         $conn,
-        'INSERT INTO %T (objectPHID, chronologicalKey) VALUES %Q',
-        $ref->getTableName(),
-        implode(', ', $sql));
+        '(%s, %s)',
+        $phid,
+        $chrono_key);
     }
+
+    queryfx(
+      $conn,
+      'INSERT INTO %T (objectPHID, chronologicalKey) VALUES %Q',
+      $ref->getTableName(),
+      implode(', ', $sql));
 
     if (PhabricatorEnv::getEnvConfig('notification.enabled')) {
       $this->insertNotifications($chrono_key);

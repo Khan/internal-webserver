@@ -103,10 +103,6 @@ JX.install('PhabricatorDropdownMenu', {
     },
 
     _onclickglobal : function(e) {
-      if (!this._open) {
-        return;
-      }
-
       if (JX.Stratcom.pass(e)) {
         return;
       }

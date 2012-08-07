@@ -17,7 +17,7 @@
  */
 
 final class DifferentialInlineCommentPreviewController
-extends PhabricatorInlineCommentPreviewController {
+  extends DifferentialController {
 
   private $revisionID;
 
@@ -25,15 +25,41 @@ extends PhabricatorInlineCommentPreviewController {
     $this->revisionID = $data['id'];
   }
 
-  protected function loadInlineComments() {
-    $user = $this->getRequest()->getUser();
+  public function processRequest() {
+
+    $request = $this->getRequest();
+    $user = $request->getUser();
+
+    // TODO: This is a reasonable approximation of the feature as it exists
+    // in Facebook trunk but we should probably pull filename data, sort these,
+    // figure out next/prev/edit/delete, deal with out-of-date inlines, etc.
 
     $inlines = id(new DifferentialInlineComment())->loadAllWhere(
       'authorPHID = %s AND revisionID = %d AND commentID IS NULL',
       $user->getPHID(),
       $this->revisionID);
 
-    return $inlines;
+    $engine = PhabricatorMarkupEngine::newDifferentialMarkupEngine();
+
+    $phids = array($user->getPHID());
+    $handles = id(new PhabricatorObjectHandleData($phids))
+      ->loadHandles();
+
+    $views = array();
+    foreach ($inlines as $inline) {
+      $view = new DifferentialInlineCommentView();
+      $view->setInlineComment($inline);
+      $view->setMarkupEngine($engine);
+      $view->setHandles($handles);
+      $view->setEditable(false);
+      $view->setPreview(true);
+      $views[] = $view->render();
+    }
+    $views = implode("\n", $views);
+
+    return id(new AphrontAjaxResponse())
+      ->setContent($views);
   }
+
 
 }

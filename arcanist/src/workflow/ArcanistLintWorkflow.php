@@ -27,14 +27,11 @@ class ArcanistLintWorkflow extends ArcanistBaseWorkflow {
   const RESULT_WARNINGS   = 1;
   const RESULT_ERRORS     = 2;
   const RESULT_SKIP       = 3;
-  const RESULT_POSTPONED  = 4;
 
   private $unresolvedMessages;
   private $shouldAmendChanges = false;
   private $shouldAmendWithoutPrompt = false;
   private $shouldAmendAutofixesWithoutPrompt = false;
-  private $engine;
-  private $postponedLinters;
 
   public function setShouldAmendChanges($should_amend) {
     $this->shouldAmendChanges = $should_amend;
@@ -176,7 +173,6 @@ EOTEXT
     }
 
     $engine = newv($engine, array());
-    $this->engine = $engine;
     $engine->setWorkingCopy($working_copy);
 
     if ($this->getArgument('advice')) {
@@ -199,20 +195,7 @@ EOTEXT
       }
     }
 
-    // Enable possible async linting only for 'arc diff' not 'arc unit'
-    if ($this->getParentWorkflow()) {
-      $engine->setEnableAsyncLint(true);
-    } else {
-      $engine->setEnableAsyncLint(false);
-    }
-
     $results = $engine->run();
-
-    // It'd be nice to just return a single result from the run method above
-    // which contains both the lint messages and the postponed linters.
-    // However, to maintain compatibility with existing lint subclasses, use
-    // a separate method call to grab the postponed linters.
-    $this->postponedLinters = $engine->getPostponedLinters();
 
     if ($this->getArgument('never-apply-patches')) {
       $apply_patches = false;
@@ -263,8 +246,6 @@ EOTEXT
 
     $all_autofix = true;
 
-    $console = PhutilConsole::getConsole();
-
     foreach ($results as $result) {
       $result_all_autofix = $result->isAllAutofix();
 
@@ -278,7 +259,7 @@ EOTEXT
 
       $lint_result = $renderer->renderLintResult($result);
       if ($lint_result) {
-        $console->writeOut('%s', $lint_result);
+        echo $lint_result;
       }
 
       if ($apply_patches && $result->isPatchable()) {
@@ -296,15 +277,12 @@ EOTEXT
 
           // TODO: Improve the behavior here, make it more like
           // difference_render().
-          list(, $stdout, $stderr) =
-            exec_manual("diff -u %s %s", $old_file, $new_file);
-          $console->writeOut('%s', $stdout);
-          $console->writeErr('%s', $stderr);
+          passthru(csprintf("diff -u %s %s", $old_file, $new_file));
 
           $prompt = phutil_console_format(
             "Apply this patch to __%s__?",
             $result->getPath());
-          if (!$console->confirm($prompt, $default_no = false)) {
+          if (!phutil_console_confirm($prompt, $default_no = false)) {
             continue;
           }
         }
@@ -321,12 +299,12 @@ EOTEXT
 
       if ($this->shouldAmendWithoutPrompt ||
           ($this->shouldAmendAutofixesWithoutPrompt && $all_autofix)) {
-        $console->writeOut(
+        echo phutil_console_format(
           "<bg:yellow>** LINT NOTICE **</bg> Automatically amending HEAD ".
           "with lint patches.\n");
         $amend = true;
       } else {
-        $amend = $console->confirm("Amend HEAD with lint patches?");
+        $amend = phutil_console_confirm("Amend HEAD with lint patches?");
       }
 
       if ($amend) {
@@ -364,15 +342,13 @@ EOTEXT
       $result_code = self::RESULT_ERRORS;
     } else if ($has_warnings) {
       $result_code = self::RESULT_WARNINGS;
-    } else if (!empty($this->postponedLinters)) {
-      $result_code = self::RESULT_POSTPONED;
     } else {
       $result_code = self::RESULT_OKAY;
     }
 
     if (!$this->getParentWorkflow()) {
       if ($result_code == self::RESULT_OKAY) {
-        $console->writeOut('%s', $renderer->renderOkayResult());
+        echo $renderer->renderOkayResult();
       }
     }
 
@@ -381,10 +357,6 @@ EOTEXT
 
   public function getUnresolvedMessages() {
     return $this->unresolvedMessages;
-  }
-
-  public function getPostponedLinters() {
-    return $this->postponedLinters;
   }
 
 }

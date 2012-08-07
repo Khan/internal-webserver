@@ -16,9 +16,6 @@
  * limitations under the License.
  */
 
-/**
- * @group events
- */
 final class PhabricatorEventEngine {
 
   public static function initialize() {
@@ -29,8 +26,6 @@ final class PhabricatorEventEngine {
 
     // Register the DarkConosole event logger.
     id(new DarkConsoleEventPluginAPI())->register();
-    id(new ManiphestEdgeEventListener())->register();
-
   }
 
 }

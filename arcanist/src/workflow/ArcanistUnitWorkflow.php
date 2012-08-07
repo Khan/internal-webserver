@@ -163,8 +163,6 @@ EOTEXT
         '<bg:yellow>** POSTPONED **</bg>'),
       );
 
-    $console = PhutilConsole::getConsole();
-
     $unresolved = array();
     $coverage = array();
     $postponed_count = 0;
@@ -175,18 +173,15 @@ EOTEXT
         $unresolved[] = $result;
       } else {
         if ($this->engine->shouldEchoTestResults()) {
-          $duration = '';
+          echo '  '.$status_codes[$result_code];
           if ($result_code == ArcanistUnitTestResult::RESULT_PASS) {
-            $duration = ' '.self::formatTestDuration($result->getDuration());
+            echo ' '.self::formatTestDuration($result->getDuration());
           }
-          $console->writeOut(
-            "  %s %s\n",
-            $status_codes[$result_code].$duration,
-            $result->getName());
+          echo ' '.$result->getName()."\n";
         }
         if ($result_code != ArcanistUnitTestResult::RESULT_PASS) {
           if ($this->engine->shouldEchoTestResults()) {
-            $console->writeOut("%s\n", $result->getUserData());
+            echo $result->getUserData()."\n";
           }
           $unresolved[] = $result;
         }
@@ -198,10 +193,9 @@ EOTEXT
       }
     }
     if ($postponed_count) {
-      $console->writeOut(
-        "%s %s\n",
-        $status_codes[ArcanistUnitTestResult::RESULT_POSTPONED],
-        pht('%d test(s)', $postponed_count));
+      echo sprintf("%s %s\n",
+         $status_codes[ArcanistUnitTestResult::RESULT_POSTPONED],
+         pht('%d test(s)', $postponed_count));
     }
 
     if ($coverage) {
@@ -221,11 +215,13 @@ EOTEXT
         $file_coverage[$file] = $coverage;
         $file_reports[$file] = $report;
       }
-      $console->writeOut("\n__COVERAGE REPORT__\n");
+      echo "\n";
+      echo phutil_console_format('__COVERAGE REPORT__');
+      echo "\n";
 
       asort($file_coverage);
       foreach ($file_coverage as $file => $coverage) {
-        $console->writeOut(
+        echo phutil_console_format(
           "    **%s%%**     %s\n",
           sprintf('% 3d', (int)(100 * $coverage)),
           $file);
@@ -234,11 +230,9 @@ EOTEXT
         if ($this->getArgument('detailed-coverage') &&
             Filesystem::pathExists($full_path) &&
             is_file($full_path)) {
-          $console->writeOut(
-            '%s',
-            $this->renderDetailedCoverageReport(
-              Filesystem::readFile($full_path),
-              $file_reports[$file]));
+          echo $this->renderDetailedCoverageReport(
+            Filesystem::readFile($full_path),
+            $file_reports[$file]);
         }
       }
     }

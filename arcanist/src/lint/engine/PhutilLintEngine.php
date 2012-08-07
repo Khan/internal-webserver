@@ -92,8 +92,6 @@ class PhutilLintEngine extends ArcanistLintEngine {
           => ArcanistLintSeverity::SEVERITY_WARNING,
         ArcanistXHPASTLinter::LINT_PHP_53_FEATURES
           => ArcanistLintSeverity::SEVERITY_ERROR,
-        ArcanistXHPASTLinter::LINT_COMMENT_SPACING
-          => ArcanistLintSeverity::SEVERITY_ERROR,
       ));
     $linters[] = $xhpast_linter;
     foreach ($paths as $path) {

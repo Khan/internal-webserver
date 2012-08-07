@@ -61,7 +61,7 @@ final class PhrictionHistoryController
     $rows = array();
     foreach ($history as $content) {
 
-      $slug_uri = PhrictionDocument::getSlugURI($document->getSlug());
+      $uri = PhrictionDocument::getSlugURI($document->getSlug());
       $version = $content->getVersion();
 
       $diff_uri = new PhutilURI('/phriction/diff/'.$document->getID().'/');
@@ -102,7 +102,7 @@ final class PhrictionHistoryController
         phutil_render_tag(
           'a',
           array(
-            'href' => $slug_uri.'?v='.$version,
+            'href' => $uri.'?v='.$version,
           ),
           'Version '.$version),
         $handles[$content->getAuthorPHID()]->renderLink(),

@@ -16,11 +16,12 @@
  * limitations under the License.
  */
 
-final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
+final class PhabricatorProjectQuery {
 
   private $ids;
   private $phids;
-  private $memberPHIDs;
+  private $owners;
+  private $members;
 
   private $status       = 'status-any';
   const STATUS_ANY      = 'status-any';
@@ -28,6 +29,9 @@ final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
   const STATUS_CLOSED   = 'status-closed';
   const STATUS_ACTIVE   = 'status-active';
   const STATUS_ARCHIVED = 'status-archived';
+
+  private $limit;
+  private $offset;
 
   private $needMembers;
 
@@ -46,8 +50,23 @@ final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
     return $this;
   }
 
-  public function withMemberPHIDs(array $member_phids) {
-    $this->memberPHIDs = $member_phids;
+  public function setLimit($limit) {
+    $this->limit = $limit;
+    return $this;
+  }
+
+  public function setOffset($offset) {
+    $this->offset = $offset;
+    return $this;
+  }
+
+  public function setOwners(array $owners) {
+    $this->owners = $owners;
+    return $this;
+  }
+
+  public function setMembers(array $members) {
+    $this->members = $members;
     return $this;
   }
 
@@ -57,11 +76,27 @@ final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
   }
 
   public function execute() {
-    $table = new PhabricatorProject();
+    $table = id(new PhabricatorProject());
     $conn_r = $table->establishConnection('r');
 
     $where = $this->buildWhereClause($conn_r);
     $joins = $this->buildJoinsClause($conn_r);
+
+    $limit = '';
+    if ($this->limit) {
+      $limit = qsprintf(
+        $conn_r,
+        'LIMIT %d, %d',
+        $this->offset,
+        $this->limit);
+    } else if ($this->offset) {
+      $limit = qsprintf(
+        $conn_r,
+        'LIMIT %d, %d',
+        $this->offset,
+        PHP_INT_MAX);
+    }
+
     $order = 'ORDER BY name';
 
     $data = queryfx_all(
@@ -71,7 +106,7 @@ final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
       $joins,
       $where,
       $order,
-      $this->buildLimitClause($conn_r));
+      $limit);
 
     $projects = $table->loadAllFromArray($data);
 
@@ -140,20 +175,35 @@ final class PhabricatorProjectQuery extends PhabricatorOffsetPagedQuery {
         $this->phids);
     }
 
-    return $this->formatWhereClause($where);
+    if ($where) {
+      $where = 'WHERE ('.implode(') AND (', $where).')';
+    } else {
+      $where = '';
+    }
+
+    return $where;
   }
 
   private function buildJoinsClause($conn_r) {
     $affil_table = new PhabricatorProjectAffiliation();
 
     $joins = array();
-    if ($this->memberPHIDs) {
+    if ($this->owners) {
+      $joins[] = qsprintf(
+        $conn_r,
+        'JOIN %T owner ON owner.projectPHID = p.phid AND owner.isOwner = 1
+          AND owner.userPHID in (%Ls)',
+        $affil_table->getTableName(),
+        $this->owners);
+    }
+
+    if ($this->members) {
       $joins[] = qsprintf(
         $conn_r,
         'JOIN %T member ON member.projectPHID = p.phid
           AND member.userPHID in (%Ls)',
         $affil_table->getTableName(),
-        $this->memberPHIDs);
+        $this->members);
     }
 
     return implode(' ', $joins);

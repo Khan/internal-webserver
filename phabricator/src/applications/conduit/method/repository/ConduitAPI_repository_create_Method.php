@@ -39,7 +39,6 @@ final class ConduitAPI_repository_create_Method
       'name'                => 'required string',
       'vcs'                 => 'required enum<git, hg, svn>',
       'callsign'            => 'required string',
-      'description'         => 'optional string',
       'encoding'            => 'optional string',
       'tracking'            => 'optional bool',
       'uri'                 => 'optional string',
@@ -54,8 +53,7 @@ final class ConduitAPI_repository_create_Method
       'closeCommitsFilter'  => 'optional list<string>',
       'pullFrequency'       => 'optional int',
       'defaultBranch'       => 'optional string',
-      'heraldEnabled'       => 'optional bool, default = true',
-      'autocloseEnabled'    => 'optional bool, default = true',
+      'heraldEnabled'       => 'optional bool',
       'svnUUID'             => 'optional string',
     );
   }
@@ -109,7 +107,6 @@ final class ConduitAPI_repository_create_Method
 
     $details = array(
       'encoding'          => $request->getValue('encoding'),
-      'description'       => $request->getValue('description'),
       'tracking-enabled'  => (bool)$request->getValue('tracking', true),
       'remote-uri'        => $request->getValue('uri'),
       'local-path'        => $request->getValue('localPath'),
@@ -126,7 +123,6 @@ final class ConduitAPI_repository_create_Method
       'ssh-keyfile'       => $request->getValue('sshKeyFile'),
       'herald-disabled'   => !$request->getValue('heraldEnabled', true),
       'svn-subpath'       => $request->getValue('svnSubpath'),
-      'disable-autoclose' => !$request->getValue('autocloseEnabled', true),
     );
 
     foreach ($details as $key => $value) {

@@ -91,12 +91,8 @@
   text-align:       right;
 }
 
-.aphront-table-view td.wrap {
+.aprhont-table-view td.wrap {
   white-space:      normal;
-}
-
-.aphront-table-view td.narrow {
-  width:            1px;
 }
 
 div.single-display-line-bounds {

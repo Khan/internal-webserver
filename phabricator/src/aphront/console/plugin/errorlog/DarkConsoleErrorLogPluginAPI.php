@@ -29,10 +29,6 @@ final class DarkConsoleErrorLogPluginAPI {
     self::$discardMode = true;
   }
 
-  public static function disableDiscardMode() {
-    self::$discardMode = false;
-  }
-
   public static function getErrors() {
     return self::$errors;
   }

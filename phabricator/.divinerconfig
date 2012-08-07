@@ -23,8 +23,7 @@
     "search" : "Search",
     "daemon" : "Daemons, Tasks and Workers",
     "irc" : "IRC",
-    "markup" : "Remarkup Extensions",
-    "metamta" : "MetaMTA (Mail)"
+    "markup" : "Remarkup Extensions"
   },
   "engines" : [
     ["DivinerArticleEngine", {}],

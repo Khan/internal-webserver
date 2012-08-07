@@ -19,21 +19,9 @@
 final class PhabricatorNotificationListController
   extends PhabricatorNotificationController {
 
-  private $filter;
-
-  public function willProcessRequest(array $data) {
-    $this->filter = idx($data, 'filter');
-  }
-
   public function processRequest() {
     $request = $this->getRequest();
     $user = $request->getUser();
-
-    $nav = new AphrontSideNavFilterView();
-    $nav->setBaseURI(new PhutilURI('/notification/'));
-    $nav->addFilter('all', 'All Notifications');
-    $nav->addFilter('unread', 'Unread Notifications');
-    $filter = $nav->selectFilter($this->filter, 'all');
 
     $pager = new AphrontPagerView();
     $pager->setURI($request->getRequestURI(), 'offset');
@@ -41,20 +29,7 @@ final class PhabricatorNotificationListController
 
     $query = new PhabricatorNotificationQuery();
     $query->setUserPHID($user->getPHID());
-
-    switch ($filter) {
-      case 'unread':
-        $query->withUnread(true);
-        $header = pht('Unread Notifications');
-        $no_data = pht('You have no unread notifications.');
-        break;
-      default:
-        $header = pht('Notifications');
-        $no_data = pht('You have no notifications.');
-        break;
-    }
-
-    $notifications = $query->executeWithOffsetPager($pager);
+    $notifications = $query->executeWithPager($pager);
 
     if ($notifications) {
       $builder = new PhabricatorNotificationBuilder($notifications);
@@ -62,19 +37,12 @@ final class PhabricatorNotificationListController
     } else {
       $view =
         '<div class="phabricator-notification no-notifications">'.
-          $no_data.
+          'You have no notifications.'.
         '</div>';
     }
 
-    $view = array(
-      '<div class="phabricator-notification-list">',
-      $view,
-      '</div>',
-    );
-
     $panel = new AphrontPanelView();
-    $panel->setHeader($header);
-    $panel->setWidth(AphrontPanelView::WIDTH_FORM);
+    $panel->setHeader('Notifications');
     $panel->addButton(
       javelin_render_tag(
         'a',
@@ -87,10 +55,8 @@ final class PhabricatorNotificationListController
     $panel->appendChild($view);
     $panel->appendChild($pager);
 
-    $nav->appendChild($panel);
-
     return $this->buildStandardPageResponse(
-      $nav,
+      $panel,
       array(
         'title' => 'Notifications',
       ));

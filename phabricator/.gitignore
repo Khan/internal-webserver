@@ -15,3 +15,6 @@
 
 # Arcanist scratch directory
 /.arc
+
+# Custom Logo File
+/webroot/rsrc/image/custom/custom.png

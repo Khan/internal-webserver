@@ -23,8 +23,6 @@ final class PhabricatorDaemonReference {
   private $start;
   private $pidFile;
 
-  private $daemonLog;
-
   public static function newFromDictionary(array $dict) {
     $ref = new PhabricatorDaemonReference();
 
@@ -33,17 +31,6 @@ final class PhabricatorDaemonReference {
     $ref->start = idx($dict, 'start');
 
     return $ref;
-  }
-
-  public function loadDaemonLog() {
-    if (!$this->daemonLog) {
-      $this->daemonLog = id(new PhabricatorDaemonLog())->loadOneWhere(
-        'daemon = %s AND pid = %d AND dateCreated = %d',
-        $this->name,
-        $this->pid,
-        $this->start);
-    }
-    return $this->daemonLog;
   }
 
   public function getPID() {

@@ -53,31 +53,30 @@ final class PhabricatorProjectUpdateController
     if ($process_action) {
       $xactions = array();
 
-
       switch ($this->action) {
         case 'join':
-          $member_phids = $project->loadMemberPHIDs();
-          $member_map = array_fill_keys($member_phids, true);
-          if (empty($member_map[$user->getPHID()])) {
-            $member_map[$user->getPHID()] = true;
+          $affils = $project->loadAffiliations();
+          $affils = mpull($affils, null, 'getUserPHID');
+          if (empty($affils[$user->getPHID()])) {
+            $affils[$user->getPHID()] = true;
 
             $xaction = new PhabricatorProjectTransaction();
             $xaction->setTransactionType(
               PhabricatorProjectTransactionType::TYPE_MEMBERS);
-            $xaction->setNewValue(array_keys($member_map));
+            $xaction->setNewValue(array_keys($affils));
             $xactions[] = $xaction;
           }
           break;
         case 'leave':
-          $member_phids = $project->loadMemberPHIDs();
-          $member_map = array_fill_keys($member_phids, true);
-          if (isset($member_map[$user->getPHID()])) {
-            unset($member_map[$user->getPHID()]);
+          $affils = $project->loadAffiliations();
+          $affils = mpull($affils, null, 'getUserPHID');
+          if (isset($affils[$user->getPHID()])) {
+            unset($affils[$user->getPHID()]);
 
             $xaction = new PhabricatorProjectTransaction();
             $xaction->setTransactionType(
               PhabricatorProjectTransactionType::TYPE_MEMBERS);
-            $xaction->setNewValue(array_keys($member_map));
+            $xaction->setNewValue(array_keys($affils));
             $xactions[] = $xaction;
           }
           break;

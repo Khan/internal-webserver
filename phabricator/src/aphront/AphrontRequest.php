@@ -38,6 +38,7 @@ final class AphrontRequest {
   private $path;
   private $requestData;
   private $user;
+  private $env;
   private $applicationConfiguration;
 
   final public function __construct($host, $path) {

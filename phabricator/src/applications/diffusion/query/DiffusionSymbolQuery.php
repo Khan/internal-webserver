@@ -27,9 +27,8 @@
  *
  * @group diffusion
  */
-final class DiffusionSymbolQuery extends PhabricatorOffsetPagedQuery {
+final class DiffusionSymbolQuery {
 
-  private $context;
   private $namePrefix;
   private $name;
 
@@ -37,21 +36,14 @@ final class DiffusionSymbolQuery extends PhabricatorOffsetPagedQuery {
   private $language;
   private $type;
 
+  private $limit = 20;
+
   private $needPaths;
   private $needArcanistProject;
   private $needRepositories;
 
 
 /* -(  Configuring the Query  )---------------------------------------------- */
-
-
-  /**
-   * @task config
-   */
-  public function setContext($context) {
-    $this->context = $context;
-    return $this;
-  }
 
 
   /**
@@ -102,6 +94,15 @@ final class DiffusionSymbolQuery extends PhabricatorOffsetPagedQuery {
   /**
    * @task config
    */
+  public function setLimit($limit) {
+    $this->limit = $limit;
+    return $this;
+  }
+
+
+  /**
+   * @task config
+   */
   public function needPaths($need_paths) {
     $this->needPaths = $need_paths;
     return $this;
@@ -144,59 +145,7 @@ final class DiffusionSymbolQuery extends PhabricatorOffsetPagedQuery {
     $symbol = new PhabricatorRepositorySymbol();
     $conn_r = $symbol->establishConnection('r');
 
-    $data = queryfx_all(
-      $conn_r,
-      'SELECT * FROM %T %Q %Q %Q',
-      $symbol->getTableName(),
-      $this->buildWhereClause($conn_r),
-      $this->buildOrderClause($conn_r),
-      $this->buildLimitClause($conn_r));
-
-    $symbols = $symbol->loadAllFromArray($data);
-
-    if ($symbols) {
-      if ($this->needPaths) {
-        $this->loadPaths($symbols);
-      }
-      if ($this->needArcanistProjects || $this->needRepositories) {
-        $this->loadArcanistProjects($symbols);
-      }
-      if ($this->needRepositories) {
-        $this->loadRepositories($symbols);
-      }
-
-    }
-
-    return $symbols;
-  }
-
-
-/* -(  Internals  )---------------------------------------------------------- */
-
-
-  /**
-   * @task internal
-   */
-  private function buildOrderClause($conn_r) {
-    return qsprintf(
-      $conn_r,
-      'ORDER BY symbolName ASC');
-  }
-
-
-  /**
-   * @task internal
-   */
-  private function buildWhereClause($conn_r) {
     $where = array();
-
-    if (isset($this->context)) {
-      $where[] = qsprintf(
-        $conn_r,
-        'symbolContext = %s',
-        $this->context);
-    }
-
     if ($this->name) {
       $where[] = qsprintf(
         $conn_r,
@@ -218,15 +167,54 @@ final class DiffusionSymbolQuery extends PhabricatorOffsetPagedQuery {
         $this->projectIDs);
     }
 
-    if ($this->language) {
-      $where[] = qsprintf(
-        $conn_r,
-        'symbolLanguage = %s',
-        $this->language);
+    $where = 'WHERE ('.implode(') AND (', $where).')';
+
+    $data = queryfx_all(
+      $conn_r,
+      'SELECT * FROM %T %Q',
+      $symbol->getTableName(),
+      $where);
+
+    // Our ability to match up symbol types and languages probably isn't all
+    // that great, so use them as hints for ranking rather than hard
+    // requirements. TODO: Is this really the right choice?
+    foreach ($data as $key => $row) {
+      $score = 0;
+      if ($this->language && $row['symbolLanguage'] == $this->language) {
+        $score += 2;
+      }
+      if ($this->type && $row['symbolType'] == $this->type) {
+        $score += 1;
+      }
+      $data[$key]['score'] = $score;
+      $data[$key]['id'] = $key;
     }
 
-    return $this->formatWhereClause($where);
+    $data = isort($data, 'score');
+    $data = array_reverse($data);
+
+    $data = array_slice($data, 0, $this->limit);
+
+    $symbols = $symbol->loadAllFromArray($data);
+
+    if ($symbols) {
+      if ($this->needPaths) {
+        $this->loadPaths($symbols);
+      }
+      if ($this->needArcanistProjects || $this->needRepositories) {
+        $this->loadArcanistProjects($symbols);
+      }
+      if ($this->needRepositories) {
+        $this->loadRepositories($symbols);
+      }
+
+    }
+
+    return $symbols;
   }
+
+
+/* -(  Internals  )---------------------------------------------------------- */
 
 
   /**

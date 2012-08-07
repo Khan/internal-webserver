@@ -39,7 +39,6 @@
  * which is often on the order of 100ms or more per command.
  *
  * @task construct  Construction
- * @task config     Configuration
  * @task exec       Executing Mercurial Commands
  * @task internal   Internals
  */
@@ -47,8 +46,6 @@ final class ArcanistHgProxyClient {
 
   private $workingCopy;
   private $server;
-
-  private $skipHello;
 
 
 /* -(  Construction  )------------------------------------------------------- */
@@ -67,23 +64,6 @@ final class ArcanistHgProxyClient {
   }
 
 
-/* -(  Configuration  )------------------------------------------------------ */
-
-
-  /**
-   * When connecting, do not expect the "capabilities" message.
-   *
-   * @param bool True to skip the "capabilities" message.
-   * @return this
-   *
-   * @task config
-   */
-  public function setSkipHello($skip) {
-    $this->skipHello = $skip;
-    return $this;
-  }
-
-
 /* -(  Executing Merucurial Commands  )-------------------------------------- */
 
 
@@ -97,15 +77,7 @@ final class ArcanistHgProxyClient {
    */
   public function executeCommand(array $argv) {
     if (!$this->server) {
-
-      try {
-        $server = $this->connectToDaemon();
-      } catch (Exception $ex) {
-        $this->launchDaemon();
-        $server = $this->connectToDaemon();
-      }
-
-      $this->server = $server;
+      $this->server = $this->connectToDaemon();
     }
     $server = $this->server;
 
@@ -176,7 +148,7 @@ final class ArcanistHgProxyClient {
     $errstr = null;
 
     $socket_path = ArcanistHgProxyServer::getPathToSocket($this->workingCopy);
-    $socket = @stream_socket_client('unix://'.$socket_path, $errno, $errstr);
+    $socket = stream_socket_client('unix://'.$socket_path, $errno, $errstr);
 
     if ($errno || !$socket) {
       throw new Exception(
@@ -186,29 +158,12 @@ final class ArcanistHgProxyClient {
     $channel = new PhutilSocketChannel($socket);
     $server = new ArcanistHgServerChannel($channel);
 
-    if (!$this->skipHello) {
-      // The protocol includes a "hello" message with capability and encoding
-      // information. Read and discard it, we use only the "runcommand"
-      // capability which is guaranteed to be available.
-      $hello = $server->waitForMessage();
-    }
+    // The protocol includes a "hello" message with capability and encoding
+    // information. Read and discard it, we use only the "runcommand" capability
+    // which is guaranteed to be available.
+    $hello = $server->waitForMessage();
 
     return $server;
-  }
-
-
-  /**
-   * @task internal
-   */
-  private function launchDaemon() {
-    $root = dirname(phutil_get_library_root('arcanist'));
-    $bin = $root.'/scripts/hgdaemon/hgdaemon_server.php';
-    $proxy = new ExecFuture(
-      '%s %s --idle-limit 15 --quiet %C',
-      $bin,
-      $this->workingCopy,
-      $this->skipHello ? '--skip-hello' : null);
-    $proxy->resolvex();
   }
 
 }

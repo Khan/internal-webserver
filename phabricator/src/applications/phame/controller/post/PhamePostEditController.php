@@ -20,21 +20,10 @@
  * @group phame
  */
 final class PhamePostEditController
-  extends PhameController {
+extends PhameController {
 
   private $phid;
   private $isPostEdit;
-  private $userBlogs;
-  private $postBlogs;
-  private $post;
-
-  private function setPost(PhamePost $post) {
-    $this->post = $post;
-    return $this;
-  }
-  private function getPost() {
-    return $this->post;
-  }
 
   private function setPostPHID($phid) {
     $this->phid = $phid;
@@ -50,49 +39,20 @@ final class PhamePostEditController
   private function isPostEdit() {
     return $this->isPostEdit;
   }
-  private function setUserBlogs(array $blogs) {
-    assert_instances_of($blogs, 'PhameBlog');
-    $this->userBlogs = $blogs;
-    return $this;
-  }
-  private function getUserBlogs() {
-    return $this->userBlogs;
-  }
-  private function setPostBlogs(array $blogs) {
-    assert_instances_of($blogs, 'PhameBlog');
-    $this->postBlogs = $blogs;
-    return $this;
-  }
-  private function getPostBlogs() {
-    return $this->postBlogs;
-  }
 
   protected function getSideNavFilter() {
     if ($this->isPostEdit()) {
-      $post_noun = $this->getPost()->getHumanName();
-      $filter    = $post_noun.'/edit/'.$this->getPostPHID();
+      $filter = 'post/edit/'.$this->getPostPHID();
     } else {
       $filter = 'post/new';
     }
     return $filter;
   }
   protected function getSideNavExtraPostFilters() {
-    if ($this->isPostEdit() && !$this->getPost()->isDraft()) {
+    if ($this->isPostEdit()) {
       $filters = array(
         array('key'  => 'post/edit/'.$this->getPostPHID(),
               'name' => 'Edit Post')
-      );
-    } else {
-      $filters = array();
-    }
-
-    return $filters;
-  }
-  protected function getSideNavExtraDraftFilters() {
-    if ($this->isPostEdit() && $this->getPost()->isDraft()) {
-      $filters = array(
-        array('key'  => 'draft/edit/'.$this->getPostPHID(),
-              'name' => 'Edit Draft')
       );
     } else {
       $filters = array();
@@ -115,17 +75,15 @@ final class PhamePostEditController
     $errors        = array();
 
     if ($this->isPostEdit()) {
-      $posts = id(new PhamePostQuery())
-        ->withPHIDs(array($this->getPostPHID()))
-        ->execute();
-      $post  = reset($posts);
+      $post = id(new PhamePost())->loadOneWhere(
+        'phid = %s',
+        $this->getPostPHID());
       if (empty($post)) {
         return new Aphront404Response();
       }
       if ($post->getBloggerPHID() != $user->getPHID()) {
         return new Aphront403Response();
       }
-      $post_noun     = ucfirst($post->getHumanName());
       $cancel_uri    = $post->getViewURI($user->getUsername());
       $submit_button = 'Save Changes';
       $delete_button = javelin_render_tag(
@@ -135,19 +93,17 @@ final class PhamePostEditController
           'class' => 'grey button',
           'sigil' => 'workflow',
         ),
-        'Delete '.$post_noun);
-      $page_title    = 'Edit '.$post_noun;
+        'Delete Post');
+      $page_title    = 'Edit Post';
     } else {
       $post = id(new PhamePost())
         ->setBloggerPHID($user->getPHID())
         ->setVisibility(PhamePost::VISIBILITY_DRAFT);
-      $cancel_uri    = '/phame/draft/';
-      $submit_button = 'Create Draft';
+      $cancel_uri    = '/phame';
+      $submit_button = 'Create Post';
       $delete_button = null;
-      $page_title    = 'Create Draft';
+      $page_title    = 'Create Post';
     }
-    $this->setPost($post);
-    $this->loadEdgesAndBlogs();
 
     if ($request->isFormPost()) {
       $saved       = true;
@@ -179,34 +135,9 @@ final class PhamePostEditController
         $errors[] = 'Title must be nonempty.';
         $e_title  = 'Required';
       }
-
-      $blogs_published    = array_keys($this->getPostBlogs());
-      $blogs_to_publish   = array();
-      $blogs_to_depublish = array();
-      if ($visibility == PhamePost::VISIBILITY_PUBLISHED) {
-        $blogs_arr          = $request->getArr('blogs');
-        $blogs_to_publish   = array_values($blogs_arr);
-        $blogs_to_depublish = array_diff($blogs_published,
-                                         $blogs_to_publish);
-      } else {
-        $blogs_to_depublish   = $blogs_published;
-      }
-
       if (empty($errors)) {
         try {
           $post->save();
-
-          $editor    = new PhabricatorEdgeEditor();
-          $edge_type = PhabricatorEdgeConfig::TYPE_POST_HAS_BLOG;
-          $editor->setUser($user);
-          foreach ($blogs_to_publish as $phid) {
-            $editor->addEdge($post->getPHID(), $edge_type, $phid);
-          }
-          foreach ($blogs_to_depublish as $phid) {
-            $editor->removeEdge($post->getPHID(), $edge_type, $phid);
-          }
-          $editor->save();
-
         } catch (AphrontQueryDuplicateKeyException $e) {
           $saved         = false;
           $e_phame_title = 'Not Unique';
@@ -219,7 +150,6 @@ final class PhamePostEditController
 
       if ($saved) {
         $uri = new PhutilURI($post->getViewURI($user->getUsername()));
-        $uri->setQueryParam('saved', true);
         return id(new AphrontRedirectResponse())
           ->setURI($uri);
       }
@@ -279,10 +209,6 @@ final class PhamePostEditController
         ->setName('visibility')
         ->setValue($post->getVisibility())
         ->setOptions(PhamePost::getVisibilityOptionsForSelect())
-        ->setID('post-visibility')
-      )
-      ->appendChild(
-        $this->getBlogCheckboxControl($post)
       )
       ->appendChild(
         id(new AphrontFormSelectControl())
@@ -321,26 +247,6 @@ final class PhamePostEditController
         'uri'         => '/phame/post/preview/',
       ));
 
-    $visibility_data = array(
-      'select_id'   => 'post-visibility',
-      'current'     => $post->getVisibility(),
-      'published'   => PhamePost::VISIBILITY_PUBLISHED,
-      'draft'       => PhamePost::VISIBILITY_DRAFT,
-      'change_uri'  => $post->getChangeVisibilityURI(),
-    );
-
-    $blogs_data = array(
-      'checkbox_id'    => 'post-blogs',
-      'have_published' => (bool) count($this->getPostBlogs())
-    );
-
-    Javelin::initBehavior(
-      'phame-post-blogs',
-      array(
-        'blogs'               => $blogs_data,
-        'visibility'          => $visibility_data,
-      ));
-
     if ($errors) {
       $error_view = id(new AphrontErrorView())
         ->setTitle('Errors saving post.')
@@ -359,77 +265,5 @@ final class PhamePostEditController
       array(
         'title'   => $page_title,
       ));
-  }
-
-  private function getBlogCheckboxControl(PhamePost $post) {
-    if ($post->getVisibility() == PhamePost::VISIBILITY_PUBLISHED) {
-      $control_style = null;
-    } else {
-      $control_style = 'display: none';
-    }
-
-    $control = id(new AphrontFormCheckboxControl())
-      ->setLabel('Blogs')
-      ->setControlID('post-blogs')
-      ->setControlStyle($control_style);
-
-    $post_blogs = $this->getPostBlogs();
-    $user_blogs = $this->getUserBlogs();
-    $all_blogs  = $post_blogs + $user_blogs;
-    $all_blogs  = msort($all_blogs, 'getName');
-    foreach ($all_blogs as $phid => $blog) {
-      $control->addCheckbox(
-        'blogs[]',
-        $blog->getPHID(),
-        $blog->getName(),
-        isset($post_blogs[$phid])
-      );
-    }
-
-    return $control;
-  }
-
-  private function loadEdgesAndBlogs() {
-    $edge_types   = array(PhabricatorEdgeConfig::TYPE_BLOGGER_HAS_BLOG);
-    $blogger_phid = $this->getRequest()->getUser()->getPHID();
-    $phids        = array($blogger_phid);
-    if ($this->isPostEdit()) {
-      $edge_types[] = PhabricatorEdgeConfig::TYPE_POST_HAS_BLOG;
-      $phids[]      = $this->getPostPHID();
-    }
-
-    $edges = id(new PhabricatorEdgeQuery())
-      ->withSourcePHIDs($phids)
-      ->withEdgeTypes($edge_types)
-      ->execute();
-
-    $all_blogs_assoc = array();
-    foreach ($phids as $phid) {
-      foreach ($edge_types as $type) {
-        $all_blogs_assoc += $edges[$phid][$type];
-      }
-    }
-
-    $blogs = id(new PhameBlogQuery())
-      ->withPHIDs(array_keys($all_blogs_assoc))
-      ->execute();
-    $blogs = mpull($blogs, null, 'getPHID');
-
-    $user_blogs = array_intersect_key(
-      $blogs,
-      $edges[$blogger_phid][PhabricatorEdgeConfig::TYPE_BLOGGER_HAS_BLOG]
-    );
-
-    if ($this->isPostEdit()) {
-      $post_blogs = array_intersect_key(
-        $blogs,
-        $edges[$this->getPostPHID()][PhabricatorEdgeConfig::TYPE_POST_HAS_BLOG]
-      );
-    } else {
-      $post_blogs = array();
-    }
-
-    $this->setUserBlogs($user_blogs);
-    $this->setPostBlogs($post_blogs);
   }
 }

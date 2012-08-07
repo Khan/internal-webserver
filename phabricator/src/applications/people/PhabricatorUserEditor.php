@@ -127,10 +127,7 @@ final class PhabricatorUserEditor {
   /**
    * @task edit
    */
-  public function changePassword(
-    PhabricatorUser $user,
-    PhutilOpaqueEnvelope $envelope) {
-
+  public function changePassword(PhabricatorUser $user, $password) {
     if (!$user->getID()) {
       throw new Exception("User has not been created yet!");
     }
@@ -138,7 +135,7 @@ final class PhabricatorUserEditor {
     $user->openTransaction();
       $user->reload();
 
-      $user->setPassword($envelope);
+      $user->setPassword($password);
       $user->save();
 
       $log = PhabricatorUserLog::newLog(

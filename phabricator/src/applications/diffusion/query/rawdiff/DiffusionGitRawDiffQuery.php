@@ -35,18 +35,13 @@ final class DiffusionGitRawDiffQuery extends DiffusionRawDiffQuery {
     );
     $options = implode(' ', $options);
 
-    $against = $this->getAgainstCommit();
-    if ($against === null) {
-      $against = $commit.'^';
-    }
-
     // If there's no path, get the entire raw diff.
     $path = nonempty($drequest->getPath(), '.');
 
     $future = $repository->getLocalCommandFuture(
-      "diff %C %s %s -- %s",
+      "diff %C %s^ %s -- %s",
       $options,
-      $against,
+      $commit,
       $commit,
       $path);
 

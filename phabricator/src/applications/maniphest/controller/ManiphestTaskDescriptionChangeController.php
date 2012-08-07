@@ -56,16 +56,14 @@ final class ManiphestTaskDescriptionChangeController
     $transactions = array($transaction);
 
     $phids = array();
-    foreach ($transactions as $xaction) {
-      foreach ($xaction->extractPHIDs() as $phid) {
+    foreach ($transactions as $transaction) {
+      foreach ($transaction->extractPHIDs() as $phid) {
         $phids[$phid] = $phid;
       }
     }
     $handles = id(new PhabricatorObjectHandleData($phids))->loadHandles();
 
-    $engine = new PhabricatorMarkupEngine();
-    $engine->addObject($transaction, ManiphestTransaction::MARKUP_FIELD_BODY);
-    $engine->process();
+    $engine = PhabricatorMarkupEngine::newManiphestMarkupEngine();
 
     $view = new ManiphestTransactionDetailView();
     $view->setTransactionGroup($transactions);

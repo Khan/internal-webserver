@@ -37,7 +37,6 @@ final class PhutilInteractiveEditor {
   private $name     = '';
   private $content  = '';
   private $offset   = 0;
-  private $preferred;
   private $fallback;
 
 
@@ -108,25 +107,27 @@ final class PhutilInteractiveEditor {
   }
 
   private function invokeEditor($editor, $path, $offset) {
-    // NOTE: Popular Windows editors like Notepad++ and GitPad do not support
-	// line offsets, so just ignore the offset feature on Windows. We rarely
-	// use it anyway.
-  
-    $offset_flag = '';
-	if ($offset && !phutil_is_windows()) {
-	  $offset = (int)$offset;
-	  if (preg_match('/^mate/', $editor)) {
-	    $offset_flag = csprintf('-l %d', $offset);
-	  } else {
-	    $offset_flag = csprintf('+%d', $offset);
-	  }
-	}
-	
-	$cmd = csprintf(
-	  '%C %C %s',
-	  $editor,
-	  $offset_flag,
-	  $path);
+    if (phutil_is_windows()) {
+      $command_format = '%s';
+    } else {
+      $command_format = '%C';
+    }
+
+    // Special cases for known editors that don't obey the usual convention.
+    if (preg_match('/^mate/', $editor)) {
+      $cmd = csprintf(
+        $command_format.' -l %s %s',
+        $editor,
+        $offset,
+        $path);
+    } else {
+
+      $cmd = csprintf(
+        $command_format.' %s %s',
+        $editor,
+        '+'.$offset,
+        $path);
+    }
 
     return phutil_passthru('%C', $cmd);
   }
@@ -236,21 +237,6 @@ final class PhutilInteractiveEditor {
 
 
   /**
-   * Set the preferred editor program. If set, this will override all other
-   * sources of editor configuration, like $EDITOR.
-   *
-   * @param  string  Command-line editing program (e.g. 'emacs', 'vi')
-   * @return $this
-   *
-   * @task config
-   */
-  public function setPreferredEditor($editor) {
-    $this->preferred = $editor;
-    return $this;
-  }
-
-
-  /**
    * Get the name of the editor program to use. The value of the environmental
    * variable $EDITOR will be used if available; otherwise, the `editor` binary
    * if present; otherwise the best editor will be selected.
@@ -260,10 +246,6 @@ final class PhutilInteractiveEditor {
    * @task config
    */
   public function getEditor() {
-    if ($this->preferred) {
-      return $this->preferred;
-    }
-
     $editor = getenv('EDITOR');
     if ($editor) {
       return $editor;

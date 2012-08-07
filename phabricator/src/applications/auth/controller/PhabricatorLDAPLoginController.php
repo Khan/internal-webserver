@@ -35,12 +35,11 @@ final class PhabricatorLDAPLoginController extends PhabricatorAuthController {
     $current_user = $this->getRequest()->getUser();
     $request = $this->getRequest();
 
-    $ldap_username = $request->getCookie('phusr');
     if ($request->isFormPost()) {
-      $ldap_username = $request->getStr('username');
       try {
-        $envelope = new PhutilOpaqueEnvelope($request->getStr('password'));
-        $this->provider->auth($ldap_username, $envelope);
+        $this->provider->auth($request->getStr('username'),
+          $request->getStr('password'));
+
       } catch (Exception $e) {
         $errors[] = $e->getMessage();
       }
@@ -126,6 +125,7 @@ final class PhabricatorLDAPLoginController extends PhabricatorAuthController {
       }
     }
 
+    $ldap_username = $request->getCookie('phusr');
     $ldap_form = new AphrontFormView();
     $ldap_form
       ->setUser($request->getUser())

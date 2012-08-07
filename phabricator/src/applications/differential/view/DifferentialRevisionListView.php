@@ -67,12 +67,6 @@ final class DifferentialRevisionListView extends AphrontView {
       throw new Exception("Call setUser() before render()!");
     }
 
-    $flags = id(new PhabricatorFlagQuery())
-      ->withOwnerPHIDs(array($user->getPHID()))
-      ->withObjectPHIDs(mpull($this->revisions, 'getPHID'))
-      ->execute();
-    $flagged = mpull($flags, null, 'getObjectPHID');
-
     foreach ($this->fields as $field) {
       $field->setUser($this->user);
       $field->setHandles($this->handles);
@@ -80,28 +74,15 @@ final class DifferentialRevisionListView extends AphrontView {
 
     $rows = array();
     foreach ($this->revisions as $revision) {
-      $phid = $revision->getPHID();
-      $flag = '';
-      if (isset($flagged[$phid])) {
-        $class = PhabricatorFlagColor::getCSSClass($flagged[$phid]->getColor());
-        $note = $flagged[$phid]->getNote();
-        $flag = phutil_render_tag(
-          'div',
-          array(
-            'class' => 'phabricator-flag-icon '.$class,
-            'title' => $note,
-          ),
-          '');
-      }
-      $row = array($flag);
+      $row = array();
       foreach ($this->fields as $field) {
         $row[] = $field->renderValueForRevisionList($revision);
       }
       $rows[] = $row;
     }
 
-    $headers = array('');
-    $classes = array('');
+    $headers = array();
+    $classes = array();
     foreach ($this->fields as $field) {
       $headers[] = $field->renderHeaderForRevisionList();
       $classes[] = $field->getColumnClassForRevisionList();

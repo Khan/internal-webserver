@@ -40,11 +40,40 @@ final class PhabricatorProjectProfileController
       $profile = new PhabricatorProjectProfile();
     }
 
-    $picture = $profile->loadProfileImageURI();
-    $members = $project->loadMemberPHIDs();
-    $member_map = array_fill_keys($members, true);
+    $src_phid = $profile->getProfileImagePHID();
+    if (!$src_phid) {
+      $src_phid = $user->getProfileImagePHID();
+    }
+    $file = id(new PhabricatorFile())->loadOneWhere('phid = %s',
+                                                    $src_phid);
+    if ($file) {
+      $picture = $file->getBestURI();
+    } else {
+      $picture = PhabricatorUser::getDefaultProfileImageURI();
+    }
 
-    $nav_view = $this->buildLocalNavigation($project);
+    $members = mpull($project->loadAffiliations(), null, 'getUserPHID');
+
+    $nav_view = new AphrontSideNavFilterView();
+    $uri = new PhutilURI('/project/view/'.$project->getID().'/');
+    $nav_view->setBaseURI($uri);
+
+    $external_arrow = "\xE2\x86\x97";
+    $tasks_uri = '/maniphest/view/all/?projects='.$project->getPHID();
+    $slug = PhabricatorSlug::normalize($project->getName());
+    $phriction_uri = '/w/projects/'.$slug;
+
+    $edit_uri = '/project/edit/'.$project->getID().'/';
+
+    $nav_view->addFilter('dashboard', 'Dashboard');
+    $nav_view->addSpacer();
+    $nav_view->addFilter('feed', 'Feed');
+    $nav_view->addFilter(null, 'Tasks '.$external_arrow, $tasks_uri);
+    $nav_view->addFilter(null, 'Wiki '.$external_arrow, $phriction_uri);
+    $nav_view->addFilter('people', 'People');
+    $nav_view->addFilter('about', 'About');
+    $nav_view->addSpacer();
+    $nav_view->addFilter(null, "Edit Project\xE2\x80\xA6", $edit_uri);
 
     $this->page = $nav_view->selectFilter($this->page, 'dashboard');
 
@@ -59,8 +88,6 @@ final class PhabricatorProjectProfileController
           array(
             $project->getPHID(),
           ));
-        $query->setLimit(50);
-        $query->setViewer($this->getRequest()->getUser());
         $stories = $query->execute();
 
         $content .= $this->renderStories($stories);
@@ -88,7 +115,7 @@ final class PhabricatorProjectProfileController
     $header->setProfilePicture($picture);
 
     $action = null;
-    if (empty($member_map[$user->getPHID()])) {
+    if (empty($members[$user->getPHID()])) {
       $action = phabricator_render_form(
         $user,
         array(
@@ -133,7 +160,10 @@ final class PhabricatorProjectProfileController
     $blurb = phutil_escape_html($blurb);
     $blurb = str_replace("\n", '<br />', $blurb);
 
-    $phids = array($project->getAuthorPHID());
+    $phids = array_merge(
+      array($project->getAuthorPHID()),
+      $project->getSubprojectPHIDs()
+    );
     $phids = array_unique($phids);
     $handles = id(new PhabricatorObjectHandleData($phids))
       ->loadHandles();
@@ -165,6 +195,23 @@ final class PhabricatorProjectProfileController
         </div>
       </div>';
 
+    if ($project->getSubprojectPHIDs()) {
+      $table = $this->renderSubprojectTable(
+        $handles,
+        $project->getSubprojectPHIDs());
+      $subproject_list = $table->render();
+    } else {
+      $subproject_list = '<p><em>No subprojects.</em></p>';
+    }
+
+    $about .=
+      '<div class="phabricator-profile-info-group">'.
+        '<h1 class="phabricator-profile-info-header">Subprojects</h1>'.
+        '<div class="phabricator-profile-info-pane">'.
+          $subproject_list.
+        '</div>'.
+      '</div>';
+
     return $about;
   }
 
@@ -172,13 +219,17 @@ final class PhabricatorProjectProfileController
     PhabricatorProject $project,
     PhabricatorProjectProfile $profile) {
 
-    $member_phids = $project->loadMemberPHIDs();
-    $handles = id(new PhabricatorObjectHandleData($member_phids))
+    $affiliations = $project->loadAffiliations();
+
+    $phids = mpull($affiliations, 'getUserPHID');
+    $handles = id(new PhabricatorObjectHandleData($phids))
       ->loadHandles();
 
     $affiliated = array();
-    foreach ($handles as $phids => $handle) {
-      $affiliated[] = '<li>'.$handle->renderLink().'</li>';
+    foreach ($affiliations as $affiliation) {
+      $user = $handles[$affiliation->getUserPHID()]->renderLink();
+      $role = phutil_escape_html($affiliation->getRole());
+      $affiliated[] = '<li>'.$user.' &mdash; '.$role.'</li>';
     }
 
     if ($affiliated) {
@@ -202,13 +253,18 @@ final class PhabricatorProjectProfileController
 
     $query = new PhabricatorFeedQuery();
     $query->setFilterPHIDs(array($project->getPHID()));
-    $query->setViewer($this->getRequest()->getUser());
-    $query->setLimit(100);
     $stories = $query->execute();
 
     if (!$stories) {
       return 'There are no stories about this project.';
     }
+
+    $query = new PhabricatorFeedQuery();
+    $query->setFilterPHIDs(
+      array(
+        $project->getPHID(),
+      ));
+    $stories = $query->execute();
 
     return $this->renderStories($stories);
   }
@@ -288,4 +344,39 @@ final class PhabricatorProjectProfileController
     return $content;
   }
 
+  private function renderSubprojectTable(
+    array $handles,
+    array $subprojects_phids) {
+    assert_instances_of($handles, 'PhabricatorObjectHandle');
+
+    $rows = array();
+    foreach ($subprojects_phids as $subproject_phid) {
+      $phid = $handles[$subproject_phid]->getPHID();
+
+      $rows[] = array(
+        phutil_escape_html($handles[$phid]->getFullName()),
+        phutil_render_tag(
+          'a',
+          array(
+            'class' => 'small grey button',
+            'href' => $handles[$phid]->getURI(),
+          ),
+          'View Project Profile'),
+      );
+    }
+
+    $table = new AphrontTableView($rows);
+     $table->setHeaders(
+       array(
+         'Name',
+         '',
+       ));
+     $table->setColumnClasses(
+       array(
+         'pri',
+         'action right',
+       ));
+
+    return $table;
+  }
 }

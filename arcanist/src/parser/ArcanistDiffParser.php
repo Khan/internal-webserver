@@ -26,13 +26,10 @@ final class ArcanistDiffParser {
   protected $api;
   protected $text;
   protected $line;
-  protected $lineSaved;
   protected $isGit;
   protected $isMercurial;
   protected $detectBinaryFiles = false;
   protected $tryEncoding;
-  protected $rawDiff;
-  protected $writeDiffOnFailure;
 
   protected $changes = array();
   private $forcePath;
@@ -230,33 +227,26 @@ final class ArcanistDiffParser {
           '(?P<old>.+)\s+\d{4}-\d{2}-\d{2} and '.
           '(?P<new>.+)\s+\d{4}-\d{2}-\d{2} differ.*',
 
-        // This is a normal Mercurial text change, probably from "hg diff". It
-        // may have two "-r" blocks if it came from "hg diff -r x:y".
-        '(?P<type>diff -r) (?P<hgrev>[a-f0-9]+) (?:-r [a-f0-9]+ )?(?P<cur>.+)',
+        // This is a normal Mercurial text change, probably from "hg diff".
+        '(?P<type>diff -r) (?P<hgrev>[a-f0-9]+) (?P<cur>.+)',
       );
 
+      $ok = false;
       $line = $this->getLine();
       $match = null;
-      $ok = $this->tryMatchHeader($patterns, $line, $match);
-
-      if (!$ok && $this->isFirstNonEmptyLine()) {
-        // 'hg export' command creates so called "extended diff" that
-        // contains some meta information and comment at the beginning
-        // (isFirstNonEmptyLine() to check for beginning). Actual mercurial
-        // code detects where comment ends and unified diff starts by
-        // searching "diff -r" in the text.
-        $this->saveLine();
-        $line = $this->nextLineThatLooksLikeDiffStart();
-        if (!$this->tryMatchHeader($patterns, $line, $match)) {
-          // Restore line before guessing to display correct error.
-          $this->restoreLine();
-          $this->didFailParse(
-            "Expected a hunk header, like 'Index: /path/to/file.ext' (svn), ".
-            "'Property changes on: /path/to/file.ext' (svn properties), ".
-            "'commit 59bcc3ad6775562f845953cf01624225' (git show), ".
-            "'diff --git' (git diff), '--- filename' (unified diff), or " .
-            "'diff -r' (hg diff or patch).");
+      foreach ($patterns as $pattern) {
+        $ok = preg_match('@^'.$pattern.'$@', $line, $match);
+        if ($ok) {
+          break;
         }
+      }
+
+      if (!$ok) {
+        $this->didFailParse(
+          "Expected a hunk header, like 'Index: /path/to/file.ext' (svn), ".
+          "'Property changes on: /path/to/file.ext' (svn properties), ".
+          "'commit 59bcc3ad6775562f845953cf01624225' (git show), ".
+          "'diff --git' (git diff), or '--- filename' (unified diff).");
       }
 
       if (isset($match['type'])) {
@@ -330,15 +320,6 @@ final class ArcanistDiffParser {
     $this->didFinishParse();
 
     return $this->changes;
-  }
-
-  protected function tryMatchHeader($patterns, $line, &$match) {
-    foreach ($patterns as $pattern) {
-      if (preg_match('@^'.$pattern.'$@', $line, $match)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   protected function parseCommitMessage(ArcanistDiffChange $change) {
@@ -976,7 +957,6 @@ final class ArcanistDiffParser {
   }
 
   protected function didStartParse($text) {
-    $this->rawDiff = $text;
 
     // Eat leading whitespace. This may happen if the first change in the diff
     // is an SVN property change.
@@ -1008,13 +988,7 @@ final class ArcanistDiffParser {
       $text = preg_replace('/'.$ansi_color_pattern.'/', '', $text);
     }
 
-    // TODO: This is a hack for SVN + Windows. Eventually, we should retain line
-    // endings and preserve them through the patch lifecycle or something along
-    // those lines.
-
-    // NOTE: On Windows, a diff may have \n delimited lines (because the file
-    // uses \n) but \r\n delimited blocks. Split on both.
-    $this->text = preg_split('/\r?\n/', $text);
+    $this->text = explode("\n", $text);
     $this->line = 0;
   }
 
@@ -1042,47 +1016,13 @@ final class ArcanistDiffParser {
     return $this->getLine();
   }
 
-  protected function nextLineThatLooksLikeDiffStart() {
-    while (($line = $this->nextLine()) !== null) {
-      if (preg_match('/^\s*diff\s+-r/', $line)) {
-        break;
-      }
-    }
-    return $this->getLine();
-  }
-
-  protected function saveLine() {
-    $this->lineSaved = $this->line;
-  }
-
-  protected function restoreLine() {
-    $this->line = $this->lineSaved;
-  }
-
-  protected function isFirstNonEmptyLine() {
-    $count = count($this->text);
-    for ($i = 0; $i < $count; $i++) {
-      if (strlen(trim($this->text[$i])) != 0) {
-        return ($i == $this->line);
-      }
-    }
-    // Entire file is empty.
-    return false;
-  }
-
   protected function didFinishParse() {
     $this->text = null;
   }
 
-  public function setWriteDiffOnFailure($write) {
-    $this->writeDiffOnFailure = $write;
-    return $this;
-  }
-
   protected function didFailParse($message) {
-    $context = 3;
-    $min = max(0, $this->line - $context);
-    $max = min($this->line + $context, count($this->text) - 1);
+    $min = max(0, $this->line - 3);
+    $max = min($this->line + 3, count($this->text) - 1);
 
     $context = '';
     for ($ii = $min; $ii <= $max; $ii++) {
@@ -1093,21 +1033,8 @@ final class ArcanistDiffParser {
         $this->text[$ii]);
     }
 
-    $out = array();
-    $out[] = "Diff Parse Exception: {$message}";
-
-    if ($this->writeDiffOnFailure) {
-      $temp = new TempFile();
-      $temp->setPreserveFile(true);
-
-      Filesystem::writeFile($temp, $this->rawDiff);
-      $out[] = "Raw input file was written to: ".(string)$temp;
-    }
-
-    $out[] = $context;
-    $out = implode("\n\n", $out);
-
-    throw new Exception($out);
+    $message = "Parse Exception: {$message}\n\n{$context}\n";
+    throw new Exception($message);
   }
 
   /**

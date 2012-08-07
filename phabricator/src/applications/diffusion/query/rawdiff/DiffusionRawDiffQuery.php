@@ -21,7 +21,6 @@ abstract class DiffusionRawDiffQuery extends DiffusionQuery {
   private $request;
   private $timeout;
   private $linesOfContext = 65535;
-  private $againstCommit;
 
   final public static function newFromDiffusionRequest(
     DiffusionRequest $request) {
@@ -48,15 +47,6 @@ abstract class DiffusionRawDiffQuery extends DiffusionQuery {
 
   final public function getLinesOfContext() {
     return $this->linesOfContext;
-  }
-
-  final public function setAgainstCommit($value) {
-    $this->againstCommit = $value;
-    return $this;
-  }
-
-  final public function getAgainstCommit() {
-    return $this->againstCommit;
   }
 
 }

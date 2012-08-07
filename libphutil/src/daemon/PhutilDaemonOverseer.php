@@ -23,15 +23,12 @@
  */
 final class PhutilDaemonOverseer {
 
-  const HEARTBEAT_WAIT = 120;
-
   private $captureBufferSize = 65536;
 
   private $deadline;
   private $deadlineTimeout  = 86400;
   private $restartDelay     = 60;
   private $killDelay        = 3;
-  private $heartbeat;
 
   private $daemon;
   private $argv;
@@ -222,7 +219,6 @@ EOHELP
       $future->setStderrSizeLimit($this->captureBufferSize);
 
       $this->deadline = time() + $this->deadlineTimeout;
-      $this->heartbeat = time() + self::HEARTBEAT_WAIT;
 
       $future->isReady();
       $this->childPID = $future->getPID();
@@ -261,21 +257,6 @@ EOHELP
             }
             break 2;
           }
-          if ($this->heartbeat < time()) {
-            $this->heartbeat = time() + self::HEARTBEAT_WAIT;
-            if ($this->conduitURI) {
-              try {
-                $this->conduit = new ConduitClient($this->conduitURI);
-                $this->conduit->callMethodSynchronous(
-                  'daemon.setstatus',
-                  array(
-                    'daemonLogID'  => $this->daemonLogID,
-                    'status'       => 'run',
-                  ));
-              } catch (Exception $ex) {
-              }
-            }
-          }
         } while (time() < $this->deadline);
 
         $this->logMessage('HANG', 'Hang detected. Restarting process.');
@@ -303,19 +284,6 @@ EOHELP
     fclose(STDERR);
     $this->signaled = true;
     $this->annihilateProcessGroup();
-
-    if ($this->conduitURI) {
-      try {
-        $this->conduit = new ConduitClient($this->conduitURI);
-        $this->conduit->callMethodSynchronous(
-          'daemon.setstatus',
-          array(
-            'daemonLogID'  => $this->daemonLogID,
-            'status'       => 'exit',
-          ));
-      } catch (Exception $ex) {
-      }
-    }
     exit(128 + $signo);
   }
 

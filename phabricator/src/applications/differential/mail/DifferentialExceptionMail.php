@@ -45,13 +45,16 @@ final class DifferentialExceptionMail extends DifferentialMail {
     $original_body = $this->originalBody;
 
     $message = $exception->getMessage();
+    $trace   = $exception->getTraceAsString();
 
     return <<<EOBODY
 Your request failed because an exception was encoutered while processing it:
 
 EXCEPTION: {$message}
 
--- Original Body -------------------------------------------------------------
+{$trace}
+
+-- Original Body --------------------------
 
 {$original_body}
 
