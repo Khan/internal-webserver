@@ -112,7 +112,7 @@ JX.install('FX', {
     },
 
     _compute: function(from, to) {
-      if (from instanceof Array) {
+      if (JX.isArray(from)) {
         return from.map(function(value, ii) {
           return Math.round(this._compute(value, to[ii]));
         }, this);
