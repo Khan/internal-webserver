@@ -133,6 +133,13 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     # store the existing callsigns to ensure uniqueness for new ones.
     existing_callsigns = set(r['callsign'] for r in phabricator_repo_info)
 
+    if verbose:
+        def _print(name, lst):
+            print '* Existing %s repos:\n%s\n' % (name, '\n'.join(sorted(lst)))
+        _print('git', git_repos)
+        _print('hg', kiln_repos)
+        _print('phabricator', phabricator_repos)
+
     actual_repos = kiln_repos | git_repos
     new_repos = actual_repos - phabricator_repos
     deleted_repos = phabricator_repos - actual_repos
