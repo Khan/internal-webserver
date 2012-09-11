@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-final class ArcanistCommentRemoverTestCase extends ArcanistPhutilTestCase {
+final class ArcanistCommentRemoverTestCase extends ArcanistTestCase {
 
   public function testRemover() {
     $test = <<<EOTEXT

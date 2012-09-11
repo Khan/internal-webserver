@@ -19,7 +19,7 @@
 /**
  * @group testcase
  */
-final class PhutilLanguageGuesserTestCase extends ArcanistPhutilTestCase {
+final class PhutilLanguageGuesserTestCase extends PhutilTestCase {
 
   public function testGuessing() {
     $dir = dirname(__FILE__).'/languageguesser/';
