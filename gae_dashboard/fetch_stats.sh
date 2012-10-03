@@ -1,7 +1,7 @@
 #!/bin/sh
 
 timestamp=`date -u +%H:%M:%SZ`
-srcdir="${HOME}/gae_dashboard"
+srcdir="${HOME}/analytics/gae_dashboard"
 outdir="${HOME}/kadata/gae_dashboard/`date +%Y/%m/%d`"
 private_pw="${HOME}/private_pw"
 username="khanbackups@gmail.com"
