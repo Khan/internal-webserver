@@ -1,21 +1,5 @@
 <?php
 
-/*
- * Copyright 2012 Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 /**
  * Abstraction for processing large inputs without holding them in memory. This
  * class implements line-oriented, buffered reads of some external stream, where
@@ -194,7 +178,7 @@ abstract class LinesOfALarge implements Iterator {
         // NOTE: We keep track of EOF (an empty read) so we don't make any more
         // reads afterward. Normally, we'll return from the first EOF read,
         // emit the line, and then next() will be called again. Without tracking
-        // EOF, we'll attempt another read. A well-behaved impelmentation should
+        // EOF, we'll attempt another read. A well-behaved implementation should
         // still return empty string, but we can protect against any issues
         // here by keeping a flag.
         $more = '';
