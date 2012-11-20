@@ -7,5 +7,5 @@ kilnauth=~/internal-webserver/hg_mirrors/kilnauth.py
 [auth]
 kiln.prefix = https://khanacademy.kilnhg.com
 
-[hostfingerprints]
-khanacademy.kilnhg.com = fe:ab:65:89:7c:6f:1a:21:a8:39:54:6c:2a:cb:ca:ae:e9:e5:f0:01
+[web]
+cacerts = /etc/ssl/certs/ca-certificates.crt
