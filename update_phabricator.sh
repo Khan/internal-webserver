@@ -7,6 +7,10 @@
 # Die if something goes wrong.
 set -e
 
+# We always run from the same directory as where this script lives.
+# This is the only bash-ism in the script.
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 # We need the internal-webserver repository to be set up properly.
 if [ ! -d "phabricator/.git" ]; then
   echo "You need to set up the phabricator subdirectories as 'fake' sub-repos:"
@@ -23,10 +27,8 @@ if [ ! -s "$HOME/.ssh/internal_webserver.pem" ]; then
   exit 1
 fi
 
-
-# We always run from the same directory as where this script lives.
-# This is the only bash-ism in the script.
-cd "$(dirname "${BASH_SOURCE[0]}")"
+git checkout master
+trap 'git checkout -' 0  # reset to old branch when the script exits
 
 # $1: the directory to cd to (root of some git tree).
 push_upstream() {
@@ -35,6 +37,7 @@ push_upstream() {
    git pull
    git pull upstream master
    git push
+   git checkout -
 )
 }
 
@@ -65,6 +68,7 @@ git commit -am "merge from upstream phabricator" && git push
 # Now push to production
 ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/internal_webserver.pem" \
    "cd internal-webserver; \
+    git checkout master; \
     git pull; \
     PHABRICATOR_ENV=khan phabricator/bin/phd stop; \
     sudo /etc/init.d/lighttpd stop; \
