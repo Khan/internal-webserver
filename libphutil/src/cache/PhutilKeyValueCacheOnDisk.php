@@ -32,16 +32,6 @@ final class PhutilKeyValueCacheOnDisk extends PhutilKeyValueCache {
 
 
   public function getKeys(array $keys) {
-    $call_id = null;
-    if ($this->getProfiler()) {
-      $call_id = $this->getProfiler()->beginServiceCall(
-        array(
-          'type' => 'kvcache-get',
-          'name' => 'disk',
-          'keys' => $keys,
-        ));
-    }
-
     $now = time();
 
     $results = array();
@@ -69,21 +59,11 @@ final class PhutilKeyValueCacheOnDisk extends PhutilKeyValueCache {
       }
     }
 
-    if ($call_id) {
-      $this->getProfiler()->endServiceCall(
-        $call_id,
-        array(
-          'hits' => array_keys($results),
-        ));
-    }
-
     return $results;
   }
 
 
   public function setKeys(array $keys, $ttl = null) {
-    $call_id = null;
-
     if ($ttl) {
       $ttl_epoch = time() + $ttl;
     } else {
@@ -101,50 +81,22 @@ final class PhutilKeyValueCacheOnDisk extends PhutilKeyValueCache {
       $dicts[$key] = $dict;
     }
 
-    if ($this->getProfiler()) {
-      $call_id = $this->getProfiler()->beginServiceCall(
-        array(
-          'type' => 'kvcache-set',
-          'name' => 'disk',
-          'keys' => array_keys($keys),
-          'ttl'  => $ttl,
-        ));
-    }
-
     $this->loadCache($hold_lock = true);
     foreach ($dicts as $key => $dict) {
       $this->cache[$key] = $dict;
     }
     $this->saveCache();
 
-    if ($call_id) {
-      $this->getProfiler()->endServiceCall($call_id, array());
-    }
-
     return $this;
   }
 
 
   public function deleteKeys(array $keys) {
-    $call_id = null;
-    if ($this->getProfiler()) {
-      $call_id = $this->getProfiler()->beginServiceCall(
-        array(
-          'type' => 'kvcache-del',
-          'name' => 'disk',
-          'keys' => $keys,
-        ));
-    }
-
     $this->loadCache($hold_lock = true);
     foreach ($keys as $key) {
       unset($this->cache[$key]);
     }
     $this->saveCache();
-
-    if ($call_id) {
-      $this->getProfiler()->endServiceCall($call_id, array());
-    }
 
     return $this;
   }
@@ -214,7 +166,7 @@ final class PhutilKeyValueCacheOnDisk extends PhutilKeyValueCache {
     // copy across volumes.
     $new = $this->getCacheFile().'.new';
     Filesystem::writeFile($new, serialize($this->cache));
-    rename($new, $this->getCacheFile());
+    Filesystem::rename($new, $this->getCacheFile());
 
     $this->lock->unlock();
     $this->lock = null;

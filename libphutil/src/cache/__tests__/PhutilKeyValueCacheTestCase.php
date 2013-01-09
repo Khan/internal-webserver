@@ -23,6 +23,37 @@ final class PhutilKeyValueCacheTestCase extends ArcanistPhutilTestCase {
     $this->doCacheTest($cache);
   }
 
+  public function testDirectoryCache() {
+    $cache = new PhutilKeyValueCacheDirectory();
+
+    $dir = Filesystem::createTemporaryDirectory();
+    $cache->setCacheDirectory($dir);
+    $this->doCacheTest($cache);
+    $cache->destroyCache();
+  }
+
+  public function testDirectoryCacheSpecialDirectoryRules() {
+    $cache = new PhutilKeyValueCacheDirectory();
+
+    $dir = Filesystem::createTemporaryDirectory();
+    $dir = $dir.'/dircache/';
+    $cache->setCacheDirectory($dir);
+
+    $cache->setKey('a', 1);
+    $this->assertEqual(true, Filesystem::pathExists($dir.'/a.cache'));
+
+    $cache->setKey('a/b', 1);
+    $this->assertEqual(true, Filesystem::pathExists($dir.'/a/'));
+    $this->assertEqual(true, Filesystem::pathExists($dir.'/a/b.cache'));
+
+    $cache->deleteKey('a/b');
+    $this->assertEqual(false, Filesystem::pathExists($dir.'/a/'));
+    $this->assertEqual(false, Filesystem::pathExists($dir.'/a/b.cache'));
+
+    $cache->destroyCache();
+    $this->assertEqual(false, Filesystem::pathExists($dir));
+  }
+
   public function testCacheStack() {
     $req_cache = new PhutilKeyValueCacheInRequest();
     $disk_cache = new PhutilKeyValueCacheOnDisk();
@@ -54,8 +85,6 @@ final class PhutilKeyValueCacheTestCase extends ArcanistPhutilTestCase {
     $default = 'cache-miss';
     $value1  = 'cache-hit1';
     $value2  = 'cache-hit2';
-
-    $cache->setProfiler(PhutilServiceProfiler::getInstance());
 
     $test_info = get_class($cache);
 
