@@ -35,7 +35,7 @@ for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_
      ( cd $dirname;
        try_several_times timeout 1m git fetch -q
        # We'll gc too, to keep performance up over time
-       timeout 10m git gc --auto --prune --aggressive --quiet
+       timeout 10m git gc --auto --prune --aggressive --quiet >/dev/null
      )
    else
      echo "Running git clone --mirror $repo"
