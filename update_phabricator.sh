@@ -41,11 +41,6 @@ push_upstream() {
 )
 }
 
-( cd phabricator/externals/javelin \
-  && git pull \
-  && cd .. \
-  && { git commit -a -m "update javelin" || true; } \
-)
 push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
