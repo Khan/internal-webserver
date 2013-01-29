@@ -758,3 +758,68 @@ function phutil_split_lines($corpus, $retain_endings = true) {
 
   return $lines;
 }
+
+
+/**
+ * Simplifies a common use of `array_combine()`. Specifically, this:
+ *
+ *   COUNTEREXAMPLE:
+ *   if ($list) {
+ *     $result = array_combine($list, $list);
+ *   } else {
+ *     // Prior to PHP 5.4, array_combine() failed if given empty arrays.
+ *     $result = array();
+ *   }
+ *
+ * ...is equivalent to this:
+ *
+ *   $result = array_fuse($list);
+ *
+ * @param   list  List of scalars.
+ * @return  dict  Dictionary with inputs mapped to themselves.
+ * @group util
+ */
+function array_fuse(array $list) {
+  if ($list) {
+    return array_combine($list, $list);
+  }
+  return array();
+}
+
+
+/**
+ * Add an element between every two elements of some array. That is, given a
+ * list `A, B, C, D`, and some element to interleave, `x`, this function returns
+ * `A, x, B, x, C, x, D`. This works like `implode()`, but does not concatenate
+ * the list into a string. In particular:
+ *
+ *   implode('', array_interleave($x, $list));
+ *
+ * ...is equivalent to:
+ *
+ *   implode($x, $list);
+ *
+ * One case where this is useful is in rendering lists of HTML elements
+ * separated by some character, like a middle dot:
+ *
+ *   phutil_tag(
+ *     'div',
+ *     array(),
+ *     array_interleave(" \xC2\xB7 ", $stuff));
+ *
+ * This function does not preserve keys.
+ *
+ * @param wild  Element to interleave.
+ * @param list  List of elements to be interleaved.
+ * @return list Original list with the new element interleaved.
+ * @group util
+ */
+function array_interleave($interleave, array $array) {
+  $result = array();
+  foreach ($array as $item) {
+    $result[] = $item;
+    $result[] = $interleave;
+  }
+  array_pop($result);
+  return $result;
+}

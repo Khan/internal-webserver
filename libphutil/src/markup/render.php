@@ -5,6 +5,9 @@
  * @deprecated Use phutil_tag() instead.
  */
 function phutil_render_tag($tag, array $attributes = array(), $content = null) {
+  if (is_array($content)) {
+    $content = implode('', $content);
+  }
   $html = phutil_tag($tag, $attributes, phutil_safe_html($content));
   return $html->getHTMLContent();
 }
@@ -63,6 +66,13 @@ function phutil_escape_html($string) {
     return $string;
   }
   return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * @group markup
+ */
+function phutil_escape_html_newlines($string) {
+  return phutil_safe_html(nl2br(phutil_escape_html($string)));
 }
 
 /**
