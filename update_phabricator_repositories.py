@@ -131,7 +131,9 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
-    existing_callsigns = set(r['callsign'] for r in phabricator_repo_info)
+    # We also store the associated url to help with delete commands.
+    repo_to_callsign_map = dict((r['remoteURI'], r['callsign'])
+                                for r in phabricator_repo_info)
 
     if verbose:
         def _print(name, lst):
@@ -143,10 +145,10 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     actual_repos = kiln_repos | git_repos
     new_repos = actual_repos - phabricator_repos
     deleted_repos = phabricator_repos - actual_repos
-    return (new_repos, deleted_repos, existing_callsigns)
+    return (new_repos, deleted_repos, repo_to_callsign_map)
 
 
-def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
+def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
                    options):
     """Use the phabricator API to add a new repo with reasonable defaults.
 
@@ -160,9 +162,11 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
       repo_rootdir: the root dir where this repo will be cloned.  The
           actual clone will take place in root_dir/vcs_type/name.
       repo_clone_url: the clone-url of the repository to add.
-      existing_callsigns: a set of all callsigns of all repos in the
-          phabricator database.  If we successfully add a new repository
-          here, we also update existing_callsigns with the new callsign.
+      url_to_callsign_map: a map from repo-clone-url to the phabricator
+          callsign, for each repo in the phabricator database.  If we
+          successfully add a new repository here, we also update
+          this map with the new callsign.  This argument can be
+          modified by the function (in place).
       options: a struct holding the commandline flags values, used for
           --verbose and --dry_run.
 
@@ -183,7 +187,8 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
         raise NameError('Unknown repo type: Must update prefix_map in '
                         'update_phabricator_repositories.py')
 
-    callsign = _create_new_phabricator_callsign(name, existing_callsigns)
+    callsign = _create_new_phabricator_callsign(
+        name, set(url_to_callsign_map.values()))
     destdir = os.path.join(repo_rootdir, vcs_type, name)
     print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
            % (name, repo_clone_url, callsign, vcs_type, destdir))
@@ -192,13 +197,16 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, existing_callsigns,
                                   uri=repo_clone_url,
                                   tracking=True, pullFrequency=60,
                                   localPath=destdir)
-    existing_callsigns.add(callsign)
+    url_to_callsign_map[repo_clone_url] = callsign
 
 
-def delete_repository(phabctl, repo_rootdir, repo_clone_url, options):
+def delete_repository(phabctl, repo_rootdir, repo_clone_url,
+                      url_to_callsign_map, options):
     """Because it's scary to delete automatically, for now I just warn."""
-    print ('Repository %s has been deleted: should delete from phabricator'
-           % repo_clone_url)
+    print ('Repository %s has been deleted: run (on toby):\n'
+           '   env PHABRICATOR_ENV=khan'
+           ' ~/internal-webserver/phabricator/bin/repository delete %s'
+           % (repo_clone_url, url_to_callsign_map[repo_clone_url]))
 
 
 def _run_command_with_logging(cmd_as_list, env, verbose):
@@ -226,7 +234,7 @@ def main(repo_rootdir, options):
 
     phabricator_domain = 'http://phabricator.khanacademy.org'
     phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
-    (new_repos, deleted_repos, existing_callsigns) = (
+    (new_repos, deleted_repos, url_to_callsign_map) = (
         _get_repos_to_add_and_delete(phabctl, options.verbose))
 
     if options.verbose:
@@ -237,7 +245,7 @@ def main(repo_rootdir, options):
     for repo in sorted(new_repos):
         try:
             add_repository(phabctl, repo_rootdir,
-                           repo, existing_callsigns, options)
+                           repo, url_to_callsign_map, options)
         except (phabricator.APIError, NameError), why:
             print >>sys.stderr, ('ERROR: Unable to add repository %s: %s'
                                  % (repo, why))
@@ -247,7 +255,8 @@ def main(repo_rootdir, options):
         print ('Removing %d deleted repositories from phabricator'
                % len(deleted_repos))
     for repo in sorted(deleted_repos):
-        delete_repository(phabctl, repo_rootdir, repo, options)
+        delete_repository(phabctl, repo_rootdir, repo, url_to_callsign_map,
+                          options)
 
     if options.verbose:
         print 'DONE: %s' % time.ctime()
