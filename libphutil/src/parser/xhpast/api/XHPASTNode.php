@@ -97,6 +97,42 @@ final class XHPASTNode extends AASTNode {
     }
   }
 
+  public function isConstantString() {
+    $value = $this->getConcreteString();
+
+    switch ($this->getTypeName()) {
+      case 'n_HEREDOC':
+        if ($value[3] == "'") { // Nowdoc: <<<'EOT'
+          return true;
+        }
+        $value = preg_replace('/^.+\n|\n.*$/', '', $value);
+        break;
+
+      case 'n_STRING_SCALAR':
+        if ($value[0] == "'") {
+          return true;
+        }
+        $value = substr($value, 1, -1);
+        break;
+
+      case 'n_CONCATENATION_LIST':
+        foreach ($this->getChildren() as $child) {
+          if ($child->getTypeName() == 'n_OPERATOR') {
+            continue;
+          }
+          if (!$child->isConstantString()) {
+            return false;
+          }
+        }
+        return true;
+
+      default:
+        return false;
+    }
+
+    return preg_match('/^((?>[^$\\\\]*)|\\\\.)*$/s', $value);
+  }
+
   public function getStringLiteralValue() {
     if ($this->getTypeName() != 'n_STRING_SCALAR') {
       return null;
@@ -130,12 +166,13 @@ final class XHPASTNode extends AASTNode {
         switch ($c) {
           case 'x':
             $u = isset($value[$ii + 1]) ? $value[$ii + 1] : null;
-            if (!preg_match('/^[a-z0-9]/i', $u)) {
+            if (!preg_match('/^[a-f0-9]/i', $u)) {
               // PHP treats \x followed by anything which is not a hex digit
               // as a literal \x.
               $out .= '\\\\'.$c;
               break;
             }
+            /* fallthrough */
           case 'n':
           case 'r':
           case 'f':
@@ -152,6 +189,11 @@ final class XHPASTNode extends AASTNode {
           case '6':
           case '7':
             $out .= '\\'.$c;
+            break;
+          case 'e':
+            // Since PHP 5.4.0, this means "esc". However, stripcslashes() does
+            // not perform this conversion.
+            $out .= chr(27);
             break;
           default:
             $out .= '\\\\'.$c;
