@@ -110,9 +110,20 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     # TODO(csilvers): get private repos as well.
     git_project = 'Khan'
     git_api_url = 'https://api.github.com/orgs/%s/repos' % git_project
-    if verbose:
-        print 'Fetching url %s' % git_api_url
-    git_repo_info = json.loads(urllib.urlopen(git_api_url).read())
+    git_repo_info = []
+    # The results may span several pages, requiring several fetches.
+    while git_api_url:
+        if verbose:
+            print 'Fetching url %s' % git_api_url
+        response = urllib.urlopen(git_api_url)
+        git_repo_info.extend(json.loads(response.read()))
+        # 'Link:' header tells us if there's another page of results to read.
+        m = re.search('<([^>]*)>; rel="next"', response.info().get('Link', ''))
+        if m:
+            git_api_url = m.group(1)
+        else:
+            git_api_url = None
+
     git_repos = set()
     for repo in git_repo_info:
         if repo['clone_url'].endswith('.git'):
