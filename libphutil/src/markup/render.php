@@ -50,11 +50,8 @@ function phutil_tag($tag, array $attributes = array(), $content = null) {
     return new PhutilSafeHTML('<'.$tag.$attributes.' />');
   }
 
-  if (is_array($content)) {
-    $content = implode('', array_map('phutil_escape_html', $content));
-  } else {
-    $content = phutil_escape_html($content);
-  }
+  $content = phutil_escape_html($content);
+
   return new PhutilSafeHTML('<'.$tag.$attributes.'>'.$content.'</'.$tag.'>');
 }
 
@@ -64,7 +61,10 @@ function phutil_tag($tag, array $attributes = array(), $content = null) {
 function phutil_escape_html($string) {
   if ($string instanceof PhutilSafeHTML) {
     return $string;
+  } else if (is_array($string)) {
+    return implode('', array_map('phutil_escape_html', $string));
   }
+
   return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
 }
 
@@ -72,7 +72,7 @@ function phutil_escape_html($string) {
  * @group markup
  */
 function phutil_escape_html_newlines($string) {
-  return phutil_safe_html(nl2br(phutil_escape_html($string)));
+  return PhutilSafeHTML::applyFunction('nl2br', $string);
 }
 
 /**
@@ -88,6 +88,17 @@ function phutil_safe_html($string) {
   } else {
     return new PhutilSafeHTML($string);
   }
+}
+
+/**
+ * HTML safe version of implode().
+ *
+ * @group markup
+ */
+function phutil_implode_html($glue, array $pieces) {
+  $glue = phutil_escape_html($glue);
+  $pieces = array_map('phutil_escape_html', $pieces);
+  return phutil_safe_html(implode($glue, $pieces));
 }
 
 /**

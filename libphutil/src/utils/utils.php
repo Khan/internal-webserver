@@ -756,6 +756,10 @@ function phutil_split_lines($corpus, $retain_endings = true) {
     array_pop($lines);
   }
 
+  if ($corpus instanceof PhutilSafeHTML) {
+    return array_map('phutil_safe_html', $lines);
+  }
+
   return $lines;
 }
 
@@ -798,14 +802,6 @@ function array_fuse(array $list) {
  * ...is equivalent to:
  *
  *   implode($x, $list);
- *
- * One case where this is useful is in rendering lists of HTML elements
- * separated by some character, like a middle dot:
- *
- *   phutil_tag(
- *     'div',
- *     array(),
- *     array_interleave(" \xC2\xB7 ", $stuff));
  *
  * This function does not preserve keys.
  *
