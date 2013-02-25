@@ -1,6 +1,6 @@
 <?php
 
-final class ArcanistRepoUtilsTestCase extends ArcanistTestCase {
+final class PhutilxsprintfTestCase extends ArcanistTestCase {
 
   public function testhgsprintf() {
     $this->assertEqual(
