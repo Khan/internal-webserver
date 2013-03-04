@@ -392,6 +392,38 @@ function phutil_utf8_hard_wrap_html($string, $width) {
   return $result;
 }
 
+/**
+  * Hard-wrap a block of UTF-8 text with no embedded HTML tags and entitites
+  *
+  * @param string A non HTML string
+  * @param int Width of the hard-wrapped lines
+  * @return list List of hard-wrapped lines.
+  * @group utf8
+  */
+function phutil_utf8_hard_wrap($string, $width) {
+
+  // Convert the UTF-8 string int a list of UTF-8 characters.
+  $vector = phutil_utf8v($string);
+
+  $len = count($vector);
+  $result = array();
+  $string = '';
+
+  // Build string segments
+  for ($ii = 1; $ii <= $len; ++$ii) {
+    $string .= $vector[$ii - 1];
+    if (($ii % $width) === 0) {
+      $result[] = $string;
+      $string = '';
+    }
+  }
+
+  if (strlen($string)) {
+    $result[] = $string;
+  }
+
+  return $result;
+}
 
 /**
  * Convert a string from one encoding (like ISO-8859-1) to another encoding
@@ -457,6 +489,129 @@ function phutil_utf8_convert($string, $to_encoding, $from_encoding) {
     throw new Exception(
       "String conversion from encoding '{$from_encoding}' to encoding ".
       "'{$to_encoding}' failed: {$message}");
+  }
+
+  return $result;
+}
+
+
+/**
+ * Convert a string to title case in a UTF8-aware way. This function doesn't
+ * necessarily do a great job, but the builtin implementation of ucwords() can
+ * completely destroy inputs, so it just has to be better than that. Similar to
+ * @{function:ucwords}.
+ *
+ * @param   string  UTF-8 input string.
+ * @return  string  Input, in some semblance of title case.
+ *
+ * @group utf8
+ */
+function phutil_utf8_ucwords($str) {
+  // NOTE: mb_convert_case() discards uppercase letters in words when converting
+  // to title case. For example, it will convert "AAA" into "Aaa", which is
+  // undesirable.
+
+  $v = phutil_utf8v($str);
+  $result = '';
+  $last = null;
+
+  $ord_a = ord('a');
+  $ord_z = ord('z');
+  foreach ($v as $c) {
+    $convert = false;
+    if ($last === null || $last === ' ') {
+      $o = ord($c[0]);
+      if ($o >= $ord_a && $o <= $ord_z) {
+        $convert = true;
+      }
+    }
+
+    if ($convert) {
+      $result .= phutil_utf8_strtoupper($c);
+    } else {
+      $result .= $c;
+    }
+
+    $last = $c;
+  }
+
+  return $result;
+}
+
+
+/**
+ * Convert a string to lower case in a UTF8-aware way. Similar to
+ * @{function:strtolower}.
+ *
+ * @param   string  UTF-8 input string.
+ * @return  string  Input, in some semblance of lower case.
+ *
+ * @group utf8
+ *
+ * @phutil-external-symbol function mb_convert_case
+ */
+function phutil_utf8_strtolower($str) {
+  if (function_exists('mb_convert_case')) {
+    return mb_convert_case($str, MB_CASE_LOWER, 'UTF-8');
+  }
+
+  static $map;
+  if ($map === null) {
+    $map = array_combine(
+      range('A', 'Z'),
+      range('a', 'z'));
+  }
+
+  return phutil_utf8_strtr($str, $map);
+}
+
+
+/**
+ * Convert a string to upper case in a UTF8-aware way. Similar to
+ * @{function:strtoupper}.
+ *
+ * @param   string  UTF-8 input string.
+ * @return  string  Input, in some semblance of upper case.
+ *
+ * @group utf8
+ *
+ * @phutil-external-symbol function mb_convert_case
+ */
+function phutil_utf8_strtoupper($str) {
+  if (function_exists('mb_convert_case')) {
+    return mb_convert_case($str, MB_CASE_UPPER, 'UTF-8');
+  }
+
+  static $map;
+  if ($map === null) {
+    $map = array_combine(
+      range('a', 'z'),
+      range('A', 'Z'));
+  }
+
+  return phutil_utf8_strtr($str, $map);
+}
+
+
+/**
+ * Replace characters in a string in a UTF-aware way. Similar to
+ * @{function:strtr}.
+ *
+ * @param   string              UTF-8 input string.
+ * @param   map<string, string> Map of characters to replace.
+ * @return  string              Input with translated characters.
+ *
+ * @group utf8
+ */
+function phutil_utf8_strtr($str, array $map) {
+  $v = phutil_utf8v($str);
+  $result = '';
+  foreach ($v as $c) {
+    if (isset($map[$c])) {
+      $result .= $map[$c];
+    } else {
+      $result .= $c;
+    }
   }
 
   return $result;
