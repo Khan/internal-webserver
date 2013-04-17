@@ -7,6 +7,10 @@
 # Die if something goes wrong.
 set -e
 
+# Make git 1.8 revert to git 1.7 behavior, and not prompt for a merge
+# message when doing a 'git pull' from upstream.
+export GIT_MERGE_AUTOEDIT=no
+
 # We always run from the same directory as where this script lives.
 # This is the only bash-ism in the script.
 cd "$(dirname "${BASH_SOURCE[0]}")"
