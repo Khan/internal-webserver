@@ -28,8 +28,15 @@ try_several_times() {
 echo
 date
 
-for repo in `timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_url"] for x in json.loads(urllib.urlopen("https://api.github.com/orgs/Khan/repos").read()))'`; do
+github_repos=`timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_url"] for x in json.loads(urllib.urlopen("https://api.github.com/orgs/Khan/repos").read()))'`
+
+# This requires you to have your .ssh key registered with kiln.
+# TODO(csilvers): get the list of all repos via the kiln API.
+kiln_repos='ssh://khanacademy@khanacademy.kilnhg.com/Website/Group/webapp'
+
+for repo in $github_repos $kiln_repos; do
    dirname=`basename $repo`    # the rest is 'https://github.com/Khan'
+   dirname=`echo "$dirname" | sed 's/\.git$//'`.git     # force a .git ending
    if [ -d "$dirname" ]; then
      echo "Running git fetch -q in $dirname"
      ( cd $dirname;
