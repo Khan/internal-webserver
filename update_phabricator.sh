@@ -62,7 +62,8 @@ if [ "$prompt" != "y" -a "$prompt" != "Y" -a "$prompt" != "yes" ]; then
    exit 1
 fi
 
-git commit -am "merge from upstream phabricator" && git push
+# Turn off linting (it's all third-party code).
+env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
 ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/internal_webserver.pem" \
