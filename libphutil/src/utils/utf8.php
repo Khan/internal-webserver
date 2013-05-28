@@ -238,8 +238,7 @@ function phutil_utf8v_codepoints($string) {
  * function attempts to truncate strings at word boundaries.
  *
  * NOTE: This function makes a best effort to apply some reasonable rules but
- * will not work well for the full range of unicode languages. For instance,
- * no effort is made to deal with combining characters.
+ * will not work well for the full range of unicode languages.
  *
  * @param   string  UTF-8 string to shorten.
  * @param   int     Maximum length of the result.
@@ -259,7 +258,7 @@ function phutil_utf8_shorten($string, $length, $terminal = "\xE2\x80\xA6") {
       "String terminal length must be less than string length!");
   }
 
-  $string_v = phutil_utf8v($string);
+  $string_v = phutil_utf8v_combined($string);
   $string_len = count($string_v);
 
   if ($string_len <= $length) {
@@ -619,3 +618,73 @@ function phutil_utf8_strtr($str, array $map) {
 
   return $result;
 }
+
+/**
+ * Determine if a given unicode character is a combining character or not.
+ *
+ * @param   string              A single unicode character.
+ * @return  boolean             True or false.
+ *
+ * @group utf8
+ */
+
+function phutil_utf8_is_combining_character($character) {
+  $components = phutil_utf8v_codepoints($character);
+
+  // Combining Diacritical Marks (0300 - 036F).
+  // Combining Diacritical Marks Supplement (1DC0 - 1DFF).
+  // Combining Diacritical Marks for Symbols (20D0 - 20FF).
+  // Combining Half Marks (FE20 - FE2F).
+
+  foreach ($components as $codepoint) {
+    if ($codepoint >= 0x0300 && $codepoint <= 0x036F ||
+         $codepoint >= 0x1DC0 && $codepoint <= 0x1DFF ||
+         $codepoint >= 0x20D0 && $codepoint <= 0x20FF ||
+         $codepoint >= 0xFE20 && $codepoint <= 0xFE2F) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Split a UTF-8 string into an array of characters. Combining characters
+ * are not split.
+ *
+ * @param string A valid utf-8 string.
+ * @return list  A list of characters in the string.
+ *
+ * @group utf8
+ */
+
+function phutil_utf8v_combined($string) {
+  $components = phutil_utf8v($string);
+  $array_length = count($components);
+
+  // If the first character in the string is a combining character,
+  // prepend a space to the string.
+  if (
+    $array_length > 0 &&
+    phutil_utf8_is_combining_character($components[0])) {
+    $string = " ".$string;
+    $components = phutil_utf8v($string);
+    $array_length++;
+  }
+
+  for ($index = 1; $index < $array_length; $index++) {
+    if (phutil_utf8_is_combining_character($components[$index])) {
+      $components[$index - 1] =
+        $components[$index - 1].$components[$index];
+
+      unset($components[$index]);
+      $components = array_values($components);
+
+      $index --;
+      $array_length = count($components);
+    }
+  }
+
+  return $components;
+}
+
