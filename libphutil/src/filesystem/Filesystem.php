@@ -847,13 +847,31 @@ final class Filesystem {
    * @task    exec
    */
   public static function binaryExists($binary) {
+    return self::resolveBinary($binary) !== null;
+  }
+
+
+  /**
+   * Locates the full path that an executable binary (like `git` or `svn`) is at
+   * the configured `$PATH`.
+   *
+   * @param   string  Binary name, like `'git'` or `'svn'`.
+   * @return  string  The full binary path if it is present, or null.
+   * @task    exec
+   */
+  public static function resolveBinary($binary) {
     if (phutil_is_windows()) {
-      list($err) = exec_manual('where %s', $binary);
+      list($err, $stdout) = exec_manual('where %s', $binary);
+      $stdout = phutil_split_lines($stdout);
+      if (!$stdout) {
+        return null;
+      }
+      $stdout = head($stdout);
     } else {
-      list($err) = exec_manual('which %s', $binary);
+      list($err, $stdout) = exec_manual('which %s', $binary);
     }
 
-    return !$err;
+    return $err === 0 ? trim($stdout) : null;
   }
 
 
