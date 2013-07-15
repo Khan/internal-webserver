@@ -35,6 +35,12 @@ final class AphrontMySQLDatabaseConnection
 
     $user = $this->getConfiguration('user');
     $host = $this->getConfiguration('host');
+    $port = $this->getConfiguration('port');
+
+    if ($port) {
+      $host .= ':'.$port;
+    }
+
     $database = $this->getConfiguration('database');
 
     $pass = $this->getConfiguration('pass');

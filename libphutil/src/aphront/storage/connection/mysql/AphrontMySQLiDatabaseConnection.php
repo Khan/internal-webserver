@@ -33,6 +33,7 @@ final class AphrontMySQLiDatabaseConnection
 
     $user = $this->getConfiguration('user');
     $host = $this->getConfiguration('host');
+    $port = $this->getConfiguration('port');
     $database = $this->getConfiguration('database');
 
     $pass = $this->getConfiguration('pass');
@@ -40,11 +41,20 @@ final class AphrontMySQLiDatabaseConnection
       $pass = $pass->openEnvelope();
     }
 
+    // If the host is "localhost", the port is ignored and mysqli attempts to
+    // connect over a socket.
+    if ($port) {
+      if ($host === 'localhost' || $host === null) {
+        $host = '127.0.0.1';
+      }
+    }
+
     $conn = @new mysqli(
       $host,
       $user,
       $pass,
-      $database);
+      $database,
+      $port);
 
     $errno = $conn->connect_errno;
     if ($errno) {
