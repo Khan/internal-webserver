@@ -46,8 +46,8 @@ trap 'git checkout -' 0  # reset to old branch when the script exits
 push_upstream() {
 (  cd "$@"
    git checkout master
-   git pull
-   git pull upstream master
+   git pull --no-rebase
+   git pull --no-rebase upstream master
    git push
    git checkout -
 )
