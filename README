@@ -1,5 +1,5 @@
 To install a new internal-webserver machine, see the instructions in
-   git@github.com:Khan/aws-setup/internal-webserver/README
+   git@github.com:Khan/aws-config/internal-webserver/README
 
 For updating phabricator on the Khan Academy web server, see:
   https://sites.google.com/a/khanacademy.org/forge/for-developers/code-review-policy/using-phabricator
