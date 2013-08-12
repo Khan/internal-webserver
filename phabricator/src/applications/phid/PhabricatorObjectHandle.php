@@ -172,24 +172,28 @@ final class PhabricatorObjectHandle
     if ($name === null) {
       $name = $this->getLinkName();
     }
-    $class = null;
+    $classes = array();
     $title = $this->title;
 
     if ($this->status != PhabricatorObjectHandleStatus::STATUS_OPEN) {
-      $class .= ' handle-status-'.$this->status;
+      $classes[] = 'handle-status-'.$this->status;
       $title = $title ? $title : $this->status;
     }
 
     if ($this->disabled) {
-      $class .= ' handle-disabled';
+      $classes[] = 'handle-disabled';
       $title = 'disabled'; // Overwrite status.
+    }
+
+    if ($this->getType() == PhabricatorPeoplePHIDTypeUser::TYPECONST) {
+      $classes[] = 'phui-link-person';
     }
 
     return phutil_tag(
       'a',
       array(
         'href'  => $this->getURI(),
-        'class' => $class,
+        'class' => implode(' ', $classes),
         'title' => $title,
       ),
       $name);
@@ -227,7 +231,9 @@ final class PhabricatorObjectHandle
   }
 
   public function hasAutomaticCapability($capability, PhabricatorUser $viewer) {
-    return false;
+    // NOTE: Handles are always visible, they just don't get populated with
+    // data if the user can't see the underlying object.
+    return true;
   }
 
 }

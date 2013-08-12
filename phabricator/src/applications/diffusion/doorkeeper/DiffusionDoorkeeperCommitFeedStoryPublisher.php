@@ -15,6 +15,36 @@ final class DiffusionDoorkeeperCommitFeedStoryPublisher
     return ($object instanceof PhabricatorRepositoryCommit);
   }
 
+  public function isStoryAboutObjectCreation($object) {
+    // TODO: Although creation stories exist, they currently don't have a
+    // primary object PHID set, so they'll never make it here because they
+    // won't pass `canPublishStory()`.
+    return false;
+  }
+
+  public function isStoryAboutObjectClosure($object) {
+    // TODO: This isn't quite accurate, but pretty close: check if this story
+    // is a close (which clearly is about object closure) or is an "Accept" and
+    // the commit is fully audited (which is almost certainly a closure).
+    // After ApplicationTransactions, we could annotate feed stories more
+    // explicitly.
+
+    $story = $this->getFeedStory();
+    $action = $story->getStoryData()->getValue('action');
+
+    if ($action == PhabricatorAuditActionConstants::CLOSE) {
+      return true;
+    }
+
+    $fully_audited = PhabricatorAuditCommitStatusConstants::FULLY_AUDITED;
+    if (($action == PhabricatorAuditActionConstants::ACCEPT) &&
+        $object->getAuditStatus() == $fully_audited) {
+      return true;
+    }
+
+    return false;
+  }
+
   public function willPublishStory($commit) {
     $requests = id(new PhabricatorAuditQuery())
       ->withCommitPHIDs(array($commit->getPHID()))

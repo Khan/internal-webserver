@@ -7,6 +7,21 @@ final class DifferentialDoorkeeperRevisionFeedStoryPublisher
     return ($object instanceof DifferentialRevision);
   }
 
+  public function isStoryAboutObjectCreation($object) {
+    $story = $this->getFeedStory();
+    $action = $story->getStoryData()->getValue('action');
+
+    return ($action == DifferentialAction::ACTION_CREATE);
+  }
+
+  public function isStoryAboutObjectClosure($object) {
+    $story = $this->getFeedStory();
+    $action = $story->getStoryData()->getValue('action');
+
+    return ($action == DifferentialAction::ACTION_CLOSE) ||
+           ($action == DifferentialAction::ACTION_ABANDON);
+  }
+
   public function willPublishStory($object) {
     return id(new DifferentialRevisionQuery())
       ->setViewer($this->getViewer())

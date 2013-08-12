@@ -31,7 +31,7 @@ INTERFACES = json.loads(open(os.path.join(os.path.dirname(__file__), 'interfaces
 # Load ~/.arcrc if it exists
 try:
     ARCRC = json.loads(open(os.path.join(os.path.expanduser('~'), '.arcrc'), 'r').read())
-except IOError:
+except ImportError, IOError:
     ARCRC = None
 
 class InterfaceNotDefined(NotImplementedError): pass
