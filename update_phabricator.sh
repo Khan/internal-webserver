@@ -56,6 +56,7 @@ push_upstream() {
 push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
+push_upstream python-phabricator
 
 # We don't just do 'git add .' since we want to make sure we update
 # the sub-repos properly.  (It's possible 'git add .' would work, but
