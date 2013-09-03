@@ -412,7 +412,7 @@ def main(arc_args, arc_root=None):
     arc_args = normalize_rr_flags(arc_root, arc_args)
     arc_args = normalize_cc_flags(arc_root, arc_args)    
 
-    if arc_args[0] == 'land':
+    if arc_args and arc_args[0] == 'land':
         arc_args = add_onto_for_arc_land(arc_args)
 
     # Now run the 'real' (arcanist) arc.
