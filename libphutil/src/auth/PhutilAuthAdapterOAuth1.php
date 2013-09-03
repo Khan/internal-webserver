@@ -38,7 +38,7 @@ abstract class PhutilAuthAdapterOAuth1 extends PhutilAuthAdapter {
     return $this->verifier;
   }
 
-  public function setConsumerSecret($consumer_secret) {
+  public function setConsumerSecret(PhutilOpaqueEnvelope $consumer_secret) {
     $this->consumerSecret = $consumer_secret;
     return $this;
   }
@@ -102,7 +102,7 @@ abstract class PhutilAuthAdapterOAuth1 extends PhutilAuthAdapter {
     }
 
     $consumer_secret = $this->getConsumerSecret();
-    if (strlen($consumer_secret)) {
+    if ($consumer_secret) {
       $future->setConsumerSecret($consumer_secret);
     }
 
@@ -111,7 +111,7 @@ abstract class PhutilAuthAdapterOAuth1 extends PhutilAuthAdapter {
     }
 
     if (strlen($this->getTokenSecret())) {
-      $future->setToken($this->getTokenSecret());
+      $future->setTokenSecret($this->getTokenSecret());
     }
 
     if ($this->getPrivateKey()) {
@@ -148,6 +148,8 @@ abstract class PhutilAuthAdapterOAuth1 extends PhutilAuthAdapter {
   }
 
   protected function finishOAuthHandshake() {
+    $this->willFinishOAuthHandshake();
+
     if (!$this->getToken()) {
       throw new Exception("Expected token to finish OAuth handshake!");
     }
@@ -183,6 +185,14 @@ abstract class PhutilAuthAdapterOAuth1 extends PhutilAuthAdapter {
     $this->setTokenSecret($token_secret);
 
     return $this;
+  }
+
+  /**
+   * Hook that allows subclasses to take actions before the OAuth handshake
+   * is completed.
+   */
+  protected function willFinishOAuthHandshake() {
+    return;
   }
 
 }

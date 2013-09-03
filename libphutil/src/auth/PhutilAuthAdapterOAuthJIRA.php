@@ -2,7 +2,13 @@
 
 final class PhutilAuthAdapterOAuthJIRA extends PhutilAuthAdapterOAuth1 {
 
+  // TODO: JIRA tokens expire (after 5 years) and we could surface and store
+  // that.
+
   private $jiraBaseURI;
+  private $adapterDomain;
+  private $currentSession;
+  private $userInfo;
 
   public function setJIRABaseURI($jira_base_uri) {
     $this->jiraBaseURI = $jira_base_uri;
@@ -14,8 +20,31 @@ final class PhutilAuthAdapterOAuthJIRA extends PhutilAuthAdapterOAuth1 {
   }
 
   public function getAccountID() {
-    var_dump($this->getHandshakeData());
-    throw new Exception("TODO: NOT IMPLEMENTED");
+    // Make sure the handshake is finished; this method is used for its
+    // side effect by Auth providers.
+    $this->getHandshakeData();
+
+    return idx($this->getUserInfo(), 'key');
+  }
+
+  public function getAccountName() {
+    return idx($this->getUserInfo(), 'name');
+  }
+
+  public function getAccountImageURI() {
+    $avatars = idx($this->getUserInfo(), 'avatarUrls');
+    if ($avatars) {
+      return idx($avatars, '48x48');
+    }
+    return null;
+  }
+
+  public function getAccountRealName() {
+    return idx($this->getUserInfo(), 'displayName');
+  }
+
+  public function getAccountEmail() {
+    return idx($this->getUserInfo(), 'emailAddress');
   }
 
   public function getAdapterType() {
@@ -23,18 +52,12 @@ final class PhutilAuthAdapterOAuthJIRA extends PhutilAuthAdapterOAuth1 {
   }
 
   public function getAdapterDomain() {
-    $uri = new PhutilURI($this->jiraBaseURI);
+    return $this->adapterDomain;
+  }
 
-    $domain = $uri->getDomain();
-    if ($uri->getPort()) {
-      $domain .= ':'.$uri->getPort();
-    }
-
-    if ($uri->getPath() && $uri->getPath() != '/') {
-      $domain .= $uri->getPath();
-    }
-
-    return $domain;
+  public function setAdapterDomain($domain) {
+    $this->adapterDomain = $domain;
+    return $this;
   }
 
   protected function getSignatureMethod() {
@@ -55,6 +78,36 @@ final class PhutilAuthAdapterOAuthJIRA extends PhutilAuthAdapterOAuth1 {
 
   private function getJIRAURI($path) {
     return rtrim($this->jiraBaseURI, '/').'/'.ltrim($path, '/');
+  }
+
+  private function getUserInfo() {
+    if ($this->userInfo === null) {
+      $uri = $this->getJIRAURI('rest/auth/1/session');
+      $data = $this->newOAuth1Future($uri)
+        ->setMethod('GET')
+        ->addHeader('Content-Type', 'application/json')
+        ->resolveJSON();
+
+      $this->currentSession = $data;
+
+      // The session call gives us the username, but not the user key or other
+      // information. Make a second call to get additional information.
+
+      $uri = new PhutilURI($this->getJIRAURI('rest/api/2/user'));
+      $uri->setQueryParams(
+        array(
+          'username' => $this->currentSession['name'],
+        ));
+
+      $data = $this->newOAuth1Future($uri)
+        ->setMethod('GET')
+        ->addHeader('Content-Type', 'application/json')
+        ->resolveJSON();
+
+      $this->userInfo = $data;
+    }
+
+    return $this->userInfo;
   }
 
   public static function newJIRAKeypair() {
@@ -82,6 +135,18 @@ final class PhutilAuthAdapterOAuthJIRA extends PhutilAuthAdapterOAuth1 {
     $public_key = $public_key['key'];
 
     return array($public_key, $private_key);
+  }
+
+
+  /**
+   * JIRA indicates that the user has clicked the "Deny" button by passing a
+   * well known `oauth_verifier` value ("denied"), which we check for here.
+   */
+  protected function willFinishOAuthHandshake() {
+    $jira_magic_word = "denied";
+    if ($this->getVerifier() == $jira_magic_word) {
+      throw new PhutilAuthUserAbortedException();
+    }
   }
 
 
