@@ -24,7 +24,7 @@ import socket
 import subprocess
 import sys
 import time
-import urllib
+import urllib2
 
 # We need to load python-phabricator.  On the internal-webserver
 # install, it lives in a particular place we know about.  We take
@@ -99,6 +99,18 @@ def _create_new_phabricator_callsign(repo_name, existing_callsigns):
                     '_create_new_phabricator_callsign.')
 
 
+def _get_with_retries(url, max_tries=3):
+    for i in xrange(max_tries):
+        try:
+            return urllib2.urlopen(url)
+        except urllib2.URLError, why:
+            if i == max_tries - 1:   # are not going to retry again
+                print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
+                raise
+            else:
+                print 'Fetching %s failed (%s).  Retrying...' % (url, why)
+
+
 def _get_repos_to_add_and_delete(phabctl, verbose):
     """Query github, kiln, phabricator, etc; return sets of clone-urls."""
     hg_domain = 'khanacademy.kilnhg.com'
@@ -115,8 +127,8 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     while git_api_url:
         if verbose:
             print 'Fetching url %s' % git_api_url
-        response = urllib.urlopen(git_api_url)
-        git_repo_info.extend(json.loads(response.read()))
+        response = _get_with_retries(git_api_url)
+        git_repo_info.extend(json.load(response))
         # 'Link:' header tells us if there's another page of results to read.
         m = re.search('<([^>]*)>; rel="next"', response.info().get('Link', ''))
         if m:
