@@ -119,9 +119,10 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
                                                  verbose, verbose)
     kiln_repos = set(r['cloneUrl'] for r in kiln_repo_info)
 
-    # TODO(csilvers): get private repos as well.
-    git_project = 'Khan'
-    git_api_url = 'https://api.github.com/orgs/%s/repos' % git_project
+    # TODO(csilvers): get private repos as well.  Will need to use oauth.
+    # The per_page param helps us avoid github rate-limiting.  cf.
+    #    http://developer.github.com/v3/#rate-limiting
+    git_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
     git_repo_info = []
     # The results may span several pages, requiring several fetches.
     while git_api_url:

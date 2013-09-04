@@ -28,7 +28,7 @@ try_several_times() {
 echo
 date
 
-github_repos=`timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_url"] for x in json.loads(urllib.urlopen("https://api.github.com/orgs/Khan/repos").read()))'`
+github_repos=`timeout 1m $PYTHON -c 'import json, urllib; print "\n".join(x["git_url"] for x in json.loads(urllib.urlopen("https://api.github.com/orgs/Khan/repos?per_page=100").read()))'`
 
 # This requires you to have your .ssh key registered with kiln.
 # TODO(csilvers): get the list of all repos via the kiln API.
