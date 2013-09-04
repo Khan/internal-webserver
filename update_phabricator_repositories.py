@@ -126,10 +126,14 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
 
     git_repos = set()
     for repo in git_repo_info:
-        if repo['clone_url'].endswith('.git'):
-            git_repos.add(repo['clone_url'][:-len('.git')])
-        else:
-            git_repos.add(repo['clone_url'])
+        try:
+            if repo['clone_url'].endswith('.git'):
+                git_repos.add(repo['clone_url'][:-len('.git')])
+            else:
+                git_repos.add(repo['clone_url'])
+        except (TypeError, IndexError):
+            raise RuntimeError('Unexpected response from github: %s'
+                               % git_repo_info)
 
     if phabctl.certificate is None:
         raise KeyError('You must set up your .arcrc via '
