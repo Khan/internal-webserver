@@ -107,8 +107,6 @@ def _get_with_retries(url, max_tries=3):
             if i == max_tries - 1:   # are not going to retry again
                 print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
                 raise
-            else:
-                print 'Fetching %s failed (%s).  Retrying...' % (url, why)
 
 
 def _get_repos_to_add_and_delete(phabctl, verbose):
