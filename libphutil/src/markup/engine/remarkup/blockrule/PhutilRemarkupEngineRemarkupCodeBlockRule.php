@@ -11,7 +11,7 @@ final class PhutilRemarkupEngineRemarkupCodeBlockRule
     $match_ticks = null;
     if (preg_match("/^(\s{2,}).+/", $lines[$cursor])) {
       $match_ticks = false;
-    } else if(preg_match("/^(```)/", $lines[$cursor])) {
+    } else if (preg_match("/^(```)/", $lines[$cursor])) {
       $match_ticks = true;
     } else {
       return $num_lines;

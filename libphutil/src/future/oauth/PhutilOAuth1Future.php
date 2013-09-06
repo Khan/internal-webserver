@@ -22,6 +22,7 @@ final class PhutilOAuth1Future extends FutureProxy {
   private $timestamp;
   private $hasConstructedFuture;
   private $callbackURI;
+  private $headers = array();
 
   public function setCallbackURI($callback_uri) {
     $this->callbackURI = $callback_uri;
@@ -80,7 +81,19 @@ final class PhutilOAuth1Future extends FutureProxy {
   }
 
   public function getSignature() {
-    $params = $this->data
+    $params = array();
+
+    // NOTE: The JIRA API uses JSON-encoded request bodies which are not
+    // signed, and OAuth1 provides no real way to sign a nonparameterized
+    // request body. Possibly we should split this apart into flags which
+    // control which data is signed, but for now this rule seems to cover
+    // all the use cases.
+
+    if (is_array($this->data)) {
+      $params = $this->data;
+    }
+
+    $params = $params
             + $this->uri->getQueryParams()
             + $this->getOAuth1Headers();
 
@@ -88,7 +101,15 @@ final class PhutilOAuth1Future extends FutureProxy {
   }
 
   public function addHeader($name, $value) {
-    $this->getProxiedFuture()->addHeader($name, $value);
+    // If we haven't built the future yet, hold on to the header until after
+    // we do, since there might be more changes coming which will affect the
+    // signature process.
+
+    if (!$this->hasConstructedFuture) {
+      $this->headers[] = array($name, $value);
+    } else {
+      $this->getProxiedFuture()->addHeader($name, $value);
+    }
     return $this;
   }
 
@@ -108,6 +129,11 @@ final class PhutilOAuth1Future extends FutureProxy {
       $full_oauth_header = 'OAuth '.implode(", ", $full_oauth_header);
 
       $future->addHeader('Authorization', $full_oauth_header);
+
+      foreach ($this->headers as $header) {
+        $future->addHeader($header[0], $header[1]);
+      }
+      $this->headers = array();
 
       $this->hasConstructedFuture = true;
     }
