@@ -127,7 +127,7 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     kiln_repos = set()
     for hg_url in kiln_https_repos:
         repo_path = hg_url.split('/Code/', 1)[1]
-        if (repo_path.startswith('Website/') and
+        if (repo_path.startswith('Website/Group') and
             repo_path != 'Website/Group/webapp'):
             kiln_repos.add(hg_url)
         else:
