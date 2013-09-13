@@ -11,14 +11,6 @@ set -e
 # message when doing a 'git pull' from upstream.
 export GIT_MERGE_AUTOEDIT=no
 
-# We rely on a GNU extension to xargs, which may have a different name on
-# non-GNU systems like Mac OS X.
-if hash gxargs 2>/dev/null; then
-    XARGS=gxargs
-else
-    XARGS=xargs
-fi
-
 # We always run from the same directory as where this script lives.
 # This is the only bash-ism in the script.
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -58,16 +50,14 @@ push_upstream libphutil
 push_upstream arcanist
 push_upstream python-phabricator
 
-# We don't just do 'git add .' since we want to make sure we update
-# the sub-repos properly.  (It's possible 'git add .' would work, but
-# this seems safer.)
-git status -s | sed -ne "s,^??.,,p" | "$XARGS" -r git add
+git add .
 git status
 
 echo -n "Does everything look ok? (y/N) "
 read prompt
 if [ "$prompt" != "y" -a "$prompt" != "Y" -a "$prompt" != "yes" ]; then
    echo "Aborting; user said no"
+   echo "[Note the fake-subrepos (e.g. phabricator/) have already been pushed]"
    exit 1
 fi
 
