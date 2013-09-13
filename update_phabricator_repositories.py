@@ -69,7 +69,7 @@ def _find_kilnauth_token(domain):
                    % (domain, hg_tokenfetch_cmd))
 
 
-def _create_new_phabricator_callsign(repo_name, existing_callsigns):
+def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
     """Create a small, unique, legal callsign out of the repo-name."""
     # Callsigns must be capital letters.
     repo_name = repo_name.upper()
@@ -86,10 +86,13 @@ def _create_new_phabricator_callsign(repo_name, existing_callsigns):
     if 'WEBSITE' in name_parts:
         name_parts.remove('WEBSITE')
 
-    # We'll use a call-sign of the prefixes of each word.
+    # We'll use a call-sign of the prefixes of each word, starting with
+    # 'G' for git and 'M' for Mercurial.
+    callsign_start = 'G' if vcs_type == 'git' else 'M'
     # Ideally, just the first letter of each word, than first 2, etc.
     for prefix_len in xrange(max(len(w) for w in name_parts)):
-        candidate_callsign = ''.join(w[:prefix_len + 1] for w in name_parts)
+        candidate_callsign = (callsign_start +
+                              ''.join(w[:prefix_len + 1] for w in name_parts))
         if candidate_callsign not in existing_callsigns:
             return candidate_callsign
 
@@ -111,40 +114,52 @@ def _get_with_retries(url, max_tries=3):
 
 def _get_repos_to_add_and_delete(phabctl, verbose):
     """Query github, kiln, phabricator, etc; return sets of clone-urls."""
-    hg_domain = 'khanacademy.kilnhg.com'
-    hg_token = _find_kilnauth_token(hg_domain)
-    kiln_repo_info = kiln_local_backup.get_repos('https', hg_domain, hg_token,
-                                                 verbose, verbose)
-    kiln_repos = set(r['cloneUrl'] for r in kiln_repo_info)
+    kiln_domain = 'khanacademy.kilnhg.com'
+    kiln_token = _find_kilnauth_token(kiln_domain)
+    # TODO(csilvers): figure out a way to get this using ssh keys instead.
+    kiln_repo_info = kiln_local_backup.get_repos('https', kiln_domain,
+                                                 kiln_token, verbose, verbose)
+    kiln_https_repos = frozenset(r['cloneUrl'] for r in kiln_repo_info)
+
+    # kiln only gives back the https cloneUrl.  But we want the ssh
+    # cloneUrl, so we can get the repo using git rather than hg.
+    # TODO(csilvers): figure out which of the Website repos to pull down.
+    kiln_repos = set()
+    for hg_url in kiln_https_repos:
+        repo_path = hg_url.split('/Code/', 1)[1]
+        if repo_path.startswith('Website/'):    # keep these as hg for now
+            kiln_repos.add(hg_url)
+        else:
+            kiln_repos.add('ssh://khanacademy.kilnhg.com/%s' % repo_path)
 
     # TODO(csilvers): get private repos as well.  Will need to use oauth.
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
-    git_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
-    git_repo_info = []
+    github_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
+    github_repo_info = []
     # The results may span several pages, requiring several fetches.
-    while git_api_url:
+    while github_api_url:
         if verbose:
-            print 'Fetching url %s' % git_api_url
-        response = _get_with_retries(git_api_url)
-        git_repo_info.extend(json.load(response))
+            print 'Fetching url %s' % github_api_url
+        response = _get_with_retries(github_api_url)
+        github_repo_info.extend(json.load(response))
         # 'Link:' header tells us if there's another page of results to read.
         m = re.search('<([^>]*)>; rel="next"', response.info().get('Link', ''))
         if m:
-            git_api_url = m.group(1)
+            github_api_url = m.group(1)
         else:
-            git_api_url = None
+            github_api_url = None
 
-    git_repos = set()
-    for repo in git_repo_info:
+    github_repos = set()
+    for repo in github_repo_info:
         try:
             if repo['clone_url'].endswith('.git'):
-                git_repos.add(repo['clone_url'][:-len('.git')])
+                github_repos.add(repo['clone_url'][:-len('.git')])
             else:
-                git_repos.add(repo['clone_url'])
+                github_repos.add(repo['clone_url'])
         except (TypeError, IndexError):
             raise RuntimeError('Unexpected response from github: %s'
-                               % git_repo_info)
+                               % github_repo_info)
 
     if phabctl.certificate is None:
         raise KeyError('You must set up your .arcrc via '
@@ -164,11 +179,11 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     if verbose:
         def _print(name, lst):
             print '* Existing %s repos:\n%s\n' % (name, '\n'.join(sorted(lst)))
-        _print('git', git_repos)
-        _print('hg', kiln_repos)
+        _print('github', github_repos)
+        _print('kiln', kiln_repos)
         _print('phabricator', phabricator_repos)
 
-    actual_repos = kiln_repos | git_repos
+    actual_repos = kiln_repos | github_repos
     new_repos = actual_repos - phabricator_repos
     deleted_repos = phabricator_repos - actual_repos
     return (new_repos, deleted_repos, repo_to_callsign_map)
@@ -199,10 +214,12 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     Raises:
       phabricator.APIError: if something goes wrong with the insert.
     """
-    # For git, the name is just the repo-name.  For khan, it's the
-    # repo-triple (everything after 'Code').
+    # For git (both github and kiln git), the name is just the repo-name.
+    # For kiln hg, it's the repo-triple (everything after 'Code').
     prefix_map = {'https://github.com/Khan/': 'git',
-                  'https://khanacademy.kilnhg.com/Code/': 'hg'}
+                  'ssh://khanacademy.kilnhg.com/': 'git',
+                  'https://khanacademy.kilnhg.com/Code/': 'hg',
+                  }
     for (prefix, vcs_type) in prefix_map.iteritems():
         if repo_clone_url.startswith(prefix):
             name = repo_clone_url[len(prefix):]
@@ -214,14 +231,23 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
                         'update_phabricator_repositories.py')
 
     callsign = _create_new_phabricator_callsign(
-        name, set(url_to_callsign_map.values()))
+        name, vcs_type, set(url_to_callsign_map.values()))
     destdir = os.path.join(repo_rootdir, vcs_type, name)
+    if repo_clone_url.startswith('ssh://'):
+        ssh_user = 'khanacademy'
+        ssh_keyfile = '/home/ubuntu/.ssh/id_rsa'
+    else:
+        ssh_user = ''
+        ssh_keyfile = ''
+
     print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
            % (name, repo_clone_url, callsign, vcs_type, destdir))
     if not options.dry_run:
         phabctl.repository.create(name=name, vcs=vcs_type, callsign=callsign,
                                   uri=repo_clone_url,
                                   tracking=True, pullFrequency=60,
+                                  sshUser=ssh_user,
+                                  sshKeyFile=ssh_keyfile,
                                   localPath=destdir)
     url_to_callsign_map[repo_clone_url] = callsign
 
