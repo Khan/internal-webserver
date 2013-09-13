@@ -176,16 +176,25 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     repo_to_callsign_map = dict((r['remoteURI'], r['callsign'])
                                 for r in phabricator_repo_info)
 
+    # We want to distinguish 'tracked' from 'untracked' phabricator
+    # repos.  We treat untracked repos much like deleted repos: they
+    # just sit around so old urls pointing to the repo still work.
+    tracked_phabricator_repos = set(r['remoteURI']
+                                    for r in phabricator_repo_info
+                                    if r['tracking'])
+
     if verbose:
         def _print(name, lst):
             print '* Existing %s repos:\n%s\n' % (name, '\n'.join(sorted(lst)))
         _print('github', github_repos)
         _print('kiln', kiln_repos)
-        _print('phabricator', phabricator_repos)
+        _print('(tracked) phabricator', tracked_phabricator_repos)
+        _print('UNTRACKED phabricator',
+               phabricator_repos - tracked_phabricator_repos)
 
     actual_repos = kiln_repos | github_repos
     new_repos = actual_repos - phabricator_repos
-    deleted_repos = phabricator_repos - actual_repos
+    deleted_repos = tracked_phabricator_repos - actual_repos
     return (new_repos, deleted_repos, repo_to_callsign_map)
 
 
