@@ -123,7 +123,8 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
 
     # kiln only gives back the https cloneUrl.  But we want the ssh
     # cloneUrl, so we can get the repo using git rather than hg.
-    # TODO(csilvers): figure out which of the Website repos to pull down.
+    # The one exception are some obsolete branches of webapp, which are
+    # all named 'Website/Group/xxx', which we never converted to git.
     kiln_repos = set()
     for hg_url in kiln_https_repos:
         repo_path = hg_url.split('/Code/', 1)[1]
