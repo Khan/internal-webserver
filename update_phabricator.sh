@@ -48,7 +48,7 @@ push_upstream() {
 push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
-push_upstream python-phabricator
+#push_upstream python-phabricator
 
 git add .
 git status
