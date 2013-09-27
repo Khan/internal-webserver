@@ -33,6 +33,7 @@ fi
 
 git checkout master
 trap 'git checkout -' 0  # reset to old branch when the script exits
+git pull --no-rebase
 
 # $1: the directory to cd to (root of some git tree).
 push_upstream() {
