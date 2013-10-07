@@ -5,6 +5,7 @@
     "lint.engine.single.linter"    : "ArcanistScriptAndRegexLinter",
     "linter.scriptandregex.script" : "~\/khan\/devtools\/khan-linter\/runlint.py --always-exit-0 --blacklist=yes",
     "linter.scriptandregex.regex"  : "\/^((?P<file>[^:]*):(?P<line>\\d+):((?P<char>\\d+):)? (?P<name>((?P<error>E)|(?P<warning>W))\\S+) (?P<message>.*))|(?P<ignore>SKIPPING.*)$\/m",
+    "arc.land.update.default": "rebase",
     "history.immutable": false
   },
   "aliases" : {
