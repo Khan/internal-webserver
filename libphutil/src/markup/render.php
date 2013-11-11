@@ -33,6 +33,7 @@ function phutil_tag($tag, array $attributes = array(), $content = null) {
     'col'     => true,
     'command' => true,
     'embed'   => true,
+    'frame'   => true,
     'hr'      => true,
     'img'     => true,
     'input'   => true,
@@ -65,6 +66,13 @@ function phutil_tag($tag, array $attributes = array(), $content = null) {
   }
 
   return new PhutilSafeHTML('<'.$tag.$attr_string.'>'.$content.'</'.$tag.'>');
+}
+
+/**
+ * @group markup
+ */
+function phutil_tag_div($class, $content = null) {
+  return phutil_tag('div', array('class' => $class), $content);
 }
 
 /**
