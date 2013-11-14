@@ -21,6 +21,7 @@ import optparse
 import os
 import re
 import socket
+import string
 import subprocess
 import sys
 import time
@@ -95,6 +96,12 @@ def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
                               ''.join(w[:prefix_len + 1] for w in name_parts))
         if candidate_callsign not in existing_callsigns:
             return candidate_callsign
+
+    # Yikes!  OK, our last chance: just add a unique letter at the end.
+    for letter in string.uppercase:
+        final_chance = candidate_callsign + letter
+        if final_chance not in existing_callsigns:
+            return final_chance
 
     # Dunno what to do if the name *still* isn't unique...
     raise NameError('Cannot find a unique callsign.  Will need to modify '
