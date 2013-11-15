@@ -39,6 +39,14 @@ import phabricator
 sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'hg_mirrors'))
 import kiln_local_backup
 
+# We hardcode some private repos that our API call to GitHub won't find.
+# (Making it return them requires dealing with OAuth.) When adding a repo to
+# this list, it's necessary to add toby's SSH key as a "deploy key" on GitHub
+# at <repo_url>/settings/keys.
+_PRIVATE_GITHUB_REPOS = [
+    'git@github.com:Khan/iPad',
+]
+
 
 def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
     """Retry cmd up to times times, if it gives an exception in exceptions."""
@@ -141,7 +149,6 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         else:
             kiln_repos.add('ssh://khanacademy.kilnhg.com/%s' % repo_path)
 
-    # TODO(csilvers): get private repos as well.  Will need to use oauth.
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
     github_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
@@ -159,7 +166,7 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         else:
             github_api_url = None
 
-    github_repos = set()
+    github_repos = set(_PRIVATE_GITHUB_REPOS)
     for repo in github_repo_info:
         try:
             if repo['clone_url'].endswith('.git'):
@@ -232,13 +239,17 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     Raises:
       phabricator.APIError: if something goes wrong with the insert.
     """
+    id_rsa = '/home/ubuntu/.ssh/id_rsa'
     # For git (both github and kiln git), the name is just the repo-name.
     # For kiln hg, it's the repo-triple (everything after 'Code').
-    prefix_map = {'https://github.com/Khan/': 'git',
-                  'ssh://khanacademy.kilnhg.com/': 'git',
-                  'https://khanacademy.kilnhg.com/Code/': 'hg',
-                  }
-    for (prefix, vcs_type) in prefix_map.iteritems():
+    # Map of prefix: (vcs_type, ssh_user, ssh_keyfile)
+    prefix_map = {
+            'https://github.com/Khan/': ('git', '', ''),
+            'ssh://khanacademy.kilnhg.com/': ('git', 'khanacademy', id_rsa),
+            'git@github.com:Khan/': ('git', 'git', id_rsa),
+            'https://khanacademy.kilnhg.com/Code/': ('hg', '', ''),
+        }
+    for (prefix, (vcs_type, ssh_user, ssh_keyfile)) in prefix_map.iteritems():
         if repo_clone_url.startswith(prefix):
             name = repo_clone_url[len(prefix):]
             if name.endswith('.git'):        # shouldn't happen, but...
@@ -251,12 +262,6 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     callsign = _create_new_phabricator_callsign(
         name, vcs_type, set(url_to_callsign_map.values()))
     destdir = os.path.join(repo_rootdir, vcs_type, name)
-    if repo_clone_url.startswith('ssh://'):
-        ssh_user = 'khanacademy'
-        ssh_keyfile = '/home/ubuntu/.ssh/id_rsa'
-    else:
-        ssh_user = ''
-        ssh_keyfile = ''
 
     print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
            % (name, repo_clone_url, callsign, vcs_type, destdir))
