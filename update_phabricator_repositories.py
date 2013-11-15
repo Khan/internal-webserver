@@ -245,8 +245,8 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     # Map of prefix: (vcs_type, ssh_user, ssh_keyfile)
     prefix_map = {
             'https://github.com/Khan/': ('git', '', ''),
+            'github.com:Khan/': ('git', 'git', id_rsa),   # git@github.com:...
             'ssh://khanacademy.kilnhg.com/': ('git', 'khanacademy', id_rsa),
-            'git@github.com:Khan/': ('git', 'git', id_rsa),
             'https://khanacademy.kilnhg.com/Code/': ('hg', '', ''),
         }
     for (prefix, (vcs_type, ssh_user, ssh_keyfile)) in prefix_map.iteritems():
