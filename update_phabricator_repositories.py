@@ -44,7 +44,7 @@ import kiln_local_backup
 # this list, it's necessary to add toby's SSH key as a "deploy key" on GitHub
 # at <repo_url>/settings/keys.
 _PRIVATE_GITHUB_REPOS = [
-    'github.com:Khan/iPad',
+    'git@github.com:Khan/iPad',
 ]
 
 
@@ -147,7 +147,8 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
             repo_path != 'Website/Group/webapp'):
             kiln_repos.add(hg_url)
         else:
-            kiln_repos.add('ssh://khanacademy.kilnhg.com/%s' % repo_path)
+            kiln_repos.add('ssh://khanacademy@khanacademy.kilnhg.com/%s'
+                           % repo_path)
 
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
@@ -245,9 +246,10 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     # Map of prefix: (vcs_type, ssh_user, ssh_keyfile)
     prefix_map = {
             'https://github.com/Khan/': ('git', '', ''),
-            'github.com:Khan/': ('git', 'git', id_rsa),   # git@github.com:...
-            'ssh://khanacademy.kilnhg.com/': ('git', 'khanacademy', id_rsa),
+            'git@github.com:Khan/': ('git', 'git', id_rsa),
             'https://khanacademy.kilnhg.com/Code/': ('hg', '', ''),
+            'ssh://khanacademy@khanacademy.kilnhg.com/': ('git', 'khanacademy',
+                                                          id_rsa),
         }
     for (prefix, (vcs_type, ssh_user, ssh_keyfile)) in prefix_map.iteritems():
         if repo_clone_url.startswith(prefix):
