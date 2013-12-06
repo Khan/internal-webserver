@@ -240,18 +240,16 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     Raises:
       phabricator.APIError: if something goes wrong with the insert.
     """
-    id_rsa = '/home/ubuntu/.ssh/id_rsa'
     # For git (both github and kiln git), the name is just the repo-name.
     # For kiln hg, it's the repo-triple (everything after 'Code').
-    # Map of prefix: (vcs_type, ssh_user, ssh_keyfile)
+    # Map of prefix: (vcs_type, ssh-passphrase phab-id or None for public repo)
     prefix_map = {
-            'https://github.com/Khan/': ('git', '', ''),
-            'git@github.com:Khan/': ('git', 'git', id_rsa),
-            'https://khanacademy.kilnhg.com/Code/': ('hg', '', ''),
-            'ssh://khanacademy@khanacademy.kilnhg.com/': ('git', 'khanacademy',
-                                                          id_rsa),
+            'https://github.com/Khan/': ('git', None),
+            'git@github.com:Khan/': ('git', 'K2'),  # phabricator.ka.org/K2
+            'https://khanacademy.kilnhg.com/Code/': ('hg', None),
+            'ssh://khanacademy@khanacademy.kilnhg.com/': ('git', 'K1'),
         }
-    for (prefix, (vcs_type, ssh_user, ssh_keyfile)) in prefix_map.iteritems():
+    for (prefix, (vcs_type, passphrase_id)) in prefix_map.iteritems():
         if repo_clone_url.startswith(prefix):
             name = repo_clone_url[len(prefix):]
             if name.endswith('.git'):        # shouldn't happen, but...
@@ -265,14 +263,20 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
         name, vcs_type, set(url_to_callsign_map.values()))
     destdir = os.path.join(repo_rootdir, vcs_type, name)
 
+    # We need to convert the ssh-passphrase phabricator id to a PHID.
+    if passphrase_id is None:
+        passphrase_phid = None
+    else:
+        q = phabctl.phid.lookup(names=[passphrase_id])
+        passphrase_phid = q[passphrase_id]['phid']
+
     print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
            % (name, repo_clone_url, callsign, vcs_type, destdir))
     if not options.dry_run:
         phabctl.repository.create(name=name, vcs=vcs_type, callsign=callsign,
                                   uri=repo_clone_url,
                                   tracking=True, pullFrequency=60,
-                                  sshUser=ssh_user,
-                                  sshKeyFile=ssh_keyfile,
+                                  credentialPHID=passphrase_phid,
                                   localPath=destdir)
     url_to_callsign_map[repo_clone_url] = callsign
 
