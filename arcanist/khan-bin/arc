@@ -102,6 +102,14 @@ def _update_arcrc(arc_root, default_arcrc_file='khan-bin/khan-arcrc',
             raise
 
 
+def _git_pull_in_dir(dir_to_pull):
+    try:
+        subprocess.check_call(['git', 'pull', '-q'], cwd=dir_to_pull)
+    except subprocess.CalledProcessError, why:
+        sys.exit('While updating the arc binary, "git pull" failed in %s: %s.'
+                 ' Make sure the repo is clean.' % (dir_to_pull, str(why)))
+
+
 def _sync_arc(arc_root):
     """Make sure we're using the most up-to-date version of arc.
 
@@ -123,8 +131,8 @@ def _sync_arc(arc_root):
 
     # TODO(csilvers): better to call 'arc upgrade' here instead.
     libphutil_root = os.path.join(os.path.dirname(arc_root), 'libphutil')
-    subprocess.check_call(['git', 'pull', '-q'], cwd=arc_root)
-    subprocess.check_call(['git', 'pull', '-q'], cwd=libphutil_root)
+    _git_pull_in_dir(arc_root)
+    _git_pull_in_dir(libphutil_root)
 
     # Update the user's .arcrc with the default values (which may have
     # changed due to the pull).
