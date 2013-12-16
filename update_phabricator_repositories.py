@@ -147,8 +147,7 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
             repo_path != 'Website/Group/webapp'):
             kiln_repos.add(hg_url)
         else:
-            kiln_repos.add('ssh://khanacademy@khanacademy.kilnhg.com/%s'
-                           % repo_path)
+            kiln_repos.add('ssh://khanacademy.kilnhg.com/%s' % repo_path)
 
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
