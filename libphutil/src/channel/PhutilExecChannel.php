@@ -63,6 +63,8 @@ final class PhutilExecChannel extends PhutilChannel {
    * @task construct
    */
   public function __construct(ExecFuture $future) {
+    parent::__construct();
+
     // Make an empty write to keep the stdin pipe open. By default, futures
     // close this pipe when they start.
     $future->write('', $keep_pipe = true);
@@ -88,7 +90,7 @@ final class PhutilExecChannel extends PhutilChannel {
     return !$this->future->isReady();
   }
 
-  protected function readBytes() {
+  protected function readBytes($length) {
     list($stdout, $stderr) = $this->future->read();
     $this->future->discardBuffers();
 
@@ -124,8 +126,27 @@ final class PhutilExecChannel extends PhutilChannel {
     return $this->future->getWriteSockets();
   }
 
-  protected function isWriteBufferEmpty() {
+  public function isReadBufferEmpty() {
+    // Check both the channel and future read buffers, since either could have
+    // data.
+    return parent::isReadBufferEmpty() && $this->future->isReadBufferEmpty();
+  }
+
+  public function setReadBufferSize($size) {
+    // NOTE: We may end up using 2x the buffer size here, one inside
+    // ExecFuture and one inside the Channel. We could tune this eventually, but
+    // it should be fine for now.
+    parent::setReadBufferSize($size);
+    $this->future->setReadBufferSize($size);
+    return $this;
+  }
+
+  public function isWriteBufferEmpty() {
     return $this->future->isWriteBufferEmpty();
+  }
+
+  public function getWriteBufferSize() {
+    return $this->future->getWriteBufferSize();
   }
 
   /**

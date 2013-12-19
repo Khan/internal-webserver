@@ -22,30 +22,31 @@
  */
 final class ExecFuture extends Future {
 
-  protected $pipes        = array();
-  protected $proc         = null;
-  protected $start        = null;
-  protected $timeout      = null;
-  protected $procStatus   = null;
+  private $pipes        = array();
+  private $proc         = null;
+  private $start        = null;
+  private $timeout      = null;
+  private $procStatus   = null;
 
-  protected $stdout       = null;
-  protected $stderr       = null;
-  protected $stdin        = null;
-  protected $closePipe    = true;
+  private $stdout       = null;
+  private $stderr       = null;
+  private $stdin        = null;
+  private $closePipe    = true;
 
-  protected $stdoutPos    = 0;
-  protected $stderrPos    = 0;
-  protected $command      = null;
-  protected $env          = null;
-  protected $cwd;
+  private $stdoutPos    = 0;
+  private $stderrPos    = 0;
+  private $command      = null;
+  private $env          = null;
+  private $cwd;
 
-  protected $stdoutSizeLimit = PHP_INT_MAX;
-  protected $stderrSizeLimit = PHP_INT_MAX;
+  private $readBufferSize;
+  private $stdoutSizeLimit = PHP_INT_MAX;
+  private $stderrSizeLimit = PHP_INT_MAX;
 
   private $profilerCallID;
   private $killedByTimeout;
 
-  protected static $descriptorSpec = array(
+  private static $descriptorSpec = array(
     0 => array('pipe', 'r'),  // stdin
     1 => array('pipe', 'w'),  // stdout
     2 => array('pipe', 'w'),  // stderr
@@ -153,6 +154,25 @@ final class ExecFuture extends Future {
    */
   public function setStderrSizeLimit($limit) {
     $this->stderrSizeLimit = $limit;
+    return $this;
+  }
+
+
+  /**
+   * Set the maximum internal read buffer size this future. The future will
+   * block reads once the internal stdout or stderr buffer exceeds this size.
+   *
+   * NOTE: If you @{method:resolve} a future with a read buffer limit, you may
+   * block forever!
+   *
+   * TODO: We should probably release the read buffer limit during `resolve()`,
+   * or otherwise detect this. For now, be careful.
+   *
+   * @param int|null Maximum buffer size, or `null` for unlimited.
+   * @return this
+   */
+  public function setReadBufferSize($read_buffer_size) {
+    $this->readBufferSize = $read_buffer_size;
     return $this;
   }
 
@@ -487,13 +507,38 @@ final class ExecFuture extends Future {
 
 
   /**
+   * Determine if the read buffer is empty.
+   *
+   * @return bool True if the read buffer is empty.
+   * @task internal
+   */
+  public function isReadBufferEmpty() {
+    return !strlen($this->stdout);
+  }
+
+
+  /**
    * Determine if the write buffer is empty.
    *
    * @return bool True if the write buffer is empty.
    * @task internal
    */
   public function isWriteBufferEmpty() {
-    return !($this->stdin && $this->stdin->getByteLength());
+    return !$this->getWriteBufferSize();
+  }
+
+
+  /**
+   * Determine the number of bytes in the write buffer.
+   *
+   * @return int Number of bytes in the write buffer.
+   * @task internal
+   */
+  public function getWriteBufferSize() {
+    if (!$this->stdin) {
+      return 0;
+    }
+    return $this->stdin->getByteLength();
   }
 
 
@@ -507,14 +552,19 @@ final class ExecFuture extends Future {
    *                  discarded.
    * @param string    Human-readable description of stream, for exception
    *                  message.
+   * @param int       Maximum number of bytes to read.
    * @return string   The data read from the stream.
    * @task internal
    */
-  protected function readAndDiscard($stream, $limit, $description) {
+  private function readAndDiscard($stream, $limit, $description, $length) {
     $output = '';
 
+    if ($length <= 0) {
+      return '';
+    }
+
     do {
-      $data = fread($stream, 4096);
+      $data = fread($stream, min($length, 64 * 1024));
       if (false === $data) {
         throw new Exception('Failed to read from '.$description);
       }
@@ -527,6 +577,10 @@ final class ExecFuture extends Future {
         }
         $output .= $data;
         $limit -= strlen($data);
+      }
+
+      if (strlen($output) >= $length) {
+        break;
       }
     } while ($read_bytes > 0);
 
@@ -541,7 +595,6 @@ final class ExecFuture extends Future {
    * @task internal
    */
   public function isReady() {
-
     // NOTE: We have soft dependencies on PhutilServiceProfiler and
     // PhutilErrorTrap here. These depencies are soft to avoid the need to
     // build them into the Phage agent. Under normal circumstances, these
@@ -646,14 +699,30 @@ final class ExecFuture extends Future {
     // arrives between our last read and the process exiting.
     $status = $this->procGetStatus();
 
-    $this->stdout .= $this->readAndDiscard(
-      $stdout,
-      $this->getStdoutSizeLimit() - strlen($this->stdout),
-      'stdout');
-    $this->stderr .= $this->readAndDiscard(
-      $stderr,
-      $this->getStderrSizeLimit() - strlen($this->stderr),
-      'stderr');
+    $read_buffer_size = $this->readBufferSize;
+
+    $max_stdout_read_bytes = PHP_INT_MAX;
+    $max_stderr_read_bytes = PHP_INT_MAX;
+    if ($read_buffer_size !== null) {
+      $max_stdout_read_bytes = $read_buffer_size - strlen($this->stdout);
+      $max_stderr_read_bytes = $read_buffer_size - strlen($this->stderr);
+    }
+
+    if ($max_stdout_read_bytes > 0) {
+      $this->stdout .= $this->readAndDiscard(
+        $stdout,
+        $this->getStdoutSizeLimit() - strlen($this->stdout),
+        'stdout',
+        $max_stdout_read_bytes);
+    }
+
+    if ($max_stderr_read_bytes > 0) {
+      $this->stderr .= $this->readAndDiscard(
+        $stderr,
+        $this->getStderrSizeLimit() - strlen($this->stderr),
+        'stderr',
+        $max_stderr_read_bytes);
+    }
 
     if (!$status['running']) {
       $this->result = array(
