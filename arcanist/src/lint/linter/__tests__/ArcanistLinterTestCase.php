@@ -8,7 +8,12 @@
 abstract class ArcanistLinterTestCase extends ArcanistPhutilTestCase {
 
   public function executeTestsInDirectory($root, ArcanistLinter $linter) {
-    foreach (Filesystem::listDirectory($root, $hidden = false) as $file) {
+    $files = id(new FileFinder($root))
+      ->withType('f')
+      ->withSuffix('lint-test')
+      ->find();
+
+    foreach ($files as $file) {
       $this->lintFile($root.$file, $linter);
     }
   }
@@ -114,6 +119,8 @@ abstract class ArcanistLinterTestCase extends ArcanistPhutilTestCase {
             $caught_exception = true;
           }
         }
+      } else if ($exception instanceof ArcanistUsageException) {
+        $this->assertSkipped($exception->getMessage());
       }
       $exception_message = $exception->getMessage()."\n\n".
                            $exception->getTraceAsString();
