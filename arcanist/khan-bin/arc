@@ -177,7 +177,7 @@ def _git_call(git_args):
 
 def _get_user_info(arc_root):
     """Retrieve a list of (username, realname) pairs of all phab. users."""
-    user_info = _conduit_call(arc_root, 'user.query')
+    user_info = _conduit_call(arc_root, 'user.query', {'limit': 1000000})
     return [(ui['userName'], ui['realName']) for ui in user_info
             if ('disabled' not in ui['roles'] and
                 'unverified' not in ui['roles'])]
