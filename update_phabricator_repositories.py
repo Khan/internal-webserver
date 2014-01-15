@@ -147,7 +147,8 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
             repo_path != 'Website/Group/webapp'):
             kiln_repos.add(hg_url)
         else:
-            kiln_repos.add('ssh://khanacademy.kilnhg.com/%s' % repo_path)
+            kiln_repos.add('ssh://khanacademy@khanacademy.kilnhg.com/%s'
+                           % repo_path)
 
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
@@ -185,6 +186,16 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     phabricator_repo_info = _retry(phabctl.repository.query,
                                    times=3, exceptions=(socket.timeout,),
                                    verbose=verbose)
+
+    # For some reason, phabricator doesn't store the username with the
+    # clone url.  But git and kiln do.  So we can compare them
+    # accurately, we add the username back here.
+    for r in phabricator_repo_info:
+        bad_prefix = 'ssh://khanacademy.kilnhg.com'
+        if bad_prefix in r['remoteURI']:
+            r['remoteURI'] = ('ssh://khanacademy@khanacademy.kilnhg.com' +
+                              r['remoteURI'][len(bad_prefix):])
+
     phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
