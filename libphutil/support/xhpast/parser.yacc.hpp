@@ -168,7 +168,13 @@
      T_NAMESPACE = 384,
      T_NS_C = 385,
      T_DIR = 386,
-     T_NS_SEPARATOR = 387
+     T_NS_SEPARATOR = 387,
+     T_INSTEADOF = 388,
+     T_CALLABLE = 389,
+     T_TRAIT = 390,
+     T_TRAIT_C = 391,
+     T_YIELD = 392,
+     T_FINALLY = 393
    };
 #endif
 /* Tokens.  */
@@ -302,6 +308,12 @@
 #define T_NS_C 385
 #define T_DIR 386
 #define T_NS_SEPARATOR 387
+#define T_INSTEADOF 388
+#define T_CALLABLE 389
+#define T_TRAIT 390
+#define T_TRAIT_C 391
+#define T_YIELD 392
+#define T_FINALLY 393
 
 
 
