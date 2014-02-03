@@ -323,14 +323,16 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
       $this->getBaseCommit(),
       $path);
 
+    $lines = phutil_split_lines($stdout, $retain_line_endings = true);
+
     $blame = array();
-    foreach (explode("\n", trim($stdout)) as $line) {
+    foreach ($lines as $line) {
       if (!strlen($line)) {
         continue;
       }
 
       $matches = null;
-      $ok = preg_match('/^\s*([^:]+?) [a-f0-9]{12}: (.*)$/', $line, $matches);
+      $ok = preg_match('/^\s*([^:]+?) ([a-f0-9]{12}):/', $line, $matches);
 
       if (!$ok) {
         throw new Exception("Unable to parse Mercurial blame line: {$line}");
@@ -626,15 +628,16 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
   public function getCommitMessageLog() {
     $base_commit = $this->getBaseCommit();
     list($stdout) = $this->execxLocal(
-      "log --template '{node}\\2{desc}\\1' --rev %s --branch %s --",
+      "log --template %s --rev %s --branch %s --",
+      "{node}\1{desc}\2",
       hgsprintf('(%s::. - %s)', $base_commit, $base_commit),
       $this->getBranchName());
 
     $map = array();
 
-    $logs = explode("\1", trim($stdout));
+    $logs = explode("\2", trim($stdout));
     foreach (array_filter($logs) as $log) {
-      list($node, $desc) = explode("\2", $log);
+      list($node, $desc) = explode("\1", $log);
       $map[$node] = $desc;
     }
 
@@ -748,9 +751,23 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
 
     $tmp_file = new TempFile();
     Filesystem::writeFile($tmp_file, $message);
-    $this->execxLocal(
-      'commit --amend -l %s',
-      $tmp_file);
+
+    try {
+      $this->execxLocal(
+        'commit --amend -l %s',
+        $tmp_file);
+    } catch (CommandException $ex) {
+      if (preg_match('/nothing changed/', $ex->getStdOut())) {
+        // NOTE: Mercurial considers it an error to make a no-op amend. Although
+        // we generally defer to the underlying VCS to dictate behavior, this
+        // one seems a little goofy, and we use amend as part of various
+        // workflows under the assumption that no-op amends are fine. If this
+        // amend failed because it's a no-op, just continue.
+      } else {
+        throw $ex;
+      }
+    }
+
     $this->reloadWorkingCopy();
   }
 
@@ -882,7 +899,7 @@ final class ArcanistMercurialAPI extends ArcanistRepositoryAPI {
             if (preg_match('/^nodiff\((.+)\)$/', $name, $matches)) {
               list($results) = $this->execxLocal(
                 'log --template %s --rev %s',
-                '{node}\1{desc}\2',
+                "{node}\1{desc}\2",
                 sprintf('ancestor(.,%s)::.^', $matches[1]));
               $results = array_reverse(explode("\2", trim($results)));
 
