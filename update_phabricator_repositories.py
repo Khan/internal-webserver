@@ -203,8 +203,6 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     repo_to_callsign_map = dict((r['remoteURI'], r['callsign'])
                                 for r in phabricator_repo_info)
 
-    raise ValueError(phabricator_repo_info) #!!
-
     # We want to distinguish 'tracked' from 'untracked' phabricator
     # repos.  We treat untracked repos much like deleted repos: they
     # just sit around so old urls pointing to the repo still work.
