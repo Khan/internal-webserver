@@ -208,7 +208,7 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     # just sit around so old urls pointing to the repo still work.
     tracked_phabricator_repos = set(r['remoteURI']
                                     for r in phabricator_repo_info
-                                    if r['tracking'])
+                                    if r['isActive'])
 
     if verbose:
         def _print(name, lst):
