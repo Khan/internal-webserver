@@ -66,7 +66,8 @@ def oauth2callback():
 
     email_address = credentials.id_token['email']
     refresh_token = credentials.refresh_token
-    credentials_dir = tempfile.mkdtemp(prefix='oauth.', suffix='.%s' % email)
+    credentials_dir = tempfile.mkdtemp(prefix='oauth.',
+                                       suffix='.%s' % email_address)
     credentials_file = os.path.join(credentials_dir, 'credentials')
     with open(credentials_file, 'wb') as f:
         print >>f, refresh_token
@@ -88,10 +89,10 @@ def oauth2callback():
     s.quit()
     if app.debug:
         return ('This is your token, we need it <pre>{refresh_token}</pre> '
-                '<a href="{home}">home<a/><pre>{email}</pre>' % (
+                '<a href="{home}">home<a/><pre>{email}</pre>').format(
                     home=flask.url_for('request_permission'),
                     refresh_token=refresh_token,
-                    email=email_address))
+                    email=email_address)
     else:
         return 'Thanks, we can now caption your videos!'
 
