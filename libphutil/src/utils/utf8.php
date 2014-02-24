@@ -48,6 +48,68 @@ function phutil_utf8ize($string) {
 
 
 /**
+ * Determine if a string is valid UTF-8, with only basic multilingual plane
+ * characters. This is particularly important because MySQL's `utf8` column
+ * types silently truncate strings which contain characters outside of this
+ * set.
+ *
+ * @param string  String to test for being valid UTF-8 with only characters in
+ *                the basic multilingual plane.
+ * @return bool   True if the string is valid UTF-8 with only BMP characters.
+ */
+function phutil_is_utf8_with_only_bmp_characters($string) {
+
+  // NOTE: By default, PCRE segfaults on patterns like the one we would need
+  // to use here at very small input sizes, at least on some systems (like
+  // OS X). This is apparently because the internal implementation is recursive
+  // and it blows the stack. See <https://bugs.php.net/bug.php?id=45735> for
+  // some discussion. Since the input limit is extremely low (less than 50KB on
+  // my system), do this check very very slowly in PHP instead.
+
+  $len = strlen($string);
+  for ($ii = 0; $ii < $len; $ii++) {
+    $chr = ord($string[$ii]);
+    if ($chr >= 0x01 && $chr <= 0x7F) {
+      continue;
+    } else if ($chr >= 0xC2 && $chr <= 0xDF) {
+      $chr = ord($string[++$ii]);
+      if ($chr >= 0x80 && $chr <= 0xBF) {
+        continue;
+      }
+      return false;
+    } else if ($chr > 0xE0 && $chr <= 0xEF) {
+      $chr = ord($string[++$ii]);
+      if ($chr >= 0x80 && $chr <= 0xBF) {
+        $chr = ord($string[++$ii]);
+        if ($chr >= 0x80 && $chr <= 0xBF) {
+          continue;
+        }
+      }
+      return false;
+    } else if ($chr == 0xE0) {
+      $chr = ord($string[++$ii]);
+
+      // NOTE: This range starts at 0xA0, not 0x80. The values 0x80-0xA0 are
+      // "valid", but not minimal representations, and MySQL rejects them. We're
+      // special casing this part of the range.
+
+      if ($chr >= 0xA0 && $chr <= 0xBF) {
+        $chr = ord($string[++$ii]);
+        if ($chr >= 0x80 && $chr <= 0xBF) {
+          continue;
+        }
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+
+/**
  * Determine if a string is valid UTF-8.
  *
  * @param string  Some string which may or may not be valid UTF-8.
@@ -61,6 +123,9 @@ function phutil_is_utf8($string) {
     return mb_check_encoding($string, 'UTF-8');
   }
 
+  // NOTE: This incorrectly accepts characters like \xE0\x80\x80, but should
+  // not. The MB version works correctly.
+
   $regex =
     "/^(".
       "[\x01-\x7F]+".
@@ -68,7 +133,7 @@ function phutil_is_utf8($string) {
     "|([\xE0-\xEF][\x80-\xBF][\x80-\xBF])".
     "|([\xF0-\xF4][\x80-\xBF][\x80-\xBF][\x80-\xBF]))*\$/";
 
-  return preg_match($regex, $string);
+  return (bool)preg_match($regex, $string);
 }
 
 
