@@ -73,14 +73,14 @@ final class PhabricatorCalendarBrowseController
 
     $date = new DateTime("{$year}-{$month}-01");
     $crumbs = $this->buildApplicationCrumbs();
+    $crumbs->addTextCrumb(pht('All Events'));
     $crumbs->addTextCrumb($date->format('F Y'));
 
     $nav = $this->buildSideNavView();
-    $nav->selectFilter('/');
+    $nav->selectFilter('all/');
     $nav->appendChild(
       array(
         $crumbs,
-        $this->getNoticeView(),
         $month_view,
       ));
 
@@ -90,27 +90,6 @@ final class PhabricatorCalendarBrowseController
         'title' => pht('Calendar'),
         'device' => true,
       ));
-  }
-
-  private function getNoticeView() {
-    $request = $this->getRequest();
-    $view    = null;
-
-    if ($request->getExists('created')) {
-      $view = id(new AphrontErrorView())
-        ->setSeverity(AphrontErrorView::SEVERITY_NOTICE)
-        ->setTitle(pht('Successfully created your status.'));
-    } else if ($request->getExists('updated')) {
-      $view = id(new AphrontErrorView())
-        ->setSeverity(AphrontErrorView::SEVERITY_NOTICE)
-        ->setTitle(pht('Successfully updated your status.'));
-    } else if ($request->getExists('deleted')) {
-      $view = id(new AphrontErrorView())
-        ->setSeverity(AphrontErrorView::SEVERITY_NOTICE)
-        ->setTitle(pht('Successfully deleted your status.'));
-    }
-
-    return $view;
   }
 
 }
