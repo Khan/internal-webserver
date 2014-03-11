@@ -169,7 +169,7 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
         $caught = $ex;
       }
 
-      $this->assertEqual(true, ($ex instanceof PhutilTypeCheckException));
+      $this->assertTrue($ex instanceof PhutilTypeCheckException);
     }
   }
 
@@ -207,9 +207,7 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($ex instanceof PhutilTypeMissingParametersException));
+    $this->assertTrue($ex instanceof PhutilTypeMissingParametersException);
 
     // Parameter "size" is specified but does not exist.
 
@@ -225,9 +223,7 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($ex instanceof PhutilTypeExtraParametersException));
+    $this->assertTrue($ex instanceof PhutilTypeExtraParametersException);
   }
 
   public function testRegexValidation() {
@@ -252,7 +248,7 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(true, ($ex instanceof PhutilTypeCheckException));
+    $this->assertTrue($ex instanceof PhutilTypeCheckException);
   }
 
   public function testScalarOrListRegexp() {
@@ -287,6 +283,8 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
       array(
         'regex' => 'list<regex> | regex',
       ));
+
+    $this->assertTrue(true);
   }
 
 }
