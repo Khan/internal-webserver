@@ -51,7 +51,7 @@ push_upstream libphutil
 push_upstream arcanist
 #push_upstream python-phabricator
 
-git add .
+git add -A .
 git status
 
 echo -n "Does everything look ok? (y/N) "
