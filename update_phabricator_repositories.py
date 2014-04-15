@@ -136,6 +136,16 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
                                                  kiln_token, verbose, verbose)
     kiln_https_repos = frozenset(r['cloneUrl'] for r in kiln_repo_info)
 
+    # HACK HACK HACK.  kiln is debugging some issue for us and cloning
+    # a bunch of repos that we don't actually want/need phabricator to
+    # see.  So we just ignore all repos that start with 'webapp' that
+    # aren't 'webapp' and 'webapp-backup'.
+    bad_prefix = 'https://khanacademy.kilnhg.com/Code/Website/Group/webapp'
+    kiln_https_repos = frozenset(
+        url for url in kiln_https_repos if
+        (not url.startswith(bad_prefix) or
+         url == bad_prefix or url == bad_prefix + '-backup'))
+
     # kiln only gives back the https cloneUrl.  But we want the ssh
     # cloneUrl, so we can get the repo using git rather than hg.
     # The one exception are some obsolete branches of webapp, which are
