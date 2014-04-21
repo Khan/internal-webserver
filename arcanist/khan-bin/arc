@@ -441,6 +441,16 @@ def main(arc_args, arc_root=None):
     if arc_root is None:
         arc_root = _DEFAULT_ARC_ROOT
 
+    arcanist_arc = os.path.join(arc_root, 'bin', 'arc')
+
+    # If they are trying to install a certificate, skip our fancy
+    # work; it won't succeed anyway without the certificate!  (Better
+    # would be to grep for '"cert"' in ~/.arcrc, but I don't want to
+    # have to deal with parsing --arcrc-file.
+    if arc_args and arc_args[0] == 'install-certificate':
+        # This never returns.
+        os.execv(arcanist_arc, [arcanist_arc] + arc_args)
+
     _sync_arc(arc_root)
 
     # Handle any --rr flags that may be in arc_args (--rr is a khan extension).
@@ -453,7 +463,6 @@ def main(arc_args, arc_root=None):
         arc_args = add_onto_for_arc_land(arc_args)
 
     # Now run the 'real' (arcanist) arc.
-    arcanist_arc = os.path.join(arc_root, 'bin', 'arc')
     os.execv(arcanist_arc, [arcanist_arc] + arc_args)
 
 
