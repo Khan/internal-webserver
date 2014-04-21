@@ -1,5 +1,0 @@
-<http://www.zany.com/omg/weird_url,,,>
-~~~~~~~~~~
-<p><a href="http://www.zany.com/omg/weird_url,,," target="_blank">http://www.zany.com/omg/weird_url,,,</a></p>
-~~~~~~~~~~
-http://www.zany.com/omg/weird_url,,,

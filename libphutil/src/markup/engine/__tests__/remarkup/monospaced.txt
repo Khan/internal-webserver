@@ -1,5 +1,0 @@
-##ls --color > /dev/null##
-~~~~~~~~~~
-<p><tt>ls --color &gt; /dev/null</tt></p>
-~~~~~~~~~~
-##ls --color > /dev/null##

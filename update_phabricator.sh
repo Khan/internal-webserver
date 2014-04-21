@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Updates the internal-webserver repository, which has the phabricator
-# source as 'fake sub-repos', and then pushes it to the phabricator
-# machine (toby), where it safely restarts the webserver there.
+# Updates the internal-webserver repository, including updating all
+# the phabricator repos from upstream, and then pushes it to the
+# phabricator machine (toby), where it safely restarts the webserver
+# there.
 
 # Die if something goes wrong.
 set -e
@@ -16,9 +17,8 @@ export GIT_MERGE_AUTOEDIT=no
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # We need the internal-webserver repository to be set up properly.
-if [ ! -d "phabricator/.git" ]; then
-  echo "You need to set up the phabricator subdirectories as 'fake' sub-repos:"
-  echo "https://sites.google.com/a/khanacademy.org/forge/for-developers/code-review-policy/using-phabricator/for-phabricator-admins"
+if [ ! -f "phabricator/.git" ]; then
+  echo "You need to set up the phabricator subdirectories as submodules."
   exit 1
 fi
 
@@ -44,21 +44,20 @@ push_upstream() {
    git push
    git checkout -
 )
+   git add "$@"    # update the substate in our main repo
 }
 
 push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
-#push_upstream python-phabricator
 
-git add -A .
 git status
 
 echo -n "Does everything look ok? (y/N) "
 read prompt
 if [ "$prompt" != "y" -a "$prompt" != "Y" -a "$prompt" != "yes" ]; then
    echo "Aborting; user said no"
-   echo "[Note the fake-subrepos (e.g. phabricator/) have already been pushed]"
+   echo "[Note the subrepos (e.g. phabricator/) have already been pushed]"
    exit 1
 fi
 

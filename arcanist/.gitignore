@@ -1,7 +1,0 @@
-.DS_Store
-._*
-/src/.phutil_module_cache
-/src/extensions/*
-/docs/
-/.divinercache/
-/externals/includes/*

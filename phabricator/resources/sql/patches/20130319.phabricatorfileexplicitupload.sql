@@ -1,2 +1,0 @@
-ALTER TABLE {$NAMESPACE}_file.file
-  ADD isExplicitUpload BOOLEAN DEFAULT TRUE;

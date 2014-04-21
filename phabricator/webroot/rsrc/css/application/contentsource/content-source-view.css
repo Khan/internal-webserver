@@ -1,7 +1,0 @@
-/**
- * @provides phabricator-content-source-view-css
- */
-
-.phabricator-content-source-view {
-  color: {$lightgreytext};
-}

@@ -1,3 +1,0 @@
-ALTER TABLE {$NAMESPACE}_file.file
-  ADD ttl INT(10) UNSIGNED DEFAULT NULL,
-  ADD KEY key_ttl (ttl);
