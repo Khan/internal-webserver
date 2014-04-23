@@ -71,6 +71,7 @@ ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/internal_webserver.pem" \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
+    git submodule update --init --recursive; \
     PHABRICATOR_ENV=khan phabricator/bin/phd stop; \
     sudo /etc/init.d/lighttpd stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
