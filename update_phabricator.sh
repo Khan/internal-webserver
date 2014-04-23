@@ -18,8 +18,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # We need the internal-webserver repository to be set up properly.
 if [ ! -f "phabricator/.git" ]; then
-  echo "You need to set up the phabricator subdirectories as submodules."
-  exit 1
+    echo "You need to set up the phabricator subdirectories as submodules."
+    exit 1
 fi
 
 # We'll need the right permissions file to push to production.
@@ -38,11 +38,13 @@ git pull --no-rebase
 # $1: the directory to cd to (root of some git tree).
 push_upstream() {
 (  cd "$@"
+   origin=`git remote -v | awk '{ print $2; exit }'`
+   upstream=`git remote -v | awk '{ print $2; exit }' | sed s/Khan/facebook/`
    git checkout master
    git pull --no-rebase
-   git pull --no-rebase upstream master
-   git push
-   git checkout -
+   git pull --no-rebase "$upstream" master
+   # Make sure we push using ssh so we don't need to enter a password.
+   git push `echo $origin | sed s,https://github.com/,git@github.com:,` master
 )
    git add "$@"    # update the substate in our main repo
 }
@@ -51,7 +53,7 @@ push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
 
-git status
+git -c status.submodulesummary=true status
 
 echo -n "Does everything look ok? (y/N) "
 read prompt
