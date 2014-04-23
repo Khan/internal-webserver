@@ -38,13 +38,15 @@ git pull --no-rebase
 # $1: the directory to cd to (root of some git tree).
 push_upstream() {
 (  cd "$@"
-   origin=`git remote -v | awk '{ print $2; exit }'`
-   upstream=`git remote -v | awk '{ print $2; exit }' | sed s/Khan/facebook/`
+   # We hard-code the remotes to the user doesn't need to set them up.
+   # We use the ssh form so it doesn't ask for passwords each time.
+   origin="git@github.com:Khan/$@.git"
+   upstream="git@github.com:facebook/$@.git"
    git checkout master
    git pull --no-rebase
    git pull --no-rebase "$upstream" master
    # Make sure we push using ssh so we don't need to enter a password.
-   git push `echo $origin | sed s,https://github.com/,git@github.com:,` master
+   git push "$origin" master
 )
    git add "$@"    # update the substate in our main repo
 }
