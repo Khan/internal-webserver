@@ -75,9 +75,11 @@ ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/internal_webserver.pem" \
     git pull; \
     git submodule update --init --recursive; \
     PHABRICATOR_ENV=khan phabricator/bin/phd stop; \
-    sudo /etc/init.d/lighttpd stop; \
+    sudo service nginx stop; \
+    sudo service php5-fpm stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
-    sudo /etc/init.d/lighttpd start; \
+    sudo service php5-fpm start; \
+    sudo service nginx start; \
     PHABRICATOR_ENV=khan phabricator/bin/phd start; \
    "
 
