@@ -44,7 +44,7 @@ import kiln_local_backup
 # this list, it's necessary to add toby's SSH key as a "deploy key" on GitHub
 # at <repo_url>/settings/keys.
 _PRIVATE_GITHUB_REPOS = [
-    'git@github.com:Khan/iPad',
+    'git@github.com:Khan/iOS',
 ]
 
 
