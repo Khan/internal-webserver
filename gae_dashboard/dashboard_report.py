@@ -307,10 +307,9 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
     if verbose:
         print records
 
-    print >>sys.stderr, 'Importing %d record%s' % (len(records),
-                                                   's'[len(records) == 1:])
+    print, 'Importing %d record%s' % (len(records), 's'[len(records) == 1:])
     if dry_run:
-        print >>sys.stderr, 'Skipping import during dry-run.'
+        print, 'Skipping import during dry-run.'
     elif records:
         graphite_util.maybe_send_to_graphite(graphite_host, 'summary', records)
 

@@ -124,7 +124,7 @@ def main(csv_iter):
     print 'Importing %s documents' % len(records_to_add)
 
     if args.dry_run:
-        print >>sys.stderr, 'Skipping import during dry-run.'
+        print 'Skipping import during dry-run.'
     elif records_to_add:
         graphite_util.maybe_send_to_graphite(args.graphite_host, 'usage',
                                              records_to_add)
