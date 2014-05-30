@@ -28,6 +28,9 @@ done
 : ${curl_app:="${srcdir}/gae_dashboard_curl.py"}
 : ${app_id:="s~khan-academy"}
 
+# Add appengine SDK to the path.
+export PATH="/usr/local/google_appengine:$PATH"
+
 if [ ! -e "${private_pw}" ]; then
     echo "Need to put password for ${username} in ${private_pw}"
     exit 1
