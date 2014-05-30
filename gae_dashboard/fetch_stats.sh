@@ -22,7 +22,7 @@ do
     shift
 done
 
-: ${srcdir:="${HOME}/analytics/gae_dashboard"}
+: ${srcdir:="${HOME}/internal-webserver/gae_dashboard"}
 : ${private_pw:="${HOME}/private_pw"}
 : ${username:="khanbackups@gmail.com"}
 : ${curl_app:="${srcdir}/gae_dashboard_curl.py"}

@@ -7,7 +7,7 @@
 
 set -e
 
-: ${srcdir:="${HOME}/analytics/gae_dashboard"}
+: ${srcdir:="${HOME}/internal-webserver/gae_dashboard"}
 : ${private_pw:="${HOME}/private_pw"}
 : ${username:="khanbackups@gmail.com"}
 : ${url:="https://appengine.google.com/billing/history.csv?app_id=s~khan-academy"}

@@ -14,8 +14,8 @@ import struct
 def maybe_send_to_graphite(graphite_host, category, records):
     """Send dashboard statistics to the graphite timeseries-graphing tool.
 
-    This requires /home/analytics/hostedgraphite_secret exist and
-    hold the hostedgraphite API key.  See aws-config/analytics/setup.sh.
+    This requires $HOME/hostedgraphite_secret exist and hold the
+    hostedgraphite API key.  See aws-config/internal-webserver/setup.sh.
 
     Arguments:
         graphite_host: hostname:port (port should be the port for the
