@@ -21,6 +21,8 @@ To use this module as a library:
 
 import os
 import sys
+import time
+import urllib2
 
 # Set up GAE import paths via gae_util.py in src/
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -45,7 +47,14 @@ class DashboardClient(object):
         self.rpcserver = create_rpcserver(email, password)
 
     def fetch(self, url):
-        return fetch_contents(self.rpcserver, url)
+        for i in xrange(3):      # we'll retry up to 3 times
+            try:
+                return fetch_contents(self.rpcserver, url)
+            except urllib2.HTTPError, why:
+                time.sleep(1)
+                print 'Retrying, fetch failed: %s' % why
+                if i == 2:       # last time
+                    raise
 
 
 def create_rpcserver(email, password):
