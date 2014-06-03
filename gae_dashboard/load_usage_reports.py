@@ -23,10 +23,36 @@ Records are sent to graphite under the keys webapp.gae.dashboard.usage.*
 import argparse
 import csv
 import datetime
+import os
 import re
 import sys
 
 import graphite_util
+
+
+_LAST_RECORD_DB = os.path.join(os.getenv('HOME'), 'usage_report_time.db')
+
+
+def _time_t_of_latest_record():
+    """time_t of the most recently stored dashboard record.
+
+    This data is stored in a file.  We could consider this a small database.
+
+    Returns:
+        The time_t (# of seconds since the UNIX epoch in UTC) or None if
+        there is no previous record.
+    """
+    if os.path.exists(_LAST_RECORD_DB):
+        with open(_LAST_RECORD_DB) as f:
+            return int(f.read().strip())
+    return None
+
+
+def _write_time_t_of_latest_record(records):
+    """Find the record with the latest time-t and write it to the db."""
+    latest_record = max(records, key=lambda r: r['utc_datetime'])
+    with open(_LAST_RECORD_DB, 'w') as f:
+        print >>f, latest_record['utc_datetime']
 
 
 def _munge_key(key):
@@ -45,13 +71,13 @@ def _munge_key(key):
 
 
 def _reports_since_dt(csvreader, cutoff_dt):
-    """Return usage reports that are from the given cutoff date or later.
+    """Return usage reports that are from after the given cutoff date.
 
     Arguments:
         csvreader: an iterable where each iteration returns the usage report
             fields as a dict, with keys: Date, Name, Unit, Used.
-        cutoff_dt: a string of the form 'YYYY-MM-DD'.  All records from
-            cvsreader that have a date before cutoff_dt are ignored.
+        cutoff_dt: a string of the form 'YYYY-MM-DD'.  Only records from
+            cvsreader that have a date after cutoff_dt are returned.
 
     Returns:
       An iterator where each element is a triple (<date>, <key>, <value>).
@@ -71,7 +97,7 @@ def _reports_since_dt(csvreader, cutoff_dt):
         # iterate over all of the input rather than stopping at a certain
         # point. This is fine since the input is at most a few months of data,
         # as of October 2012.
-        if row['Date'] < cutoff_dt:
+        if row['Date'] <= cutoff_dt:
             continue
 
         if row['Date'] not in seen_dts:
@@ -92,13 +118,7 @@ def main(csv_iter):
     csv_input is any object that returns a line of the usage report CSV for
     each iteration. This includes the header line containing field names.
     """
-    yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n', 1)[0])
-    parser.add_argument('start_date', nargs='?',
-                        default=yesterday.strftime('%Y-%m-%d'),
-                        help=('Ignore data before this date (YYYY-MM-DD) '
-                              '[default: %(default)s]'))
     parser.add_argument('--graphite_host',
                         default='carbon.hostedgraphite.com:2004',
                         help=('host:port to send stats to graphite '
@@ -112,10 +132,18 @@ def main(csv_iter):
 
     csvreader = csv.DictReader(csv_iter)
 
-    print 'Importing usage reports starting from %s' % args.start_date
+    start_date = _time_t_of_latest_record()
+    if start_date is None:
+        print 'No record of previous fetches; importing all records as new.'
+        start_date = datetime.date(2000, 1, 1)
+    else:
+        start_date = datetime.date.fromtimestamp(start_date)
+    start_date = start_date.strftime('%Y-%m-%d')
+
+    print 'Importing usage reports starting from %s' % start_date
 
     records_to_add = []
-    for (dt, key, value) in _reports_since_dt(csvreader, args.start_date):
+    for (dt, key, value) in _reports_since_dt(csvreader, start_date):
         records_to_add.append({'utc_datetime': dt, _munge_key(key): value})
 
     if args.verbose:
@@ -125,9 +153,13 @@ def main(csv_iter):
 
     if args.dry_run:
         print 'Skipping import during dry-run.'
+        records_to_add = []
     elif records_to_add:
         graphite_util.maybe_send_to_graphite(args.graphite_host, 'usage',
                                              records_to_add)
+
+    if records_to_add:
+        _write_time_t_of_latest_record(records_to_add)
 
 
 if __name__ == "__main__":

@@ -22,11 +22,15 @@ import argparse
 import collections
 import datetime
 import json
+import os
 import sys
 
 import GChartWrapper
 
 import graphite_util
+
+
+_LAST_RECORD_DB = os.path.join(os.getenv('HOME'), 'dashboard_report_time.db')
 
 
 # This mapping is used to turn chart labels and possibly data labels
@@ -102,6 +106,28 @@ _time_windows = [
     ('14 days', 14 * 24),
     ('30 days', 30 * 24),
     ]
+
+
+def _time_t_of_latest_record():
+    """time_t of the most recently stored dashboard record.
+
+    This data is stored in a file.  We could consider this a small database.
+
+    Returns:
+        The time_t (# of seconds since the UNIX epoch in UTC) or None if
+        there is no previous record.
+    """
+    if os.path.exists(_LAST_RECORD_DB):
+        with open(_LAST_RECORD_DB) as f:
+            return int(f.read().strip())
+    return None
+
+
+def _write_time_t_of_latest_record(records):
+    """Find the record with the latest time-t and write it to the db."""
+    latest_record = max(records, key=lambda r: r['utc_datetime'])
+    with open(_LAST_RECORD_DB, 'w') as f:
+        print >>f, latest_record['utc_datetime']
 
 
 def round_to_n_significant_digits(x, n):
@@ -262,7 +288,8 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
          and other identifying data; see the help for <infile> in main(),
          or just look at how this json is constructed in fetch_stats.sh.
       start_time_t: Ignore all datapoints before this time_t (given that
-         the last datapoint is at time download_time_t).
+         the last datapoint is at time download_time_t).  May be None,
+         in which case we don't ignore any datapoints.
       download_time_t: When /dashboard was downloaded in seconds (UTC).
       graphite_host: host:port of graphite server to send data to.
       verbose: If True, print report to stdout.
@@ -299,7 +326,7 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
     records = []
     for time_value, record in aggregate_series_by_time(named_series):
         record_time_t = chart_start_time_t + time_value
-        if record_time_t > start_time_t:
+        if not start_time_t or record_time_t > start_time_t:
             record['utc_datetime'] = datetime.datetime.utcfromtimestamp(
                 record_time_t)
             records.append(record)
@@ -310,16 +337,17 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
     print 'Importing %d record%s' % (len(records), 's'[len(records) == 1:])
     if dry_run:
         print 'Skipping import during dry-run.'
+        records = []
     elif records:
         graphite_util.maybe_send_to_graphite(graphite_host, 'summary', records)
+
+    return records
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n', 1)[0])
-    parser.add_argument('start_timestamp', type=int,
-                        help='time_t to start collecting data from')
-    parser.add_argument('end_timestamp', type=int,
-                        help='time_t the input data was downloaded')
+    parser.add_argument('utc_timestamp', type=int,
+                        help='time_t the input data was downloaded (in UTC)')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'),
                         default=sys.stdin,
                         help=("JSON-encoded list of maps with three keys: "
@@ -338,11 +366,18 @@ def main():
                         help='do not store report in the database')
     args = parser.parse_args()
 
+    time_t_of_latest_record = _time_t_of_latest_record()
+    if time_t_of_latest_record is None:
+        print 'No record of previous fetches; importing all records as new.'
+
     # This json.load() will raise an exception error if the input is
     # malformed, e.g. if the wget we did for this data failed.
-    parse_and_commit_record(json.load(args.infile), args.start_timestamp,
-                            args.end_timestamp, args.graphite_host,
-                            args.verbose, args.dry_run)
+    records = parse_and_commit_record(
+        json.load(args.infile), time_t_of_latest_record, args.utc_timestamp,
+        args.graphite_host, args.verbose, args.dry_run)
+
+    if records:
+        _write_time_t_of_latest_record(records)
 
 
 if __name__ == '__main__':
