@@ -125,9 +125,10 @@ def _time_t_of_latest_record():
 
 def _write_time_t_of_latest_record(records):
     """Find the record with the latest time-t and write it to the db."""
+    epoch = datetime.datetime.utcfromtimestamp(0)
     latest_record = max(records, key=lambda r: r['utc_datetime'])
     with open(_LAST_RECORD_DB, 'w') as f:
-        print >>f, latest_record['utc_datetime']
+        print >>f, int((latest_record['utc_datetime'] - epoch).total_seconds())
 
 
 def round_to_n_significant_digits(x, n):
