@@ -11,7 +11,7 @@ Data from /memcache are sent to graphite with the prefix
   hit_ratio: FLOAT
   item_count: INTEGER
   total_cache_size_bytes: INTEGER
-  oldest_item_age_seconds: INTEGER
+  oldest_item_age_seconds: INTEGER  # May be omitted if not available.
 
 Data from /instance_summary are sent to graphite with the prefix
 "webapp.gae.dashboard.instances":
@@ -74,8 +74,10 @@ def report_memcache_statistics(stats, download_dt, graphite_host,
               'hit_ratio': stats['hit_ratio'].value(),
               'item_count': stats['item_count'].value(),
               'total_cache_size_bytes': stats['total_cache_size'].value(),
-              'oldest_item_age_seconds': stats['oldest_item_age'].value(),
               }
+    if 'oldest_item_age' in stats:
+        record['oldest_item_age_seconds'] = stats['oldest_item_age'].value()
+
     if verbose:
         print record
 

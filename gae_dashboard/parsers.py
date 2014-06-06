@@ -234,6 +234,8 @@ class InstanceSummary(BaseParser):
           [{'appengine_release': '1.9.2',
             'total_instances': '100 total',
             'average_qps': '2.243',
+
+            # The average_latency key may not be present.
             'average_latency': '180.3 ms',
             'average_memory': '134.8 MBytes'},
            ...]
@@ -249,13 +251,15 @@ class InstanceSummary(BaseParser):
             # Expecting 'App Engine Release', 'Total number of instances',
             # 'Average QPS', 'Average Latency', 'Average Memory'
             assert len(children) == 5, [child.text for child in children]
-            summaries.append({
+            data = {
                 'appengine_release': Value.from_str(text(children[0])),
                 'total_instances': Value.from_number(text(children[1])),
                 'average_qps': Value.from_number(text(children[2])),
-                'average_latency': Value.from_number(text(children[3])),
                 'average_memory': Value.from_number(text(children[4])),
-            })
+            }
+            if text(children[3]) != 'Unknown ms':
+                data['average_latency'] = Value.from_number(text(children[3]))
+            summaries.append(data)
         return summaries
 
     def summary(self):
@@ -273,13 +277,19 @@ class InstanceSummary(BaseParser):
         summaries = self.summaries()
         # Reduce to a single summary with weighted averages for each
         # field except "total_instances", which is summed.
-        total_instances = sum(d['total_instances'].value() for d in summaries)
-        summary = {'total_instances': total_instances}
+        summary = {'total_instances': sum(d['total_instances'].value()
+                                          for d in summaries)}
         for field in ('average_qps', 'average_latency', 'average_memory'):
+            # During rollout of a new SDK, average_latency may be unknown
+            # for a set of instances so we don't count it. We assume there's
+            # at least one set of instances with known latency.
             instance_weighted_sum = sum(
                 d['total_instances'].value() * d[field].value()
-                for d in summaries)
-            summary[field] = float(instance_weighted_sum) / total_instances
+                for d in summaries if field in d)
+            weight = sum(
+                d['total_instances'].value()
+                for d in summaries if field in d)
+            summary[field] = float(instance_weighted_sum) / weight
         # Beautify rounding precision to match the App Engine UI.
         summary['average_qps'] = round(summary['average_qps'], 3)
         summary['average_latency_ms'] = round(summary['average_latency'], 1)
@@ -347,6 +357,8 @@ class Memcache(BaseParser):
            'hit_ratio': '99%',
            'item_count': '678 item(s)',
            'total_cache_size': '91011',
+
+           # The oldest_item_age key may not be present.
            'oldest_item_age': '19 day(s) 20 hour(s) 27 min(s) 26 second(s)'}
 
         """
@@ -366,6 +378,9 @@ class Memcache(BaseParser):
             if text(children[0]).strip() in fields:
                 # skip rows with invalid or empty cells
                 field_name, value_fn = fields[text(children[0]).strip()]
+                if field_name == 'oldest_item_age' and not text(children[1]):
+                    # Sometimes this field is empty, so we omit it.
+                    continue
                 stats[field_name] = value_fn(text(children[1]))
         # Ensure all fields were filled.
         assert len(stats) == len(fields), (fields.keys(), stats.keys())
