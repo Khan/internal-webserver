@@ -257,7 +257,7 @@ class InstanceSummary(BaseParser):
                 'average_qps': Value.from_number(text(children[2])),
                 'average_memory': Value.from_number(text(children[4])),
             }
-            if text(children[3]) != 'Unknown ms':
+            if text(children[3]).strip() != 'Unknown ms':
                 data['average_latency'] = Value.from_number(text(children[3]))
             summaries.append(data)
         return summaries
