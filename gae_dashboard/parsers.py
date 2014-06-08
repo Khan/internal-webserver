@@ -378,10 +378,11 @@ class Memcache(BaseParser):
             if text(children[0]).strip() in fields:
                 # skip rows with invalid or empty cells
                 field_name, value_fn = fields[text(children[0]).strip()]
-                if field_name == 'oldest_item_age' and not text(children[1]):
+                if (field_name == 'oldest_item_age' and
+                        not text(children[1]).strip()):
                     # Sometimes this field is empty, so we omit it.
                     continue
-                stats[field_name] = value_fn(text(children[1]))
+                stats[field_name] = value_fn(text(children[1]).strip())
         # Ensure all fields were filled.
         assert len(stats) == len(fields), (fields.keys(), stats.keys())
         return stats
