@@ -383,8 +383,8 @@ class Memcache(BaseParser):
                     # Sometimes this field is empty, so we omit it.
                     continue
                 stats[field_name] = value_fn(text(children[1]).strip())
-        # Ensure all fields were filled.
-        assert len(stats) == len(fields), (fields.keys(), stats.keys())
+        # Ensure all fields were filled (except maybe oldest_item_age)
+        assert len(stats) >= len(fields) - 1, (fields.keys(), stats.keys())
         return stats
 
 
