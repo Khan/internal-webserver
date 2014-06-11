@@ -193,9 +193,12 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
                        '"arc install-certificate %s"' % phabctl.host)
     if verbose:
         print 'Fetching list of repositories from %s' % phabctl.host
-    phabricator_repo_info = _retry(phabctl.repository.query,
-                                   times=3, exceptions=(socket.timeout,),
-                                   verbose=verbose)
+    phabricator_repo_info = _retry(
+        # Turn on profiling so when phabricator is slow and this command
+        # times out, we have a chance of figuring out why.
+        lambda: phabctl.repository.query(__profile__=1),
+        times=3, exceptions=(socket.timeout,),
+        verbose=verbose)
 
     # For some reason, phabricator doesn't store the username with the
     # clone url.  But git and kiln do.  So we can compare them
