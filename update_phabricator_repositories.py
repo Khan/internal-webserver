@@ -284,7 +284,6 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
 
     callsign = _create_new_phabricator_callsign(
         name, vcs_type, set(url_to_callsign_map.values()))
-    destdir = os.path.join(repo_rootdir, vcs_type, name)
 
     # We need to convert the ssh-passphrase phabricator id to a PHID.
     if passphrase_id is None:
@@ -293,14 +292,13 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
         q = phabctl.phid.lookup(names=[passphrase_id])
         passphrase_phid = q[passphrase_id]['phid']
 
-    print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s, destdir=%s'
-           % (name, repo_clone_url, callsign, vcs_type, destdir))
+    print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s'
+           % (name, repo_clone_url, callsign, vcs_type))
     if not options.dry_run:
         phabctl.repository.create(name=name, vcs=vcs_type, callsign=callsign,
                                   uri=repo_clone_url,
                                   tracking=True, pullFrequency=60,
-                                  credentialPHID=passphrase_phid,
-                                  localPath=destdir)
+                                  credentialPHID=passphrase_phid)
     url_to_callsign_map[repo_clone_url] = callsign
 
 
