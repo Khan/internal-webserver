@@ -41,10 +41,11 @@ import kiln_local_backup
 
 # We hardcode some private repos that our API call to GitHub won't find.
 # (Making it return them requires dealing with OAuth.) When adding a repo to
-# this list, it's necessary to add toby's SSH key as a "deploy key" on GitHub
-# at <repo_url>/settings/keys.
+# this list, it's necessary to add the "readonlykiln" team as a
+# collaborator at at <repo_url>/settings/collaboration.
 _PRIVATE_GITHUB_REPOS = [
     'git@github.com:Khan/iOS',
+    'git@github.com:Khan/webapp',
 ]
 
 
