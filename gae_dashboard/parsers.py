@@ -251,8 +251,13 @@ class InstanceSummary(BaseParser):
             # Expecting 'App Engine Release', 'Total number of instances',
             # 'Average QPS', 'Average Latency', 'Average Memory'
             assert len(children) == 5, [child.text for child in children]
+            appengine_release = text(children[0])
+            # This happens for ComputeEngine instances (aka Managed VMs).
+            # TODO(csilvers): put them in their own bucket.
+            if appengine_release.lower() == 'unknown':
+                continue
             data = {
-                'appengine_release': Value.from_str(text(children[0])),
+                'appengine_release': Value.from_str(appengine_release),
                 'total_instances': Value.from_number(text(children[1])),
                 'average_qps': Value.from_number(text(children[2])),
                 'average_memory': Value.from_number(text(children[4])),
