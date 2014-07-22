@@ -33,6 +33,10 @@ def _is_number(s):
     return False
 
 
+def _pretty_date(yyyymmdd):
+    return '%s-%s-%s' % (yyyymmdd[0:4], yyyymmdd[4:6], yyyymmdd[6:8])
+
+
 def _convert_table_rows_to_lists(table, order):
     """Given a table where rows are dicts, convert them to lists.
 
@@ -184,7 +188,7 @@ ORDER BY instance_hours DESC
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     subject = 'Instance Hours by Route'
-    preamble = 'Instance hours by route for %s' % date.strftime("%Y/%m/%d")
+    preamble = 'Instance hours by route for %s' % _pretty_date(yyyymmdd)
     # Let's just send the top most expensive routes, not all of them.
     _send_email(data[:50], None,
                 to=['infrastructure-blackhole@khanacademy.org'],
@@ -229,10 +233,60 @@ ORDER BY t1.url_requests DESC;
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     subject = 'RPC calls by route'
-    preamble = 'RPC calls by route for %s' % date.strftime("%Y/%m/%d")
+    preamble = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
     # Let's just send the top most expensive routes, not all of them.
     _send_email(data[:75], None,
-                to=['infrastructure-blackhole+bq-data@khanacademy.org'],
+                to=['infrastructure-blackhole@khanacademy.org'],
+                subject=subject, preamble=preamble)
+
+
+def email_out_of_memory_errors(yyyymmdd):
+    # This sends two emails, for two different ways of seeing the data.
+    # But we'll have them share the same subject so they thread together.
+    subject = 'OOM errors'
+
+    # Out-of-memory errors look like:
+    # Exceeded soft private memory limit with 260.109 MB after servicing 2406 requests total
+    query = """\
+SELECT COUNT(module_id) AS count_,
+       module_id,
+       NTH(10, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after servicing (\d+) requests')), 101)) as numserved_10th,
+       NTH(50, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after servicing (\d+) requests')), 101)) as numserved_50th,
+       NTH(90, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after servicing (\d+) requests')), 101)) as numserved_90th
+FROM [logs.requestlogs_%s]
+WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
+      AND module_id IS NOT NULL
+GROUP BY module_id
+ORDER BY count_ DESC
+""" % yyyymmdd
+    data = _query_bigquery(query)
+
+    _ORDER = ['count_', 'module_id',
+              'numserved_10th', 'numserved_50th', 'numserved_90th']
+    data = _convert_table_rows_to_lists(data, _ORDER)
+
+    preamble = 'OOM errors by module for %s' % _pretty_date(yyyymmdd)
+    _send_email(data, None,
+                to=['infrastructure-blackhole@khanacademy.org'],
+                subject=subject, preamble=preamble)
+
+    query = """\
+SELECT COUNT(*) as count_,
+       module_id,
+       elog_url_route as url_route
+FROM [logs.requestlogs_%s]
+WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
+GROUP BY module_id, url_route
+ORDER BY count_ DESC
+""" % yyyymmdd
+    data = _query_bigquery(query)
+
+    _ORDER = ['count_', 'module_id', 'url_route']
+    data = _convert_table_rows_to_lists(data, _ORDER)
+
+    preamble = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
+    _send_email(data, None,
+                to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject, preamble=preamble)
 
 
