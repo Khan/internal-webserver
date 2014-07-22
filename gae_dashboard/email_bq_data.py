@@ -64,17 +64,20 @@ def _query_bigquery(sql_query):
     # I couldn't figure out an easy way to do this.  Ah well.
     data = subprocess.check_output(['bq', '-q', '--format=json', '--headless',
                                     'query', sql_query])
-    table = json.load(data)
+    table = json.loads(data)
 
     for row in table:
         for key in row:
-            try:
-                row[key] = int(row[key])
-            except ValueError:
+            if row[key] is None:
+                row[key] = '(None)'
+            else:
                 try:
-                    row[key] = float(row[key])
+                    row[key] = int(row[key])
                 except ValueError:
-                    pass
+                    try:
+                        row[key] = float(row[key])
+                    except ValueError:
+                        pass
 
     return table
 
@@ -184,7 +187,7 @@ ORDER BY instance_hours DESC
     preamble = 'Instance hours by route for %s' % date.strftime("%Y/%m/%d")
     # Let's just send the top most expensive routes, not all of them.
     _send_email(data[:50], None,
-                to=['infrastructure-blackhole+bq-data@khanacademy.org'],
+                to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject, preamble=preamble)
 
 
@@ -193,10 +196,10 @@ def email_rpcs(date):
     rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete')
 
     date_str = date.strftime("%Y%m%d")
-    inits = ["IFNULL(INTEGER(t%s.%s), 0) as %s" % (name, name, name)
+    inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
              for name in rpc_fields]
     joins = ["LEFT OUTER JOIN ( "
-             "SELECT elog_url_route AS url_route, COUNT(*) AS %s "
+             "SELECT elog_url_route AS url_route, COUNT(*) AS rpc_%s "
              "FROM FLATTEN([logs.requestlogs_%s], elog_stats_rpc) "
              "WHERE elog_stats_rpc.key = 'stats.rpc.datastore_v3.%s' "
              "GROUP BY url_route) AS t%s ON t1.url_route = t%s.url_route"
@@ -208,20 +211,21 @@ t1.url_requests AS requests,
 %s
 FROM (
 SELECT elog_url_route AS url_route, COUNT(*) AS url_requests
-FROM [logs.requestlogs_%(date)s]
+FROM [logs.requestlogs_%s]
 GROUP BY url_route) AS t1
 %s
 ORDER BY t1.url_requests DESC;
-""" % ('\n'.join(inits), '\n'.join(joins))
+""" % (',\n'.join(inits), date_str, '\n'.join(joins))
     data = _query_bigquery(query)
 
     # Munge the table by getting per-request counts for every RPC stat.
     for row in data:
         for stat in rpc_fields:
-            row['%s/req' % stat] = row[stat] * 1.0 / row['requests']
+            row['%s/req' % stat] = row['rpc_%s' % stat] * 1.0 / row['requests']
 
     # Convert each row from a dict to a list, in a specific order.
-    _ORDER = (['url_route', 'requests'] + list(rpc_fields) +
+    _ORDER = (['url_route', 'requests'] +
+              ['rpc_%s' % f for f in rpc_fields] +
               ['%s/req' % f for f in rpc_fields])
     data = _convert_table_rows_to_lists(data, _ORDER)
 
