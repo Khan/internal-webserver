@@ -10,6 +10,7 @@ Here's an example of an analysis we could do here:
 "Which url-routes took up the most instance hours yesterday?"
 """
 
+import argparse
 import datetime
 import email
 import email.mime.text
@@ -154,11 +155,10 @@ _MODULE_CPU_COUNT = {
     }
 
 
-def email_instance_hours(date):
+def email_instance_hours(yyyymmdd):
     """Email instance hours report for the given datetime.date object."""
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
                         for kv in _MODULE_CPU_COUNT.iteritems())
-    date_str = date.strftime("%Y%m%d")
     query = """\
 SELECT COUNT(*) as count_,
 elog_url_route as url_route,
@@ -167,7 +167,7 @@ FROM [logs.requestlogs_%s]
 WHERE url_map_entry != "" # omit static files
 GROUP BY url_route
 ORDER BY instance_hours DESC
-""" % (cost_fn, date_str)
+""" % (cost_fn, yyyymmdd)
     data = _query_bigquery(query)
 
     # Munge the table by adding a few columns.
@@ -191,11 +191,10 @@ ORDER BY instance_hours DESC
                 subject=subject, preamble=preamble)
 
 
-def email_rpcs(date):
+def email_rpcs(yyyymmdd):
     """Email RPCs-per-route report for the given datetime.date object."""
     rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete')
 
-    date_str = date.strftime("%Y%m%d")
     inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
              for name in rpc_fields]
     joins = ["LEFT OUTER JOIN ( "
@@ -203,7 +202,7 @@ def email_rpcs(date):
              "FROM FLATTEN([logs.requestlogs_%s], elog_stats_rpc) "
              "WHERE elog_stats_rpc.key = 'stats.rpc.datastore_v3.%s' "
              "GROUP BY url_route) AS t%s ON t1.url_route = t%s.url_route"
-             % (name, date_str, name, name, name)
+             % (name, yyyymmdd, name, name, name)
              for name in rpc_fields]
     query = """\
 SELECT t1.url_route AS url_route,
@@ -215,7 +214,7 @@ FROM [logs.requestlogs_%s]
 GROUP BY url_route) AS t1
 %s
 ORDER BY t1.url_requests DESC;
-""" % (',\n'.join(inits), date_str, '\n'.join(joins))
+""" % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
     data = _query_bigquery(query)
 
     # Munge the table by getting per-request counts for every RPC stat.
@@ -238,8 +237,15 @@ ORDER BY t1.url_requests DESC;
 
 
 def main():
-    email_instance_hours(_DEFAULT_DAY)
-    email_rpcs(_DEFAULT_DAY)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--date', metavar='YYYYMMDD',
+                        default=_DEFAULT_DAY.strftime("%Y%m%d"),
+                        help=('Date to get reports for, specified as YYYYMMDD '
+                              '(default "%(default)s")'))
+    args = parser.parse_args()
+
+    email_instance_hours(args.date)
+    email_rpcs(args.date)
 
 
 if __name__ == '__main__':
