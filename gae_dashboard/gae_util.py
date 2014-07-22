@@ -35,7 +35,6 @@ def fix_sys_path(appengine_sdk_dir=None):
 
     if not appengine_sdk_dir:
         appengine_sdk_dir = _discover_sdk_path()
-    sys.path.append(appengine_sdk_dir)
 
     # We put this at the front of the path so 'import google' gets the
     # appengine 'google' module, not another, un-useful google module
