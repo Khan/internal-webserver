@@ -247,21 +247,22 @@ def email_out_of_memory_errors(yyyymmdd):
     subject = 'OOM errors'
 
     # Out-of-memory errors look like:
-    #   Exceeded soft private memory limit with 260.109 MB after servicing 2406 requests total
-    # or, with 1.9.7, they look like this. Note the double-space following "after":
-    #   Exceeded soft private memory limit of 512 MB with 515 MB after  servicing 9964 requests total
+    #   Exceeded soft private memory limit with 260.109 MB after servicing 2406 requests total  #@Nolint
+    # with SDK 1.9.7, they changed. Note the double-space after "after":
+    #   Exceeded soft private memory limit of 512 MB with 515 MB after  servicing 9964 requests total  #@Nolint
+    numreqs = r"REGEXP_EXTRACT(app_logs.message, r'servicing (\d+) requests')"
     query = """\
 SELECT COUNT(module_id) AS count_,
        module_id,
-       NTH(10, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after\s+servicing (\d+) requests')), 101)) as numserved_10th,
-       NTH(50, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after\s+servicing (\d+) requests')), 101)) as numserved_50th,
-       NTH(90, QUANTILES(INTEGER(REGEXP_EXTRACT(app_logs.message, r'after\s+servicing (\d+) requests')), 101)) as numserved_90th
+       NTH(10, QUANTILES(INTEGER(%s), 101)) as numserved_10th,
+       NTH(50, QUANTILES(INTEGER(%s), 101)) as numserved_50th,
+       NTH(90, QUANTILES(INTEGER(%s), 101)) as numserved_90th
 FROM [logs.requestlogs_%s]
 WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
       AND module_id IS NOT NULL
 GROUP BY module_id
 ORDER BY count_ DESC
-""" % yyyymmdd
+""" % (numreqs, numreqs, numreqs, yyyymmdd)
     data = _query_bigquery(query)
 
     _ORDER = ['count_', 'module_id',
