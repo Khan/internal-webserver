@@ -11,6 +11,7 @@ Here's an example of an analysis we could do here:
 """
 
 import argparse
+import collections
 import datetime
 import email
 import email.mime.text
@@ -88,11 +89,13 @@ def _query_bigquery(sql_query):
     return table
 
 
-def _send_email(table, graph, to, cc=None, subject='bq data', preamble=None):
+def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     """Send an email with the given table and graph.
 
     Arguments:
-       table: a list of lists: [[1A, 1B], [2A, 2B], ...].  Can be None.
+       tables: a dict, with headings as keys, and values lists of lists of the
+           form: [[1A, 1B], [2A, 2B], ...].  Can be None.  If the heading is
+           the empty string, it won't be displayed.
        graph: TODO(csilvers).  Can be None.
        to: a list of email addresses
        cc: an optional list of email addresses
@@ -103,32 +106,38 @@ def _send_email(table, graph, to, cc=None, subject='bq data', preamble=None):
     if preamble:
         body.append('<p>%s</p>' % preamble)
 
-    if table and table[0]:
-        body.append('<table cellspacing="1" cellpadding="3" border="1"'
-                    '       style="table-layout:fixed;font-size:13px;'
-                    '              font-family:arial,sans,sans-serif;'
-                    '              border-collapse:collapse;border:1px '
-                    '              solid rgb(204,204,204)">')
-        body.append('<thead>')
-        body.append('<tr>')
-        for header in table[0]:
-            body.append('<th>%s</th>' % header)
-        body.append('</tr>')
-        body.append('</thead>')
-        body.append('<tbody>')
-        for row in table[1:]:
+    if not isinstance(tables, dict):
+        tables = {'': tables}
+
+    for heading, table in sorted(tables.iteritems()):
+        if heading:
+            body.append('<h3>%s</h3>' % heading)
+        if table and table[0]:
+            body.append('<table cellspacing="1" cellpadding="3" border="1"'
+                        '       style="table-layout:fixed;font-size:13px;'
+                        '              font-family:arial,sans,sans-serif;'
+                        '              border-collapse:collapse;border:1px '
+                        '              solid rgb(204,204,204)">')
+            body.append('<thead>')
             body.append('<tr>')
-            for col in row:
-                style = 'padding: 3px 5px 3px 8px;'
-                if isinstance(col, (int, long)):
-                    style += 'text-align: right;'
-                elif isinstance(col, float):
-                    style += 'text-align: right;'
-                    col = '%.2f' % col     # make the output reasonable
-                body.append('<td style="%s">%s</td>' % (style, col))
+            for header in table[0]:
+                body.append('<th>%s</th>' % header)
             body.append('</tr>')
-        body.append('</tbody>')
-        body.append('</table>')
+            body.append('</thead>')
+            body.append('<tbody>')
+            for row in table[1:]:
+                body.append('<tr>')
+                for col in row:
+                    style = 'padding: 3px 5px 3px 8px;'
+                    if isinstance(col, (int, long)):
+                        style += 'text-align: right;'
+                    elif isinstance(col, float):
+                        style += 'text-align: right;'
+                        col = '%.2f' % col     # make the output reasonable
+                    body.append('<td style="%s">%s</td>' % (style, col))
+                body.append('</tr>')
+            body.append('</tbody>')
+            body.append('</table>')
 
     if graph:
         pass
@@ -189,11 +198,11 @@ ORDER BY instance_hours DESC
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     subject = 'Instance Hours by Route'
-    preamble = 'Instance hours by route for %s' % _pretty_date(yyyymmdd)
+    heading = 'Instance hours by route for %s' % _pretty_date(yyyymmdd)
     # Let's just send the top most expensive routes, not all of them.
-    _send_email(data[:50], None,
+    _send_email({heading: data[:50]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject, preamble=preamble)
+                subject=subject)
 
 
 def email_rpcs(yyyymmdd):
@@ -234,11 +243,11 @@ ORDER BY t1.url_requests DESC;
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     subject = 'RPC calls by route'
-    preamble = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
+    heading = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
     # Let's just send the top most expensive routes, not all of them.
-    _send_email(data[:75], None,
+    _send_email({heading: data[:75]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject, preamble=preamble)
+                subject=subject)
 
 
 def email_out_of_memory_errors(yyyymmdd):
@@ -269,10 +278,10 @@ ORDER BY count_ DESC
               'numserved_10th', 'numserved_50th', 'numserved_90th']
     data = _convert_table_rows_to_lists(data, _ORDER)
 
-    preamble = 'OOM errors by module for %s' % _pretty_date(yyyymmdd)
-    _send_email(data, None,
+    heading = 'OOM errors by module for %s' % _pretty_date(yyyymmdd)
+    _send_email({heading: data}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject, preamble=preamble)
+                subject=subject)
 
     query = """\
 SELECT COUNT(*) as count_,
@@ -288,10 +297,123 @@ ORDER BY count_ DESC
     _ORDER = ['count_', 'module_id', 'url_route']
     data = _convert_table_rows_to_lists(data, _ORDER)
 
-    preamble = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
-    _send_email(data, None,
+    heading = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
+    _send_email({heading: data}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject, preamble=preamble)
+                subject=subject)
+
+
+def email_memory_increases(yyyymmdd, window_length=20):
+    """Emails the increases in memory caused by particular routes.
+
+    It attempts to compute the amount of memory ignoring memory which is
+    reclaimed in the next few requests.  (The number of requests which are
+    checked is specified by the window_length parameter.).
+    """
+    lead_lengths = range(1, window_length + 1)
+    lead_selects = '\n'.join(
+        "LEAD(total, %s) OVER (PARTITION BY instance_key ORDER BY start_time) "
+        "AS lead_total_%s," % (i, i) for i in lead_lengths)
+
+    fields = ['total'] + ['lead_total_%s' % i for i in lead_lengths]
+    # We want to compute the minimal value of added + field - total, where
+    # field is one of "total" or one of the "lead_total_i".  BigQuery
+    # unfortunately doesn't give us a nice way to do this (at least that I know
+    # of, without doing a CROSS JOIN of the table to itself).  One way to do
+    # this would be a gigantic nested IF, but this could be exponentially
+    # large, and queries have a fixed maximum size.  Instead we use a CASE
+    # expression which could be O(n^2); since we don't pay for BigQuery
+    # execution time, and n shouldn't be too huge, this seems like a better
+    # approach.  In theory it might be better to do O(n) nested queries (each
+    # of which does a single pairwise min), but this seems like it could in
+    # practice be even slower, depending on the implementation.
+    # TODO(benkraft): If I get a useful answer to
+    # http://stackoverflow.com/questions/24923101/computing-a-moving-maximum-in-bigquery
+    # we should use that instead.  Or, once we have user-defined functions in
+    # BigQuery, we can probably do something actually reasonable.
+    case_expr = '\n'.join(
+        "WHEN %s THEN added + %s - total" % (
+            ' AND '.join("%s <= %s" % (field1, field2)
+                         for field2 in fields if field2 != field1),
+            field1)
+        for field1 in fields)
+
+    # This is a kind of large query, so here's what it's doing, from inside to
+    # out:
+    #   First, extract the memory data from the logs.
+    #   Second, compute the appropriate LEAD() columns, which tell us what the
+    #       total will be a few requests later on the same instance
+    #   Third, compute "real_added", which is the amount we think the request
+    #       actually added to the heap, not counting memory which was soon
+    #       reclaimed.  This might come out negative, so
+    #   Fourth, make sure the memory added is at least zero, since if memory
+    #       usage went down, this request probably shouldn't get the credit.
+    #   Fifth, group by route and do whatever aggregation we want.  Ignore the
+    #       first 25 requests to each module, since those are probably all
+    #       loading things that each module has to load, and the request that
+    #       does the loading shouldn't be blamed.
+    query = """\
+SELECT
+    COUNT(*) AS count_,
+    elog_url_route AS url_route,
+    module_id AS module,
+    AVG(real_added) AS added_avg,
+    NTH(99, QUANTILES(real_added, 101)) AS added_98th,
+    SUM(real_added) AS added_total,
+FROM (
+    SELECT
+        IF(real_added > 0, real_added, 0) AS real_added,
+        elog_url_route, module_id, num,
+    FROM (
+        SELECT
+            (CASE %s ELSE added END) AS real_added,
+            elog_url_route, module_id, num,
+        FROM (
+            SELECT
+                %s
+                RANK() OVER (PARTITION BY instance_key
+                             ORDER BY start_time) AS num,
+                added, total, elog_url_route, module_id,
+            FROM (
+                SELECT
+                    FLOAT(REGEXP_EXTRACT(
+                        app_logs.message,
+                        "This request added (.*) MB to the heap.")) AS added,
+                    FLOAT(REGEXP_EXTRACT(
+                        app_logs.message,
+                        "Total memory now used: (.*) MB")) AS total,
+                    instance_key, start_time, elog_url_route, module_id,
+                FROM [logs.requestlogs_%s]
+                WHERE app_logs.message CONTAINS 'This request added'
+            )
+        )
+    )
+)
+WHERE num > 25
+GROUP BY url_route, module
+ORDER BY added_total DESC
+""" % (case_expr, lead_selects, yyyymmdd)
+    data = _query_bigquery(query)
+
+    by_module = collections.defaultdict(list)
+    for row in data:
+        heading = "Memory increases by route for %s module on %s" % (
+            row['module'], _pretty_date(yyyymmdd))
+        by_module[heading].append(row)
+
+    _ORDER = ['count_', 'added_avg', 'added_98th',
+              'added_total', 'added %', 'url_route']
+    for heading in by_module:
+        total = sum(row['added_total'] for row in by_module[heading])
+        for row in by_module[heading]:
+            row['added %'] = row['added_total'] / total * 100
+            del row['module']
+        by_module[heading] = _convert_table_rows_to_lists(
+            by_module[heading][:50], _ORDER)
+    subject = "Memory Increases by Route"
+    _send_email(by_module, None,
+                to=['infrasturcture-blackhole@khanacademy.org'],
+                subject=subject)
 
 
 def main():
