@@ -279,9 +279,7 @@ ORDER BY count_ DESC
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     heading = 'OOM errors by module for %s' % _pretty_date(yyyymmdd)
-    _send_email({heading: data}, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+    email_content = {heading: data}
 
     query = """\
 SELECT COUNT(*) as count_,
@@ -298,7 +296,9 @@ ORDER BY count_ DESC
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     heading = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
-    _send_email({heading: data}, None,
+    email_content[heading] = data
+
+    _send_email(email_content, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject)
 
