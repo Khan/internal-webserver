@@ -62,6 +62,32 @@ def _convert_table_rows_to_lists(table, order):
     return retval
 
 
+def _render_sparkline(data, width=100, height=20):
+    """Given a list of values, render a sparkline to a PNG.
+
+    This takes in a list of numbers, and returns the contents of a PNG as a
+    string.  It requires that gnuplot be installed.
+    """
+    gnuplot_script = """\
+unset border
+unset xtics
+unset ytics
+unset key
+set lmargin 0
+set rmargin 0
+set tmargin 0
+set bmargin 0
+set terminal pngcairo size 100,20
+plot "-" using 1 notitle with lines linetype rgb "black"
+%s
+e
+""" % '\n'.join(str(datum) for datum in data)
+    gnuplot_proc = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE)
+    png, _ = gnuplot_proc.communicate(gnuplot_script)
+    return png
+
+
 def _query_bigquery(sql_query):
     """Use the 'bq' tool to run a query, and return the results as
     a json list (each row is a dict).
