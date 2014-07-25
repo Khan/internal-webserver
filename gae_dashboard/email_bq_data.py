@@ -17,7 +17,7 @@ import email
 import email.mime.text
 import email.utils
 import json
-import logging
+import hashlib
 import smtplib
 import subprocess
 
@@ -151,6 +151,32 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     s = smtplib.SMTP('localhost')
     s.sendmail('toby-admin+bq-cron@khanacademy.org', to, msg.as_string())
     s.quit()
+
+
+def _embed_images_to_mime(html, images):
+    """Given HTML with placeholders, insert images and return a MIME object.
+
+    "html" should be the HTML body, with %s placeholders for the images.
+    "images" should be a list of PNG images, such as those read from a PNG
+    file.  The images will then attached to the message, and a MIME object will
+    be returned.
+    """
+    image_tag_template = '<img src="cid:%s" alt=""/>'
+    image_tags = []
+    image_mimes = []
+    for image in images:
+        image_id = "%s@khanacademy.org" % hashlib.sha1(image).hexdigest()
+        image_tags.append(image_tag_template % image_id)
+        image_mime = email.MIMEImage.MIMEImage(image)
+        image_mime.add_header('Content-ID', '<%s>' % image_id)
+        image_mime.add_header('Content-Disposition', 'inline')
+        image_mimes.append(image_mime)
+    msg_root = email.MIMEMultipart.MIMEMultipart('related')
+    msg_body = email.MIMEText.MIMEText(html % tuple(image_tags), 'html')
+    msg_root.attach(msg_body)
+    for image_mime in image_mimes:
+        msg_root.attach(image_mime)
+    return msg_root
 
 
 # This is a map from module-name to how many processors it has -- so
