@@ -424,16 +424,17 @@ def main():
                               '(default "%(default)s")'))
     args = parser.parse_args()
 
-    logging.getLogger().setLevel(logging.INFO)
-
-    logging.info('Emailing instance hour info')
+    print 'Emailing instance hour info'
     email_instance_hours(args.date)
 
-    logging.info('Emailing rpc stats info')
+    print 'Emailing rpc stats info'
     email_rpcs(args.date)
 
-    logging.info('Emailing out-of-memory info')
+    print 'Emailing out-of-memory info'
     email_out_of_memory_errors(args.date)
+
+    print 'Emailing memory profiling info'
+    email_memory_increases(args.date)
 
 
 if __name__ == '__main__':
