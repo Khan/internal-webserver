@@ -18,12 +18,15 @@ import email.mime.text
 import email.utils
 import json
 import hashlib
+import os
+import cPickle
 import smtplib
 import subprocess
 
 
 # Report on the previous day by default
 _DEFAULT_DAY = datetime.datetime.now() - datetime.timedelta(1)
+_DATA_DIRECTORY = os.path.join(os.getenv('HOME'), 'bq_data/')
 
 
 def _is_number(s):
@@ -69,8 +72,11 @@ def _query_bigquery(sql_query):
     """
     # We could probably do 'import bq' and call out directly, but
     # I couldn't figure out an easy way to do this.  Ah well.
+    # To avoid having to deal with paging (which I think the command-line bq is
+    # not very good at anyway), we just get a bunch of rows.  We probably only
+    # want to display the first 100 or so, but the rest may be useful to save.
     data = subprocess.check_output(['bq', '-q', '--format=json', '--headless',
-                                    'query', sql_query])
+                                    'query', '--max_rows=10000', sql_query])
     table = json.loads(data)
 
     for row in table:
@@ -179,6 +185,44 @@ def _embed_images_to_mime(html, images):
     return msg_root
 
 
+def _get_data_filename(report, yyyymmdd):
+    """Gets the filename in which old data might be stored.
+
+    Takes a report name and a date stamp.  The file returned is not guaranteed
+    to exist.
+    """
+    return os.path.join(_DATA_DIRECTORY, report + '_' + yyyymmdd + '.pickle')
+
+
+def _get_past_data(report, yyyymmdd):
+    """Gets old data for a particular report.
+
+    Returns the data in the format saved (see _save_daily_data or the caller),
+    or None if there is no old data for that report on that day.
+    """
+    filename = _get_data_filename(report, yyyymmdd)
+    if not os.path.exists(filename):
+        return None
+    else:
+        with open(filename) as f:
+            return cPickle.load(f)
+
+
+def _save_daily_data(data, report, yyyymmdd):
+    """Saves the data for a report to be used in the future.
+
+    This will create the relevant directories if they don't exist, and clobber
+    any existing data with the same timestamp.  "data" can be anything
+    pickleable, but in general will likely be of the format returned from
+    _query_bigquery, namely a list of dicts fieldname -> value.
+    """
+    filename = _get_data_filename(report, yyyymmdd)
+    if not os.path.isdir(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+    with open(filename, 'w') as f:
+        cPickle.dump(data, f)
+
+
 # This is a map from module-name to how many processors it has -- so
 # F4 would be 4, F8 would be 8.  If a module is run with
 # multithreading, we divide the num-processes by 8 to emulate having 8
@@ -209,6 +253,7 @@ GROUP BY url_route
 ORDER BY instance_hours DESC
 """ % (cost_fn, yyyymmdd)
     data = _query_bigquery(query)
+    _save_daily_data(data, "instance_hours", yyyymmdd)
 
     # Munge the table by adding a few columns.
     total_instance_hours = 0.0
@@ -256,6 +301,7 @@ GROUP BY url_route) AS t1
 ORDER BY t1.url_requests DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
     data = _query_bigquery(query)
+    _save_daily_data(data, "rpcs", yyyymmdd)
 
     # Munge the table by getting per-request counts for every RPC stat.
     for row in data:
@@ -299,6 +345,7 @@ GROUP BY module_id
 ORDER BY count_ DESC
 """ % (numreqs, numreqs, numreqs, yyyymmdd)
     data = _query_bigquery(query)
+    _save_daily_data(data, "out_of_memory_errors_by_module", yyyymmdd)
 
     _ORDER = ['count_', 'module_id',
               'numserved_10th', 'numserved_50th', 'numserved_90th']
@@ -317,6 +364,7 @@ GROUP BY module_id, url_route
 ORDER BY count_ DESC
 """ % yyyymmdd
     data = _query_bigquery(query)
+    _save_daily_data(data, "out_of_memory_errors_by_route", yyyymmdd)
 
     _ORDER = ['count_', 'module_id', 'url_route']
     data = _convert_table_rows_to_lists(data, _ORDER)
@@ -420,6 +468,7 @@ GROUP BY url_route, module
 ORDER BY added_total DESC
 """ % (case_expr, lead_selects, yyyymmdd)
     data = _query_bigquery(query)
+    _save_daily_data(data, "memory_increases", yyyymmdd)
 
     by_module = collections.defaultdict(list)
     for row in data:
