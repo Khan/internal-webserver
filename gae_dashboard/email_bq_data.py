@@ -66,8 +66,15 @@ def _render_sparkline(data, width=100, height=20):
     """Given a list of values, render a sparkline to a PNG.
 
     This takes in a list of numbers, and returns the contents of a PNG as a
-    string.  It requires that gnuplot be installed.
+    string.  A datapoint may be None if it should be omitted.  It requires that
+    gnuplot be installed.
     """
+    data_lines = []
+    for i, datum in enumerate(data):
+        if datum is None:
+            data_lines.append("")
+        else:
+            data_lines.append("%s %s" % (i, datum))
     gnuplot_script = """\
 unset border
 unset xtics
@@ -78,10 +85,10 @@ set rmargin 0
 set tmargin 0
 set bmargin 0
 set terminal pngcairo size 100,20
-plot "-" using 1 notitle with lines linetype rgb "black"
+plot "-" using 1:2 notitle with lines linetype rgb "black"
 %s
 e
-""" % '\n'.join(str(datum) for datum in data)
+""" % '\n'.join(data_lines)
     gnuplot_proc = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
     png, _ = gnuplot_proc.communicate(gnuplot_script)
