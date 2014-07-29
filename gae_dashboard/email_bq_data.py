@@ -291,7 +291,7 @@ def _process_past_data(report, end_date, history_length, keyfn):
     """
     historical_data = []
     for i in xrange(history_length + 1):
-        old_yyyymmdd = (date - datetime.timedelta(i)).strftime("%Y%m%d")
+        old_yyyymmdd = (end_date - datetime.timedelta(i)).strftime("%Y%m%d")
         old_data = _get_past_data(report, old_yyyymmdd)
         # Save it by url_route for easy lookup.
         if old_data:
@@ -527,12 +527,13 @@ ORDER BY count_ DESC
                 subject=subject)
 
 
-def email_memory_increases(date, window_length=20):
+def email_memory_increases(date, window_length=20, min_increase_in_mb=1):
     """Emails the increases in memory caused by particular routes.
 
     It attempts to compute the amount of memory ignoring memory which is
     reclaimed in the next few requests.  (The number of requests which are
-    checked is specified by the window_length parameter.).
+    checked is specified by the window_length parameter.  Routes with a total
+    increase less than the min_increase_in_mb parameter are ignored.)
     """
     yyyymmdd = date.strftime("%Y%m%d")
     lead_lengths = range(1, window_length + 1)
@@ -626,9 +627,10 @@ ORDER BY added_total DESC
 
     by_module = collections.defaultdict(list)
     for row in data:
-        heading = "Memory increases by route for %s module on %s" % (
-            row['module'], _pretty_date(yyyymmdd))
-        by_module[heading].append(row)
+        if row['added_total'] > min_increase_in_mb:
+            heading = "Memory increases by route for %s module on %s" % (
+                row['module'], _pretty_date(yyyymmdd))
+            by_module[heading].append(row)
 
     _ORDER = ['count_', 'added_avg', 'last 2 weeks (avg)', 'added_98th',
               'added_total', 'added %%', 'url_route']
