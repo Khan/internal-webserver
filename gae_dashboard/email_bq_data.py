@@ -651,7 +651,7 @@ ORDER BY added_total DESC
             by_module[heading][:50], _ORDER)
     subject = "Memory Increases by Route"
     _send_email(by_module, None,
-                to=['infrasturcture-blackhole@khanacademy.org'],
+                to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject)
 
 
