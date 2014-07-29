@@ -66,9 +66,13 @@ def _render_sparkline(data, width=100, height=20):
     """Given a list of values, render a sparkline to a PNG.
 
     This takes in a list of numbers, and returns the contents of a PNG as a
-    string.  A datapoint may be None if it should be omitted.  It requires that
+    string.  A datapoint may be None if it should be omitted.  It will return
+    None if there are not enough datapoints to make a plot.  It requires that
     gnuplot be installed.
     """
+    existing_data = [datum for datum in data if datum is not None]
+    if len(existing_data) < 3:
+        return None
     data_lines = []
     for i, datum in enumerate(data):
         if datum is None:
@@ -84,11 +88,24 @@ set lmargin 0
 set rmargin 0
 set tmargin 0
 set bmargin 0
+set yrange [%(ymin)s:%(ymax)s]
+set xrange [%(xmin)s:%(xmax)s]
 set terminal pngcairo size 100,20
 plot "-" using 1:2 notitle with lines linetype rgb "black"
-%s
+%(data)s
 e
-""" % '\n'.join(data_lines)
+""" % {
+    'data': '\n'.join(data_lines),
+    # The bottom of the plot looks better if it has a bit of buffer around the
+    # top and bottom data points.  We force the min to be near zero so small
+    # increases to something that started out large are viewed in context.
+    'ymax': 1.05 * max(existing_data),
+    'ymin': -0.05 * max(existing_data),
+    # To make the width per time fixed, set the min and max x value so that
+    # the plot will include space for any missing data.
+    'xmin': 1,
+    'xmax': len(data),
+}
     gnuplot_proc = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
     png, _ = gnuplot_proc.communicate(gnuplot_script)
@@ -134,7 +151,8 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     Arguments:
        tables: a dict, with headings as keys, and values lists of lists of the
            form: [[1A, 1B], [2A, 2B], ...].  Can be None.  If the heading is
-           the empty string, it won't be displayed.
+           the empty string, it won't be displayed.  If a table cell value is
+           itself a list, it will be plotted as a sparkline.
        graph: TODO(csilvers).  Can be None.
        to: a list of email addresses
        cc: an optional list of email addresses
@@ -148,6 +166,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     if not isinstance(tables, dict):
         tables = {'': tables}
 
+    images = []
     for heading, table in sorted(tables.iteritems()):
         if heading:
             body.append('<h3>%s</h3>' % heading)
@@ -173,6 +192,19 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
                     elif isinstance(col, float):
                         style += 'text-align: right;'
                         col = '%.2f' % col     # make the output reasonable
+                    elif isinstance(col, list):
+                        # If we get a list, plot it as a sparkline.
+                        style = 'padding: 0px; text-align: center;'
+                        # Just put in a placeholder for the datum, we'll fill
+                        # in the image in _embed_images_to_mime().
+                        image = _render_sparkline(col)
+                        if image:
+                            images.append(image)
+                            col = '%s'
+                        else:
+                            # If the image didn't render due to insufficient
+                            # data, say so rather than leaving it out.
+                            col = '(insufficient data)'
                     body.append('<td style="%s">%s</td>' % (style, col))
                 body.append('</tr>')
             body.append('</tbody>')
@@ -181,7 +213,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     if graph:
         pass
 
-    msg = email.mime.text.MIMEText('\n'.join(body), 'html')
+    msg = _embed_images_to_mime('\n'.join(body), images)
     msg['Subject'] = subject
     msg['From'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
     msg['To'] = ', '.join(to)
@@ -195,11 +227,16 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
 def _embed_images_to_mime(html, images):
     """Given HTML with placeholders, insert images and return a MIME object.
 
-    "html" should be the HTML body, with %s placeholders for the images.
-    "images" should be a list of PNG images, such as those read from a PNG
-    file.  The images will then attached to the message, and a MIME object will
-    be returned.
+    "html" should be the HTML body, with %s placeholders for the images.  Other
+    % signs must be escaped as %%.  "images" should be a list of PNG images,
+    such as those read from a PNG file.  The images will then attached to the
+    message, and a MIME object will be returned.
     """
+    if not images:
+        # For consistency, we should still do a trivial string format to
+        # unescape the % signs.  But there's no point jumping through all the
+        # hoops of making the multipart MIME.
+        return email.MIMEText.MIMEText(html % (), 'html')
     image_tag_template = '<img src="cid:%s" alt=""/>'
     image_tags = []
     image_mimes = []
@@ -208,6 +245,8 @@ def _embed_images_to_mime(html, images):
         image_tags.append(image_tag_template % image_id)
         image_mime = email.MIMEImage.MIMEImage(image)
         image_mime.add_header('Content-ID', '<%s>' % image_id)
+        # Cause the images to only render inline, not as attachments
+        # (hopefully; this seems to be a bit buggy in Gmail)
         image_mime.add_header('Content-Disposition', 'inline')
         image_mimes.append(image_mime)
     msg_root = email.MIMEMultipart.MIMEMultipart('related')
@@ -241,6 +280,32 @@ def _get_past_data(report, yyyymmdd):
             return cPickle.load(f)
 
 
+def _process_past_data(report, end_date, history_length, keyfn):
+    """Get and process the past data for a particular report.
+
+    Returns a list of dicts, one for each day, in most-recent-first order, with
+    keys of the form returned by keyfn(row), and values the same type of rows
+    returned by `bq`.  If there is no data, the dict will be empty.
+    'history_length' is the number of days of data to include, not counting the
+    current one.
+    """
+    historical_data = []
+    for i in xrange(history_length + 1):
+        old_yyyymmdd = (date - datetime.timedelta(i)).strftime("%Y%m%d")
+        old_data = _get_past_data(report, old_yyyymmdd)
+        # Save it by url_route for easy lookup.
+        if old_data:
+            historical_data.append({keyfn(row): row for row in old_data})
+        else:
+            # If we're missing data, put in a placeholder.  This will get
+            # carried through and eventually become a space in the graph.
+            historical_data.append({})
+    # We construct historical_data with the most recent data first, but display
+    # the sparklines with the most recent data last.
+    historical_data.reverse()
+    return historical_data
+
+
 def _save_daily_data(data, report, yyyymmdd):
     """Saves the data for a report to be used in the future.
 
@@ -272,8 +337,9 @@ _MODULE_CPU_COUNT = {
     }
 
 
-def email_instance_hours(yyyymmdd):
+def email_instance_hours(date):
     """Email instance hours report for the given datetime.date object."""
+    yyyymmdd = date.strftime("%Y%m%d")
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
                         for kv in _MODULE_CPU_COUNT.iteritems())
     query = """\
@@ -287,6 +353,8 @@ ORDER BY instance_hours DESC
 """ % (cost_fn, yyyymmdd)
     data = _query_bigquery(query)
     _save_daily_data(data, "instance_hours", yyyymmdd)
+    historical_data = _process_past_data(
+        "instance_hours", date, 14, lambda row: row['url_route'])
 
     # Munge the table by adding a few columns.
     total_instance_hours = 0.0
@@ -294,11 +362,20 @@ ORDER BY instance_hours DESC
         total_instance_hours += row['instance_hours']
 
     for row in data:
-        row['% of total'] = row['instance_hours'] / total_instance_hours * 100
+        row['%% of total'] = row['instance_hours'] / total_instance_hours * 100
         row['per 1k requests'] = row['instance_hours'] / row['count_'] * 1000
+        sparkline_data = []
+        for old_data in historical_data:
+            old_row = old_data.get(row['url_route'])
+            if old_row:
+                sparkline_data.append(
+                    old_row['instance_hours'] / old_row['count_'])
+            else:
+                sparkline_data.append(None)
+        row['last 2 weeks (per request)'] = sparkline_data
 
-    _ORDER = ('% of total', 'instance_hours', 'count_', 'per 1k requests',
-              'url_route')
+    _ORDER = ('%% of total', 'instance_hours', 'count_', 'per 1k requests',
+              'last 2 weeks (per request)', 'url_route')
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     subject = 'Instance Hours by Route'
@@ -309,8 +386,9 @@ ORDER BY instance_hours DESC
                 subject=subject)
 
 
-def email_rpcs(yyyymmdd):
+def email_rpcs(date):
     """Email RPCs-per-route report for the given datetime.date object."""
+    yyyymmdd = date.strftime("%Y%m%d")
     rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete')
 
     inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
@@ -355,9 +433,10 @@ ORDER BY t1.url_requests DESC;
                 subject=subject)
 
 
-def email_out_of_memory_errors(yyyymmdd):
+def email_out_of_memory_errors(date):
     # This sends two emails, for two different ways of seeing the data.
     # But we'll have them share the same subject so they thread together.
+    yyyymmdd = date.strftime("%Y%m%d")
     subject = 'OOM errors'
 
     # Out-of-memory errors look like:
@@ -379,8 +458,27 @@ ORDER BY count_ DESC
 """ % (numreqs, numreqs, numreqs, yyyymmdd)
     data = _query_bigquery(query)
     _save_daily_data(data, "out_of_memory_errors_by_module", yyyymmdd)
+    historical_data = _process_past_data(
+        "out_of_memory_errors_by_module", date, 14,
+        lambda row: row['module_id'])
 
-    _ORDER = ['count_', 'module_id',
+    for row in data:
+        sparkline_data = []
+        for old_data in historical_data:
+            old_row = old_data.get(row['module_id'])
+            if old_row:
+                sparkline_data.append(old_row['count_'])
+            elif old_data:
+                # If we have data, just not on this module, then it just didn't
+                # OOM.
+                sparkline_data.append(0)
+            else:
+                # On the other hand, if we don't have data at all, we should
+                # show a gap.
+                sparkline_data.append(None)
+        row['last 2 weeks'] = sparkline_data
+
+    _ORDER = ['count_', 'last 2 weeks', 'module_id',
               'numserved_10th', 'numserved_50th', 'numserved_90th']
     data = _convert_table_rows_to_lists(data, _ORDER)
 
@@ -398,8 +496,27 @@ ORDER BY count_ DESC
 """ % yyyymmdd
     data = _query_bigquery(query)
     _save_daily_data(data, "out_of_memory_errors_by_route", yyyymmdd)
+    historical_data = _process_past_data(
+        "out_of_memory_errors_by_route", date, 14,
+        lambda row: (row['module_id'], row['url_route']))
 
-    _ORDER = ['count_', 'module_id', 'url_route']
+    for row in data:
+        sparkline_data = []
+        for old_data in historical_data:
+            old_row = old_data.get((row['module_id'], row['url_route']))
+            if old_row:
+                sparkline_data.append(old_row['count_'])
+            elif old_data:
+                # If we have data, just not on this route/module, then it just
+                # didn't OOM.
+                sparkline_data.append(0)
+            else:
+                # On the other hand, if we don't have data at all, we should
+                # show a gap.
+                sparkline_data.append(None)
+        row['last 2 weeks'] = sparkline_data
+
+    _ORDER = ['count_', 'last 2 weeks', 'module_id', 'url_route']
     data = _convert_table_rows_to_lists(data, _ORDER)
 
     heading = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
@@ -410,13 +527,14 @@ ORDER BY count_ DESC
                 subject=subject)
 
 
-def email_memory_increases(yyyymmdd, window_length=20):
+def email_memory_increases(date, window_length=20):
     """Emails the increases in memory caused by particular routes.
 
     It attempts to compute the amount of memory ignoring memory which is
     reclaimed in the next few requests.  (The number of requests which are
     checked is specified by the window_length parameter.).
     """
+    yyyymmdd = date.strftime("%Y%m%d")
     lead_lengths = range(1, window_length + 1)
     lead_selects = '\n'.join(
         "LEAD(total, %s) OVER (PARTITION BY instance_key ORDER BY start_time) "
@@ -502,6 +620,9 @@ ORDER BY added_total DESC
 """ % (case_expr, lead_selects, yyyymmdd)
     data = _query_bigquery(query)
     _save_daily_data(data, "memory_increases", yyyymmdd)
+    historical_data = _process_past_data(
+        "memory_increases", date, 14,
+        lambda row: (row['module'], row['url_route']))
 
     by_module = collections.defaultdict(list)
     for row in data:
@@ -509,12 +630,20 @@ ORDER BY added_total DESC
             row['module'], _pretty_date(yyyymmdd))
         by_module[heading].append(row)
 
-    _ORDER = ['count_', 'added_avg', 'added_98th',
-              'added_total', 'added %', 'url_route']
+    _ORDER = ['count_', 'added_avg', 'last 2 weeks (avg)', 'added_98th',
+              'added_total', 'added %%', 'url_route']
     for heading in by_module:
         total = sum(row['added_total'] for row in by_module[heading])
         for row in by_module[heading]:
-            row['added %'] = row['added_total'] / total * 100
+            row['added %%'] = row['added_total'] / total * 100
+            sparkline_data = []
+            for old_data in historical_data:
+                old_row = old_data.get((row['module'], row['url_route']))
+                if old_row:
+                    sparkline_data.append(old_row['added_avg'])
+                else:
+                    sparkline_data.append(None)
+            row['last 2 weeks (avg)'] = sparkline_data
             del row['module']
         by_module[heading] = _convert_table_rows_to_lists(
             by_module[heading][:50], _ORDER)
@@ -532,17 +661,19 @@ def main():
                               '(default "%(default)s")'))
     args = parser.parse_args()
 
+    date = datetime.datetime.strptime(args.date, "%Y%m%d")
+
     print 'Emailing instance hour info'
-    email_instance_hours(args.date)
+    email_instance_hours(date)
 
     print 'Emailing rpc stats info'
-    email_rpcs(args.date)
+    email_rpcs(date)
 
     print 'Emailing out-of-memory info'
-    email_out_of_memory_errors(args.date)
+    email_out_of_memory_errors(date)
 
     print 'Emailing memory profiling info'
-    email_memory_increases(args.date)
+    email_memory_increases(date)
 
 
 if __name__ == '__main__':
