@@ -393,6 +393,7 @@ def email_rpcs(date):
 
     inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
              for name in rpc_fields]
+    inits.append("IFNULL(tcost.rpc_cost, 0) AS rpc_cost")
     joins = ["LEFT OUTER JOIN ( "
              "SELECT elog_url_route AS url_route, COUNT(*) AS rpc_%s "
              "FROM FLATTEN([logs.requestlogs_%s], elog_stats_rpc) "
@@ -400,6 +401,14 @@ def email_rpcs(date):
              "GROUP BY url_route) AS t%s ON t1.url_route = t%s.url_route"
              % (name, yyyymmdd, name, name, name)
              for name in rpc_fields]
+    joins.append("""\
+LEFT OUTER JOIN (
+SELECT elog_url_route AS url_route,
+       SUM(elog_stats_rpc_ops.value) AS rpc_cost
+FROM [logs.requestlogs_%s]
+WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.cost'
+GROUP BY url_route) AS tcost ON t1.url_route = tcost.url_route
+""" % yyyymmdd)
     query = """\
 SELECT t1.url_route AS url_route,
 t1.url_requests AS requests,
@@ -409,18 +418,22 @@ SELECT elog_url_route AS url_route, COUNT(*) AS url_requests
 FROM [logs.requestlogs_%s]
 GROUP BY url_route) AS t1
 %s
-ORDER BY t1.url_requests DESC;
+ORDER BY tcost.rpc_cost DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
     data = _query_bigquery(query)
     _save_daily_data(data, "rpcs", yyyymmdd)
 
     # Munge the table by getting per-request counts for every RPC stat.
+    micropennies = '&mu;&cent;'
     for row in data:
         for stat in rpc_fields:
             row['%s/req' % stat] = row['rpc_%s' % stat] * 1.0 / row['requests']
+        row[micropennies + '/req'] = row['rpc_cost'] * 1.0 / row['requests']
+        row['$'] = row['rpc_cost'] * 1.0e-8
+        del row['rpc_cost']
 
     # Convert each row from a dict to a list, in a specific order.
-    _ORDER = (['url_route', 'requests'] +
+    _ORDER = (['url_route', 'requests', '$', micropennies + '/req'] +
               ['rpc_%s' % f for f in rpc_fields] +
               ['%s/req' % f for f in rpc_fields])
     data = _convert_table_rows_to_lists(data, _ORDER)
