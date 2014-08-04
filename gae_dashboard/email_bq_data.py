@@ -422,6 +422,8 @@ ORDER BY tcost.rpc_cost DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
     data = _query_bigquery(query)
     _save_daily_data(data, "rpcs", yyyymmdd)
+    historical_data = _process_past_data(
+        "rpcs", date, 14, lambda row: row['url_route'])
 
     # Munge the table by getting per-request counts for every RPC stat.
     micropennies = '&mu;&cent;'
@@ -430,10 +432,21 @@ ORDER BY tcost.rpc_cost DESC;
             row['%s/req' % stat] = row['rpc_%s' % stat] * 1.0 / row['requests']
         row[micropennies + '/req'] = row['rpc_cost'] * 1.0 / row['requests']
         row['$'] = row['rpc_cost'] * 1.0e-8
+        sparkline_data = []
+        for old_data in historical_data:
+            old_row = old_data.get(row['url_route'])
+            if old_row and 'rpc_cost' in old_row:
+                sparkline_data.append(
+                    old_row['rpc_cost'] * 1.0 / old_row['requests'])
+            else:
+                sparkline_data.append(None)
+        row['last 2 weeks (%s/req)' % micropennies] = sparkline_data
+
         del row['rpc_cost']
 
     # Convert each row from a dict to a list, in a specific order.
-    _ORDER = (['url_route', 'requests', '$', micropennies + '/req'] +
+    _ORDER = (['url_route', 'requests', '$', micropennies + '/req',
+               'last 2 weeks (%s/req)' % micropennies] +
               ['rpc_%s' % f for f in rpc_fields] +
               ['%s/req' % f for f in rpc_fields])
     data = _convert_table_rows_to_lists(data, _ORDER)
