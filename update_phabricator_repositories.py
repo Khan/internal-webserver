@@ -45,6 +45,7 @@ import kiln_local_backup
 # collaborator at at <repo_url>/settings/collaboration.
 _PRIVATE_GITHUB_REPOS = [
     'git@github.com:Khan/iOS',
+    'git@github.com:Khan/network-config',
     'git@github.com:Khan/webapp',
 ]
 
