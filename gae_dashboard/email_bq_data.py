@@ -16,17 +16,15 @@ import datetime
 import email
 import email.mime.text
 import email.utils
-import json
 import hashlib
-import os
-import cPickle
 import smtplib
 import subprocess
+
+import bq_util
 
 
 # Report on the previous day by default
 _DEFAULT_DAY = datetime.datetime.now() - datetime.timedelta(1)
-_DATA_DIRECTORY = os.path.join(os.getenv('HOME'), 'bq_data/')
 
 
 def _is_number(s):
@@ -110,39 +108,6 @@ e
                                     stdout=subprocess.PIPE)
     png, _ = gnuplot_proc.communicate(gnuplot_script)
     return png
-
-
-def _query_bigquery(sql_query):
-    """Use the 'bq' tool to run a query, and return the results as
-    a json list (each row is a dict).
-
-    We do naive type conversion to int and float, when possible.
-
-    This requires 'pip install bigquery' be run on this machine.
-    """
-    # We could probably do 'import bq' and call out directly, but
-    # I couldn't figure out an easy way to do this.  Ah well.
-    # To avoid having to deal with paging (which I think the command-line bq is
-    # not very good at anyway), we just get a bunch of rows.  We probably only
-    # want to display the first 100 or so, but the rest may be useful to save.
-    data = subprocess.check_output(['bq', '-q', '--format=json', '--headless',
-                                    'query', '--max_rows=10000', sql_query])
-    table = json.loads(data)
-
-    for row in table:
-        for key in row:
-            if row[key] is None:
-                row[key] = '(None)'
-            else:
-                try:
-                    row[key] = int(row[key])
-                except ValueError:
-                    try:
-                        row[key] = float(row[key])
-                    except ValueError:
-                        pass
-
-    return table
 
 
 def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
@@ -257,70 +222,6 @@ def _embed_images_to_mime(html, images):
     return msg_root
 
 
-def _get_data_filename(report, yyyymmdd):
-    """Gets the filename in which old data might be stored.
-
-    Takes a report name and a date stamp.  The file returned is not guaranteed
-    to exist.
-    """
-    return os.path.join(_DATA_DIRECTORY, report + '_' + yyyymmdd + '.pickle')
-
-
-def _get_past_data(report, yyyymmdd):
-    """Gets old data for a particular report.
-
-    Returns the data in the format saved (see _save_daily_data or the caller),
-    or None if there is no old data for that report on that day.
-    """
-    filename = _get_data_filename(report, yyyymmdd)
-    if not os.path.exists(filename):
-        return None
-    else:
-        with open(filename) as f:
-            return cPickle.load(f)
-
-
-def _process_past_data(report, end_date, history_length, keyfn):
-    """Get and process the past data for a particular report.
-
-    Returns a list of dicts, one for each day, in most-recent-first order, with
-    keys of the form returned by keyfn(row), and values the same type of rows
-    returned by `bq`.  If there is no data, the dict will be empty.
-    'history_length' is the number of days of data to include, not counting the
-    current one.
-    """
-    historical_data = []
-    for i in xrange(history_length + 1):
-        old_yyyymmdd = (end_date - datetime.timedelta(i)).strftime("%Y%m%d")
-        old_data = _get_past_data(report, old_yyyymmdd)
-        # Save it by url_route for easy lookup.
-        if old_data:
-            historical_data.append({keyfn(row): row for row in old_data})
-        else:
-            # If we're missing data, put in a placeholder.  This will get
-            # carried through and eventually become a space in the graph.
-            historical_data.append({})
-    # We construct historical_data with the most recent data first, but display
-    # the sparklines with the most recent data last.
-    historical_data.reverse()
-    return historical_data
-
-
-def _save_daily_data(data, report, yyyymmdd):
-    """Saves the data for a report to be used in the future.
-
-    This will create the relevant directories if they don't exist, and clobber
-    any existing data with the same timestamp.  "data" can be anything
-    pickleable, but in general will likely be of the format returned from
-    _query_bigquery, namely a list of dicts fieldname -> value.
-    """
-    filename = _get_data_filename(report, yyyymmdd)
-    if not os.path.isdir(os.path.dirname(filename)):
-        os.makedirs(os.path.dirname(filename))
-    with open(filename, 'w') as f:
-        cPickle.dump(data, f)
-
-
 # This is a map from module-name to how many processors it has -- so
 # F4 would be 4, F8 would be 8.  If a module is run with
 # multithreading, we divide the num-processes by 8 to emulate having 8
@@ -351,9 +252,9 @@ WHERE url_map_entry != "" # omit static files
 GROUP BY url_route
 ORDER BY instance_hours DESC
 """ % (cost_fn, yyyymmdd)
-    data = _query_bigquery(query)
-    _save_daily_data(data, "instance_hours", yyyymmdd)
-    historical_data = _process_past_data(
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "instance_hours", yyyymmdd)
+    historical_data = bq_util.process_past_data(
         "instance_hours", date, 14, lambda row: row['url_route'])
 
     # Munge the table by adding a few columns.
@@ -420,9 +321,9 @@ GROUP BY url_route) AS t1
 %s
 ORDER BY tcost.rpc_cost DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
-    data = _query_bigquery(query)
-    _save_daily_data(data, "rpcs", yyyymmdd)
-    historical_data = _process_past_data(
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "rpcs", yyyymmdd)
+    historical_data = bq_util.process_past_data(
         "rpcs", date, 14, lambda row: row['url_route'])
 
     # Munge the table by getting per-request counts for every RPC stat.
@@ -482,9 +383,9 @@ WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
 GROUP BY module_id
 ORDER BY count_ DESC
 """ % (numreqs, numreqs, numreqs, yyyymmdd)
-    data = _query_bigquery(query)
-    _save_daily_data(data, "out_of_memory_errors_by_module", yyyymmdd)
-    historical_data = _process_past_data(
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "out_of_memory_errors_by_module", yyyymmdd)
+    historical_data = bq_util.process_past_data(
         "out_of_memory_errors_by_module", date, 14,
         lambda row: row['module_id'])
 
@@ -520,9 +421,9 @@ WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
 GROUP BY module_id, url_route
 ORDER BY count_ DESC
 """ % yyyymmdd
-    data = _query_bigquery(query)
-    _save_daily_data(data, "out_of_memory_errors_by_route", yyyymmdd)
-    historical_data = _process_past_data(
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "out_of_memory_errors_by_route", yyyymmdd)
+    historical_data = bq_util.process_past_data(
         "out_of_memory_errors_by_route", date, 14,
         lambda row: (row['module_id'], row['url_route']))
 
@@ -645,9 +546,9 @@ WHERE num > 25
 GROUP BY url_route, module
 ORDER BY added_total DESC
 """ % (case_expr, lead_selects, yyyymmdd)
-    data = _query_bigquery(query)
-    _save_daily_data(data, "memory_increases", yyyymmdd)
-    historical_data = _process_past_data(
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "memory_increases", yyyymmdd)
+    historical_data = bq_util.process_past_data(
         "memory_increases", date, 14,
         lambda row: (row['module'], row['url_route']))
 
