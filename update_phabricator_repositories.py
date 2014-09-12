@@ -16,6 +16,7 @@ We log what we've done (usually nothing) to stdout, and errors to
 stderr, so this is appropriate to be put in a cronjob.
 """
 
+import base64
 import json
 import optparse
 import os
@@ -38,16 +39,6 @@ import phabricator
 # We also load kiln_local_backup to make it easier to id kiln repos.
 sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'hg_mirrors'))
 import kiln_local_backup
-
-# We hardcode some private repos that our API call to GitHub won't find.
-# (Making it return them requires dealing with OAuth.) When adding a repo to
-# this list, it's necessary to add the "readonlykiln" team as a
-# collaborator at at <repo_url>/settings/collaboration.
-_PRIVATE_GITHUB_REPOS = [
-    'git@github.com:Khan/iOS',
-    'git@github.com:Khan/network-config',
-    'git@github.com:Khan/webapp',
-]
 
 
 def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
@@ -119,10 +110,19 @@ def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
                     '_create_new_phabricator_callsign.')
 
 
-def _get_with_retries(url, max_tries=3):
+def _get_with_retries(url, basic_auth=None, max_tries=3):
+    """If specified, basic_auth is a (username, password) pair."""
+    request = urllib2.Request(url)
+    if basic_auth:
+        # This is the best way to set the user, according to
+        # http://stackoverflow.com/questions/2407126/python-urllib2-basic-auth-problem
+        encoded_password = base64.standard_b64encode('%s:%s' % basic_auth)
+        request.add_unredirected_header('Authorization',
+                                        'Basic %s' % encoded_password)
+
     for i in xrange(max_tries):
         try:
-            return urllib2.urlopen(url)
+            return urllib2.urlopen(request)
         except urllib2.URLError, why:
             if i == max_tries - 1:   # are not going to retry again
                 print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
@@ -164,13 +164,19 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
 
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
+    # We use the token of a privileged user to be able to see private repos.
     github_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
+    with open(os.path.expanduser('~/github.repo_token')) as f:
+        github_token = f.read().strip()
     github_repo_info = []
     # The results may span several pages, requiring several fetches.
     while github_api_url:
         if verbose:
             print 'Fetching url %s' % github_api_url
-        response = _get_with_retries(github_api_url)
+        # Use the token-based basic-oauth scheme described at
+        #   https://developer.github.com/v3/auth/#via-oauth-tokens
+        response = _get_with_retries(github_api_url,
+                                     (github_token, 'x-oauth-basic'))
         github_repo_info.extend(json.load(response))
         # 'Link:' header tells us if there's another page of results to read.
         m = re.search('<([^>]*)>; rel="next"', response.info().get('Link', ''))
@@ -179,13 +185,18 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         else:
             github_api_url = None
 
-    github_repos = set(_PRIVATE_GITHUB_REPOS)
+    github_repos = set()
     for repo in github_repo_info:
         try:
-            if repo['clone_url'].endswith('.git'):
-                github_repos.add(repo['clone_url'][:-len('.git')])
+            if repo['private']:
+                repo_url = repo['ssh_url']
             else:
-                github_repos.add(repo['clone_url'])
+                repo_url = repo['clone_url']
+
+            if repo_url.endswith('.git'):
+                repo_url = repo_url[:-len('.git')]
+
+            github_repos.add(repo_url)
         except (TypeError, IndexError):
             raise RuntimeError('Unexpected response from github: %s'
                                % github_repo_info)
@@ -294,9 +305,16 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
         q = phabctl.phid.lookup(names=[passphrase_id])
         passphrase_phid = q[passphrase_id]['phid']
 
-    print ('Adding new repository %s: url=%s, callsign=%s, vcs=%s'
-           % (name, repo_clone_url, callsign, vcs_type))
-    if not options.dry_run:
+    if options.dry_run:
+        print ('Would add new repository %s: '
+               'url=%s, callsign=%s, vcs=%s %s'
+               % (name, repo_clone_url, callsign, vcs_type,
+                  'PRIVATE' if passphrase_id else ''))
+    else:
+        print ('Adding new repository %s: '
+               'url=%s, callsign=%s, vcs=%s %s'
+               % (name, repo_clone_url, callsign, vcs_type,
+                  'PRIVATE' if passphrase_id else ''))
         phabctl.repository.create(name=name, vcs=vcs_type, callsign=callsign,
                                   uri=repo_clone_url,
                                   tracking=True, pullFrequency=60,
