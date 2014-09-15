@@ -48,6 +48,24 @@ def save_daily_data(data, report, yyyymmdd):
         cPickle.dump(data, f)
 
 
+def get_daily_data_from_disk_or_bq(query, report, yyyymmdd):
+    """Attempts to get the requested data from disk, otherwise querying BQ.
+
+    If BigQuery is hit, the result will be cached to disk so that future
+    queries for the same data don't need to go to BigQuery.
+    """
+    daily_data = get_daily_data(report, yyyymmdd)
+    if not daily_data:
+        print "-- Running query for %s on %s --" % (report, yyyymmdd)
+        print query
+        daily_data = query_bigquery(query)
+        save_daily_data(daily_data, report, yyyymmdd)
+    else:
+        print "-- Using cached data for %s on %s --" % (report, yyyymmdd)
+
+    return daily_data
+
+
 def process_past_data(report, end_date, history_length, keyfn):
     """Get and process the past data for a particular report.
 
@@ -74,11 +92,14 @@ def process_past_data(report, end_date, history_length, keyfn):
     return historical_data
 
 
-def query_bigquery(sql_query):
+def query_bigquery(sql_query, retries=2):
     """Use the 'bq' tool to run a query, and return the results as
     a json list (each row is a dict).
 
     We do naive type conversion to int and float, when possible.
+
+    The bq tool fails every once in a while for flaky reasons, so by default we
+    retry the query a few times.
 
     This requires 'pip install bigquery' be run on this machine.
     """
@@ -87,8 +108,23 @@ def query_bigquery(sql_query):
     # To avoid having to deal with paging (which I think the command-line bq is
     # not very good at anyway), we just get a bunch of rows.  We probably only
     # want to display the first 100 or so, but the rest may be useful to save.
-    data = subprocess.check_output(['bq', '-q', '--format=json', '--headless',
-                                    'query', '--max_rows=10000', sql_query])
+
+    data = None
+
+    for i in range(1 + retries):
+        try:
+            data = subprocess.check_output(
+                            ['bq', '-q', '--format=json', '--headless',
+                             'query', '--max_rows=10000', sql_query])
+
+            break
+        except subprocess.CalledProcessError as why:
+            print "-- Running query failed with retcode %d --" % why.returncode
+            print why.output
+
+    if data is None:
+        raise Exception("-- Query failed after %d retries --" % retries)
+
     table = json.loads(data)
 
     for row in table:
