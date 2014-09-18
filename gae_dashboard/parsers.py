@@ -245,7 +245,6 @@ class InstanceSummary(BaseParser):
         selector = '#ae-content tr'
         # The table has multiple rows when a new version is rolling out.
         rows = self.doc.cssselect(selector)
-        assert len(rows)
         for row in rows:
             children = list(row)
             # Expecting 'App Engine Release', 'Total number of instances',
@@ -286,15 +285,17 @@ class InstanceSummary(BaseParser):
                                           for d in summaries)}
         for field in ('average_qps', 'average_latency', 'average_memory'):
             # During rollout of a new SDK, average_latency may be unknown
-            # for a set of instances so we don't count it. We assume there's
-            # at least one set of instances with known latency.
+            # for a set of instances so we don't count it.
             instance_weighted_sum = sum(
                 d['total_instances'].value() * d[field].value()
                 for d in summaries if field in d)
             weight = sum(
                 d['total_instances'].value()
                 for d in summaries if field in d)
-            summary[field] = float(instance_weighted_sum) / weight
+            if instance_weighted_sum == 0 and weight == 0:
+                summary[field] = 0
+            else:
+                summary[field] = float(instance_weighted_sum) / weight
         # Beautify rounding precision to match the App Engine UI.
         summary['average_qps'] = round(summary['average_qps'], 3)
         summary['average_latency_ms'] = round(summary['average_latency'], 1)

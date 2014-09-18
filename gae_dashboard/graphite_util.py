@@ -11,7 +11,7 @@ import socket
 import struct
 
 
-def maybe_send_to_graphite(graphite_host, category, records):
+def maybe_send_to_graphite(graphite_host, category, records, module=None):
     """Send dashboard statistics to the graphite timeseries-graphing tool.
 
     This requires $HOME/hostedgraphite_secret exist and hold the
@@ -24,11 +24,17 @@ def maybe_send_to_graphite(graphite_host, category, records):
         category: a string to identify the source of this data.
             The key we send to graphite will be
                  webapp.gae.dashboard.<category>.<statistic>
+            or, if module is also specified,
+                 webapp.gae.dashboard.<category>.<module>_module.<statistic>
         records: a list of dicts, where the key is a string and the
             value a number.  We send each record to graphite.  Each
             record *must* have a 'utc_datetime' field with a
             datetime.datetime() object that says when this record's
             data is from.
+        module: the GAE module that we collected this data for.
+            e.g. 'default', 'frontend-highmem', etc.  If None, we
+            assume this is global (not per-module) data and do not
+            include it in the key.
     """
     if not graphite_host:
         return
@@ -52,7 +58,13 @@ def maybe_send_to_graphite(graphite_host, category, records):
         timestamp = int((timestamp - epoch).total_seconds())
 
         for (field, value) in record.iteritems():
-            key = '%s.webapp.gae.dashboard.%s.%s' % (api_key, category, field)
+            if module:
+                module_component = '.%s' % module.replace('-', '_')
+            else:
+                module_component = ''
+            key = ('%s.webapp.gae.dashboard.%s%s.%s'
+                   % (api_key, category, module_component, field))
+
             graphite_data.append((key, (timestamp, value)))
 
     if graphite_data:

@@ -49,19 +49,25 @@ unix_time=`date -u +%s`
     # fetch.  Ugh.
     num_charts=`env PYTHONPATH="${srcdir}" python -c "import dashboard_report as dr; print len(dr._label_to_field_map) - 1"`
 
+    # Getting the list of modules is even uglier.
+    modules=`env PYTHONPATH="${srcdir}" python -c "import gae_util, sys; print ' '.join(gae_util.get_modules('$username', sys.stdin.read().strip(), '$app_id'))" < "${private_pw}"`
+
     # We are manually going to create json to send to dashboard_report.
     # Since the url we fetch gives back json already, it's easy to turn
     # it into a bigger json struct.
     echo '['
-    for chartnum in `seq 0 $num_charts`; do
-        # window=0 gives us 30 minutes of data (cf. dashboard_report.py:_time_windows)
-        window=0
-        url="/dashboard/stats?app_id=${app_id}&version_id=&type=${chartnum}&window=${window}"
-        echo '{"chart_num": '$chartnum', '
-        echo ' "time_window": '$window', '
-        echo ' "chart_url_data": '
-        "${curl_app}" "${url}" "${username}" < "${private_pw}"
-        echo "},"
+    for module in $modules; do
+        for chartnum in `seq 0 $num_charts`; do
+            # window=0 gives us 30 minutes of data (cf. dashboard_report.py:_time_windows)
+            window=0
+            url="/dashboard/stats?app_id=${app_id}&version_id=${module}:&type=${chartnum}&window=${window}"
+            echo '{"chart_num": '$chartnum', '
+            echo ' "module": "'$module'", '
+            echo ' "time_window": '$window', '
+            echo ' "chart_url_data": '
+            "${curl_app}" "${url}" "${username}" < "${private_pw}"
+            echo "},"
+        done
     done
     # Darn json and its requirement the last list element doesn't have
     # a trailing comma.  Easiest way around this is to have a sentinel.

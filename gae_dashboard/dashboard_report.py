@@ -15,7 +15,8 @@ with each other.  A single data point might appear in one record on
 one run and in another record on a different run since we batch data
 points into records by timestamp.
 
-Records are sent to graphite under the keys webapp.gae.dashboard.summary.*
+Records are sent to graphite under the keys
+   webapp.gae.dashboard.summary.<module>_module.*
 """
 
 import argparse
@@ -302,10 +303,12 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
         return
 
     # Extract named time series data from the raw HTML.
-    named_series = {}
+    named_series_by_module = {}
     for chart_json in input_json:
         chart_label_index = chart_json['chart_num']
         chart_label = _label_to_field_map.keys()[chart_label_index]
+
+        module = chart_json['module']
 
         time_label_index = chart_json['time_window']
         (time_label, time_duration) = _time_windows[time_label_index]
@@ -315,7 +318,8 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
         chart_data = unpack_chart_data(chart_url, time_delta.total_seconds())
         for series_label, xy_pairs in chart_data:
             field_name = lookup_field_name(chart_label, series_label)
-            named_series[field_name] = xy_pairs
+            named_series_by_module.setdefault(module, {})
+            named_series_by_module[module][field_name] = xy_pairs
 
     # Assume all elements of our input_json list have the same time window.
     assert all(input_json[i]['time_window'] == input_json[0]['time_window']
@@ -324,23 +328,28 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
 
     # Build time-keyed records from the named time series data and
     # decide which records will be stored.
-    records = []
-    for time_value, record in aggregate_series_by_time(named_series):
-        record_time_t = chart_start_time_t + time_value
-        if not start_time_t or record_time_t > start_time_t:
-            record['utc_datetime'] = datetime.datetime.utcfromtimestamp(
-                record_time_t)
-            records.append(record)
+    records_by_module = {}
+    for (module, named_series) in named_series_by_module.iteritems():
+        records_by_module[module] = []
+        for time_value, record in aggregate_series_by_time(named_series):
+            record_time_t = chart_start_time_t + time_value
+            if not start_time_t or record_time_t > start_time_t:
+                record['utc_datetime'] = datetime.datetime.utcfromtimestamp(
+                    record_time_t)
+                records_by_module[module].append(record)
 
     if verbose:
-        print records
+        print records_by_module
 
+    records = reduce(lambda x, y: x + y, records_by_module.values(), [])
     print 'Importing %d record%s' % (len(records), 's'[len(records) == 1:])
     if dry_run:
         print 'Skipping import during dry-run.'
         records = []
-    elif records:
-        graphite_util.maybe_send_to_graphite(graphite_host, 'summary', records)
+    elif records_by_module:
+        for (module, records) in records_by_module.iteritems():
+            graphite_util.maybe_send_to_graphite(graphite_host, 'summary',
+                                                 records, module=module)
 
     return records
 
@@ -373,8 +382,15 @@ def main():
 
     # This json.load() will raise an exception error if the input is
     # malformed, e.g. if the wget we did for this data failed.
+    input_json_string = args.infile.read()
+    try:
+        input_json = json.loads(input_json_string)
+    except ValueError:
+        print '>>> The input json: %s' % input_json_string
+        raise
+
     records = parse_and_commit_record(
-        json.load(args.infile), time_t_of_latest_record, args.utc_timestamp,
+        input_json, time_t_of_latest_record, args.utc_timestamp,
         args.graphite_host, args.verbose, args.dry_run)
 
     if records:

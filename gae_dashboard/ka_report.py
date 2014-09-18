@@ -14,7 +14,7 @@ Data from /memcache are sent to graphite with the prefix
   oldest_item_age_seconds: INTEGER  # May be omitted if not available.
 
 Data from /instance_summary are sent to graphite with the prefix
-"webapp.gae.dashboard.instances":
+"webapp.gae.dashboard.instances.<module>_module":
 
   utc_datetime: DATETIME
   num_instances: INTEGER
@@ -29,15 +29,17 @@ import datetime
 import sys
 
 import gae_dashboard_scrape
+import gae_util
 import graphite_util
 
 
-def report_instance_summary(summary, download_dt, graphite_host,
+def report_instance_summary(summary, module, download_dt, graphite_host,
                             verbose=False, dry_run=False):
     """Send instance summary to graphite.
 
     Arguments:
       summary: Dict returned by parsers.InstanceSummary.summary().
+      module: the name of the GAE module that this summary has info for.
       download_dt: Datetime when /instance_summary was downloaded.
       graphite_host: host:port of graphite server to send data to, or ''/None
       verbose: If True, print report to stdout.
@@ -54,7 +56,7 @@ def report_instance_summary(summary, download_dt, graphite_host,
 
     if not dry_run:
         graphite_util.maybe_send_to_graphite(graphite_host, 'instances',
-                                             [record])
+                                             [record], module=module)
 
 
 def report_memcache_statistics(stats, download_dt, graphite_host,
@@ -101,25 +103,35 @@ def main():
                         help='The username to use.')
     parser.add_argument('-A', '--application', metavar='APP_ID', required=True,
                         help='Set the application.')
-    parser.add_argument('-M', '--module', metavar='MODULE',
-                        help='Set the module.')
     parser.add_argument('-V', '--version', metavar='VERSION',
                         help='Set the (major) version.')
     args = parser.parse_args()
     password = sys.stdin.read().rstrip('\n')
 
     download_dt = datetime.datetime.utcnow()
+
+    # Get the per-module stats.
+    for module in gae_util.get_modules(args.email, password, args.application):
+        if args.verbose:
+            print '-- Fetching instance_summary.summary for module %s' % module
+        scraped = gae_dashboard_scrape.scrape(args.email,
+                                              password,
+                                              args.application,
+                                              ['instance_summary.summary'],
+                                              module=module,
+                                              version=args.version)
+        report_instance_summary(scraped['instance_summary.summary'], module,
+                                download_dt,
+                                args.graphite_host, args.verbose, args.dry_run)
+
+    # Now get the global stats (the ones that are not per-instance).
+    if args.verbose:
+        print '-- Fetching memcache.statistics'
     scraped = gae_dashboard_scrape.scrape(args.email,
                                           password,
                                           args.application,
-                                          ['instance_summary.summary',
-                                           'memcache.statistics',
-                                           ],
-                                          module=args.module,
+                                          ['memcache.statistics'],
                                           version=args.version)
-
-    report_instance_summary(scraped['instance_summary.summary'], download_dt,
-                            args.graphite_host, args.verbose, args.dry_run)
     report_memcache_statistics(scraped['memcache.statistics'], download_dt,
                                args.graphite_host, args.verbose, args.dry_run)
 

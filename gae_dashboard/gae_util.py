@@ -1,6 +1,8 @@
 """Miscellaneous utilities for interacting with GAE."""
 
+import cStringIO
 import os
+import re
 import sys
 
 
@@ -26,6 +28,9 @@ def _discover_sdk_path():
 
 def fix_sys_path(appengine_sdk_dir=None):
     """Update sys.path for appengine khan academy imports, also envvars."""
+    if 'dev_appserver' in sys.modules:      # we've already fixed the path!
+        return
+
     # This was originally copied  webapp/tools/appengine_tool_setup.py
 
     if 'SERVER_SOFTWARE' not in os.environ:
@@ -56,4 +61,28 @@ def fix_sys_path(appengine_sdk_dir=None):
     # Delegate the real work to the dev_appserver logic in the actual SDK.
     import dev_appserver
     dev_appserver.fix_sys_path()
+
+
+def get_modules(email, password, app_id):
+    """Return a list of all modules that our GAE instance knows of."""
+    fix_sys_path()
+    from google.appengine.tools import appcfg
+    output = cStringIO.StringIO()
+    argv = ['appcfg.py', '--skip_sdk_update_check',
+            'list_versions', '-A', app_id]
+    app = appcfg.AppCfgApp(argv,
+                           password_input_fn=lambda prompt: password,
+                           raw_input_fn=lambda prompt: email,
+                           out_fh=output, error_fh=output)
+    rc = app.Run()
+    if rc != 0:
+        raise RuntimeError("appcfg.py returned error code %s:\n%s"
+                           % (rc, output.getvalue()))
+
+    # The output is some yaml-like format.  We do a cheesy parse of it:
+    # the module names are all of the form 'module_name: [...'
+    modules = re.findall(r'(\S+): \[', output.getvalue())
+
+    # Special case: we don't want to reutrn the test 'vm' module
+    return [m for m in modules if m != 'vm']
 
