@@ -59,7 +59,7 @@ def maybe_send_to_graphite(graphite_host, category, records, module=None):
 
         for (field, value) in record.iteritems():
             if module:
-                module_component = '.%s' % module.replace('-', '_')
+                module_component = '.%s' % module.replace('-', '_') + '_module'
             else:
                 module_component = ''
             key = ('%s.webapp.gae.dashboard.%s%s.%s'
