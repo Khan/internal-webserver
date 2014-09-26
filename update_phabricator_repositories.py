@@ -2,9 +2,8 @@
 
 """Update the phabricator webserver with the current list of repositories.
 
-We query github and kilnhg, to get a list of all the repositories that
-they know about that are owned by Khan academy.  (We could add other
-sources, like bitbucket, at need.)
+We query github to get a list of all the repositories that they know
+about that are owned by Khan academy.
 
 Then we query phabricator to get a list of all the repositories it has
 registered.
@@ -36,10 +35,6 @@ _INTERNAL_WEBSERVER_ROOT = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'python-phabricator'))
 import phabricator
 
-# We also load kiln_local_backup to make it easier to id kiln repos.
-sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'hg_mirrors'))
-import kiln_local_backup
-
 
 def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
     """Retry cmd up to times times, if it gives an exception in exceptions."""
@@ -53,24 +48,6 @@ def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
                 print 'Error running "%s": %s.  Retrying' % (cmd, why)
 
 
-def _find_kilnauth_token(domain):
-    """domain should be something like 'khanacademy.kilnhg.com'."""
-    prefix = '%s\tFALSE\t/\tFALSE\t\tfbToken\t' % domain
-    for (dirpath, _, filenames) in os.walk(os.path.expanduser('~/.hgcookies')):
-        for filename in filenames:
-            f = open(os.path.join(dirpath, filename))
-            for line in f:
-                if line.startswith(prefix):
-                    return line[len(prefix):].strip()
-            f.close()   # might as well be nice
-    hg_tokenfetch_cmd = ('hg clone --noupdate https://khanacademy.kilnhg.com/'
-                         'Code/Mobile-Apps/Group/android /tmp/test_repo')
-    raise KeyError('FATAL: Cannot find a %s fbToken in ~/.hgcookies.\n'
-                   'Try running "%s".\n'
-                   'And make sure your .hgrc has kilnauth in [extensions]!'
-                   % (domain, hg_tokenfetch_cmd))
-
-
 def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
     """Create a small, unique, legal callsign out of the repo-name."""
     # Callsigns must be capital letters.
@@ -82,15 +59,9 @@ def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
     # Get the 'words' by breaking on non-letters.
     name_parts = re.split(r'[^A-Z]+', repo_name)
 
-    # Get rid of some uninteresting parts of the name that kiln puts in.
-    if 'GROUP' in name_parts:
-        name_parts.remove('GROUP')
-    if 'WEBSITE' in name_parts:
-        name_parts.remove('WEBSITE')
-
     # We'll use a call-sign of the prefixes of each word, starting with
-    # 'G' for git and 'M' for Mercurial.
-    callsign_start = 'G' if vcs_type == 'git' else 'M'
+    # 'G' for git.
+    callsign_start = vcs_type[0].upper()
     # Ideally, just the first letter of each word, than first 2, etc.
     for prefix_len in xrange(max(len(w) for w in name_parts)):
         candidate_callsign = (callsign_start +
@@ -130,38 +101,7 @@ def _get_with_retries(url, basic_auth=None, max_tries=3):
 
 
 def _get_repos_to_add_and_delete(phabctl, verbose):
-    """Query github, kiln, phabricator, etc; return sets of clone-urls."""
-    kiln_domain = 'khanacademy.kilnhg.com'
-    kiln_token = _find_kilnauth_token(kiln_domain)
-    # TODO(csilvers): figure out a way to get this using ssh keys instead.
-    kiln_repo_info = kiln_local_backup.get_repos('https', kiln_domain,
-                                                 kiln_token, verbose, verbose)
-    kiln_https_repos = frozenset(r['cloneUrl'] for r in kiln_repo_info)
-
-    # HACK HACK HACK.  kiln is debugging some issue for us and cloning
-    # a bunch of repos that we don't actually want/need phabricator to
-    # see.  So we just ignore all repos that start with 'webapp' that
-    # aren't 'webapp' and 'webapp-backup'.
-    bad_prefix = 'https://khanacademy.kilnhg.com/Code/Website/Group/webapp'
-    kiln_https_repos = frozenset(
-        url for url in kiln_https_repos if
-        (not url.startswith(bad_prefix) or
-         url == bad_prefix or url == bad_prefix + '-backup'))
-
-    # kiln only gives back the https cloneUrl.  But we want the ssh
-    # cloneUrl, so we can get the repo using git rather than hg.
-    # The one exception are some obsolete branches of webapp, which are
-    # all named 'Website/Group/xxx', which we never converted to git.
-    kiln_repos = set()
-    for hg_url in kiln_https_repos:
-        repo_path = hg_url.split('/Code/', 1)[1]
-        if (repo_path.startswith('Website/Group') and
-            repo_path != 'Website/Group/webapp'):
-            kiln_repos.add(hg_url)
-        else:
-            kiln_repos.add('ssh://khanacademy@khanacademy.kilnhg.com/%s'
-                           % repo_path)
-
+    """Query github, phabricator, etc; return sets of clone-urls."""
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
     # We use the token of a privileged user to be able to see private repos.
@@ -213,15 +153,6 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         times=3, exceptions=(socket.timeout,),
         verbose=verbose)
 
-    # For some reason, phabricator doesn't store the username with the
-    # clone url.  But git and kiln do.  So we can compare them
-    # accurately, we add the username back here.
-    for r in phabricator_repo_info:
-        bad_prefix = 'ssh://khanacademy.kilnhg.com'
-        if bad_prefix in r['remoteURI']:
-            r['remoteURI'] = ('ssh://khanacademy@khanacademy.kilnhg.com' +
-                              r['remoteURI'][len(bad_prefix):])
-
     phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
@@ -240,12 +171,11 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         def _print(name, lst):
             print '* Existing %s repos:\n%s\n' % (name, '\n'.join(sorted(lst)))
         _print('github', github_repos)
-        _print('kiln', kiln_repos)
         _print('(tracked) phabricator', tracked_phabricator_repos)
         _print('UNTRACKED phabricator',
                phabricator_repos - tracked_phabricator_repos)
 
-    actual_repos = kiln_repos | github_repos
+    actual_repos = github_repos
     new_repos = actual_repos - phabricator_repos
     deleted_repos = tracked_phabricator_repos - actual_repos
     return (new_repos, deleted_repos, repo_to_callsign_map)
@@ -276,14 +206,12 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
     Raises:
       phabricator.APIError: if something goes wrong with the insert.
     """
-    # For git (both github and kiln git), the name is just the repo-name.
-    # For kiln hg, it's the repo-triple (everything after 'Code').
+    # For git the name is just the repo-name.  We use git@ for private
+    # github repos and https: for public github repos.
     # Map of prefix: (vcs_type, ssh-passphrase phab-id or None for public repo)
     prefix_map = {
             'https://github.com/Khan/': ('git', None),
             'git@github.com:Khan/': ('git', 'K2'),  # phabricator.ka.org/K2
-            'https://khanacademy.kilnhg.com/Code/': ('hg', None),
-            'ssh://khanacademy@khanacademy.kilnhg.com/': ('git', 'K1'),
         }
     for (prefix, (vcs_type, passphrase_id)) in prefix_map.iteritems():
         if repo_clone_url.startswith(prefix):
