@@ -29,28 +29,30 @@ _OUTPUT_FILENAME = os.path.join(os.path.join(os.path.dirname(__file__)),
 # latency.
 LATENCY_QUERIES = (
     ("practice_task_start_latency",
-        'api.main:/api/v1/user/task/practice/(?P<exercise_name>[^/]{1,})'),
+        'api.main:/api/internal/user/task/practice/'
+            '(?P<exercise_name>[^/]{1,})'),
     ("mastery_task_start_latency",
-        'api.main:/api/v1/user/task/mastery'),
+        'api.main:/api/internal/user/task/mastery'),
     ("booster_task_start_latency",
-        'api.main:/api/v1/user/task/booster'),
+        'api.main:/api/internal/user/task/booster'),
     ("problem_attempt_latency",
-        'api.main:/api/v1/user/exercises/'
+        'api.main:/api/internal/user/exercises/'
             '(?P<exercise_name>[^/]{1,})/problems/'
             '(?P<problem_number>\\\\d+)/attempt [POST]'),
     ("profile_widgets_latency",
-        'api.main:/api/v1/user/(?P<user_data_key>[^/]{1,})/profile/widgets'),
+        'api.main:/api/internal/user/(?P<user_data_key>[^/]{1,})/'
+            'profile/widgets'),
     ("user_badges_latency",
-        'api.main:/api/v1/user/badges'),
+        'api.main:/api/internal/user/badges'),
     ("user_mission_latency",
-        'api.main:/api/v1/user/mission/(?P<mission_slug>[^/]{1,})'),
+        'api.main:/api/internal/user/mission/(?P<mission_slug>[^/]{1,})'),
     ("user_mission_switch_latency",
-        'api.main:/api/v1/user/mission/'
+        'api.main:/api/internal/user/mission/'
             '(?P<mission_slug>[^/]{1,})/switch [POST]'),
     ("cs_browse_top_latency",
-        'api.main:/api/labs/scratchpads/top'),
+        'api.main:/api/internal/scratchpads/top'),
     ("get_feedback_for_focus_latency",
-        'api.main:/api/v1/discussions/(?P<focus_kind>[^/]{1,})/'
+        'api.main:/api/internal/discussions/(?P<focus_kind>[^/]{1,})/'
             '(?P<focus_id>[^/]{1,})/(?P<feedback_type>[^/]{1,})')
 )
 
