@@ -48,7 +48,8 @@ LATENCY_QUERIES = (
     ("cs_browse_top_latency",
         'api.main:/api/internal/scratchpads/top'),
     ("get_feedback_for_focus_latency",
-        '/api/internal/discussions/<focus_kind>/<focus_id>/<feedback_type>')
+        'api.main:/api/internal/discussions/<focus_kind>/<focus_id>/'
+            '<feedback_type>')
 )
 
 LATENCY_QUERY_PATTERN = """
