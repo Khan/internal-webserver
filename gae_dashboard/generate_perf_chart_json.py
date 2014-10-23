@@ -10,6 +10,7 @@ To see how this data is consumed, check out gae_dashboard/index.html
 """
 
 import argparse
+import cgi
 import collections
 import datetime
 import json
@@ -123,7 +124,15 @@ def main():
                 'text': report
             },
             'subtitle': {
-                'text': elog_url_route
+                # Ugly hack: Highcharts requires HTML symbols like < and > to
+                # be escaped, but it has a bug where it sometimes displays the
+                # escape sequence (e.g. &lt;) instead of the intended
+                # character. See here for more details:
+                # http://forum.highcharts.com/viewtopic.php?f=9&t=7299&p=35653
+                # However, it looks like the bug doesn't show up as long as the
+                # string contains a space character, so we add a space to the
+                # end of the string so every url_route is shown correctly.
+                'text': cgi.escape(elog_url_route) + ' '
             },
             'xAxis': {
                 'type': 'datetime'
