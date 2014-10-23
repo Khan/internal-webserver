@@ -11,6 +11,7 @@ Here's an example of an analysis we could do here:
 """
 
 import argparse
+import cgi
 import collections
 import datetime
 import email
@@ -152,6 +153,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
                 body.append('<tr>')
                 for col in row:
                     style = 'padding: 3px 5px 3px 8px;'
+                    # If the column isn't a string, convert it to one.
                     if isinstance(col, (int, long)):
                         style += 'text-align: right;'
                     elif isinstance(col, float):
@@ -170,6 +172,10 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
                             # If the image didn't render due to insufficient
                             # data, say so rather than leaving it out.
                             col = '(insufficient data)'
+                    else:
+                        # The column was a regular string, and might have
+                        # HTML-like characters, so escape those.
+                        col = cgi.escape(col)
                     body.append('<td style="%s">%s</td>' % (style, col))
                 body.append('</tr>')
             body.append('</tbody>')
