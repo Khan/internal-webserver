@@ -1,9 +1,6 @@
 [submodule "phabricator"]
 	path = phabricator
 	url = https://github.com/Khan/phabricator.git
-[submodule "arcanist"]
-	path = arcanist
-	url = https://github.com/Khan/arcanist.git
 [submodule "libphutil"]
 	path = libphutil
 	url = https://github.com/Khan/libphutil.git
