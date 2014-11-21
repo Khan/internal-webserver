@@ -282,7 +282,7 @@ def main(repo_rootdir, options):
         print
         print 'START: %s' % time.ctime()
 
-    phabricator_domain = 'http://phabricator.khanacademy.org'
+    phabricator_domain = 'https://phabricator.khanacademy.org'
     phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
     (new_repos, deleted_repos, url_to_callsign_map) = (
         _get_repos_to_add_and_delete(phabctl, options.verbose))
