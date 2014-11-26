@@ -69,7 +69,7 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/internal-webserver.pem" \
+ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/phabricator.pem" \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
