@@ -588,27 +588,81 @@ ORDER BY added_total DESC
                 subject=subject)
 
 
+def email_client_api_usage(date):
+    """Emails a report of API usage, segmented by client and build version."""
+    yyyymmdd = date.strftime("%Y%m%d")
+
+    ios_user_agent_regex = '^Khan%%20Academy\.(.*)/(.*) CFNetwork/([.0-9]*)' \
+                           ' Darwin/([.0-9]*)$'
+
+    # User agent strings starting with "Khan" indicate our mobile applications.
+    # E.g. "Khan%20Academy.dev/1009 CFNetwork/711.1.12 Darwin/13.4.0".
+    # We group all other user agents into a single bucket to keep this
+    # report down to a reasonable size.
+    query = """\
+SELECT IF(REGEXP_MATCH(user_agent, r'%(ios_user_agent_regex)s'),
+      REGEXP_REPLACE(user_agent, r'%(ios_user_agent_regex)s', r'iOS \1'),
+      'Web Browsers/other') as client,
+      IF(REGEXP_MATCH(user_agent, r'%(ios_user_agent_regex)s'),
+      REGEXP_REPLACE(user_agent, r'%(ios_user_agent_regex)s', r'\2'),
+      '') as build,
+    elog_url_route as route,
+    count(elog_url_route) as request_count
+FROM logs.requestlogs_%(date_format)s
+WHERE REGEXP_MATCH(elog_url_route, '^api.main:/api/internal')
+    AND user_agent IS NOT NULL
+    AND elog_url_route IS NOT NULL
+GROUP BY client, build, route
+ORDER BY client DESC, build DESC, request_count DESC;
+""" % {'ios_user_agent_regex': ios_user_agent_regex, 'date_format': yyyymmdd}
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "client_api_usage", yyyymmdd)
+
+    _ORDER = ('client', 'build', 'route', 'request_count')
+
+    data = _convert_table_rows_to_lists(data, _ORDER)
+
+    subject = 'API usage by client'
+    heading = 'API usage by client for %s' % _pretty_date(yyyymmdd)
+    _send_email({heading: data}, None,
+                to=['infrastructure-blackhole@khanacademy.org'],
+                subject=subject)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', metavar='YYYYMMDD',
                         default=_DEFAULT_DAY.strftime("%Y%m%d"),
                         help=('Date to get reports for, specified as YYYYMMDD '
                               '(default "%(default)s")'))
+    reports = [k for k, v in globals().iteritems() if
+               k.startswith('email') and hasattr(v, '__call__')]
+    parser.add_argument('--report', metavar='NAME', required=False,
+                        help='The function name of a specific report to run.  '
+                             'Available reports: %s' % ', '.join(reports),
+                        choices=reports)
     args = parser.parse_args()
-
     date = datetime.datetime.strptime(args.date, "%Y%m%d")
 
-    print 'Emailing instance hour info'
-    email_instance_hours(date)
+    if args.report:
+        report_method = globals()[args.report]
+        print 'Emailing %s info' % args.report
+        report_method(date)
+    else:
+        print 'Emailing instance hour info'
+        email_instance_hours(date)
 
-    print 'Emailing rpc stats info'
-    email_rpcs(date)
+        print 'Emailing rpc stats info'
+        email_rpcs(date)
 
-    print 'Emailing out-of-memory info'
-    email_out_of_memory_errors(date)
+        print 'Emailing out-of-memory info'
+        email_out_of_memory_errors(date)
 
-    print 'Emailing memory profiling info'
-    email_memory_increases(date)
+        print 'Emailing memory profiling info'
+        email_memory_increases(date)
+
+        print 'Emailing client API usage info'
+        email_client_api_usage(date)
 
 
 if __name__ == '__main__':
