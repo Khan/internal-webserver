@@ -35,6 +35,8 @@ LATENCY_QUERIES = (
         'api.main:/api/internal/user/task/mastery'),
     ("booster_task_start_latency",
         'api.main:/api/internal/user/task/booster'),
+    ("compute_recommended_learning_tasks_for_mission",
+        'api.main:/api/internal/user/mission/<mission_slug>/descriptors'),
     ("problem_attempt_latency",
         'api.main:/api/internal/user/exercises/<exercise_name>/'
             'problems/<int:problem_number>/attempt [POST]'),
@@ -50,7 +52,7 @@ LATENCY_QUERIES = (
         'api.main:/api/internal/scratchpads/top'),
     ("get_feedback_for_focus_latency",
         'api.main:/api/internal/discussions/<focus_kind>/<focus_id>/'
-            '<feedback_type>')
+            '<feedback_type>'),
 )
 
 LATENCY_QUERY_PATTERN = """
