@@ -109,6 +109,11 @@ _time_windows = [
     ]
 
 
+# NOTE: Used by fetch_stats.py
+def num_charts():
+    return len(_label_to_field_map)
+
+
 def _time_t_of_latest_record():
     """time_t of the most recently stored dashboard record.
 
@@ -297,8 +302,6 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
       verbose: If True, print report to stdout.
       dry_run: If True, do not store report in the database.
     """
-    # Strip off the None sentinel we add to the end of the input json.
-    input_json = [j for j in input_json if j is not None]
     if not input_json:
         return
 
@@ -354,7 +357,22 @@ def parse_and_commit_record(input_json, start_time_t, download_time_t,
     return records
 
 
-def main():
+def main(input_json, utc_timestamp, graphite_host,
+         verbose=False, dry_run=False):
+    """input_json: list of {chart_num, module, time_window, chart_url_data}."""
+    time_t_of_latest_record = _time_t_of_latest_record()
+    if time_t_of_latest_record is None:
+        print 'No record of previous fetches; importing all records as new.'
+
+    records = parse_and_commit_record(
+        input_json, time_t_of_latest_record, utc_timestamp, graphite_host,
+        verbose, dry_run)
+
+    if records:
+        _write_time_t_of_latest_record(records)
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n', 1)[0])
     parser.add_argument('utc_timestamp', type=int,
                         help='time_t the input data was downloaded (in UTC)')
@@ -376,10 +394,6 @@ def main():
                         help='do not store report in the database')
     args = parser.parse_args()
 
-    time_t_of_latest_record = _time_t_of_latest_record()
-    if time_t_of_latest_record is None:
-        print 'No record of previous fetches; importing all records as new.'
-
     # This json.load() will raise an exception error if the input is
     # malformed, e.g. if the wget we did for this data failed.
     input_json_string = args.infile.read()
@@ -389,13 +403,5 @@ def main():
         print '>>> The input json: %s' % input_json_string
         raise
 
-    records = parse_and_commit_record(
-        input_json, time_t_of_latest_record, args.utc_timestamp,
-        args.graphite_host, args.verbose, args.dry_run)
-
-    if records:
-        _write_time_t_of_latest_record(records)
-
-
-if __name__ == '__main__':
-    main()
+    main(input_json, args.utc_timestamp, args.graphite_host,
+         args.verbose, args.dry_run)

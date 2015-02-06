@@ -88,7 +88,37 @@ def report_memcache_statistics(stats, download_dt, graphite_host,
                                              [record])
 
 
-def main():
+def main(email, password, application, version, graphite_host,
+         verbose=False, dry_run=False):
+    download_dt = datetime.datetime.utcnow()
+
+    # Get the per-module stats.
+    for module in gae_util.get_modules(email, password, application):
+        if verbose:
+            print '-- Fetching instance_summary.summary for module %s' % module
+        scraped = gae_dashboard_scrape.scrape(email,
+                                              password,
+                                              application,
+                                              ['instance_summary.summary'],
+                                              module=module,
+                                              version=version)
+        report_instance_summary(scraped['instance_summary.summary'], module,
+                                download_dt,
+                                graphite_host, verbose, dry_run)
+
+    # Now get the global stats (the ones that are not per-instance).
+    if verbose:
+        print '-- Fetching memcache.statistics'
+    scraped = gae_dashboard_scrape.scrape(email,
+                                          password,
+                                          application,
+                                          ['memcache.statistics'],
+                                          version=version)
+    report_memcache_statistics(scraped['memcache.statistics'], download_dt,
+                               graphite_host, verbose, dry_run)
+
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n', 1)[0])
     parser.add_argument('--graphite_host',
                         default='carbon.hostedgraphite.com:2004',
@@ -108,33 +138,5 @@ def main():
     args = parser.parse_args()
     password = sys.stdin.read().rstrip('\n')
 
-    download_dt = datetime.datetime.utcnow()
-
-    # Get the per-module stats.
-    for module in gae_util.get_modules(args.email, password, args.application):
-        if args.verbose:
-            print '-- Fetching instance_summary.summary for module %s' % module
-        scraped = gae_dashboard_scrape.scrape(args.email,
-                                              password,
-                                              args.application,
-                                              ['instance_summary.summary'],
-                                              module=module,
-                                              version=args.version)
-        report_instance_summary(scraped['instance_summary.summary'], module,
-                                download_dt,
-                                args.graphite_host, args.verbose, args.dry_run)
-
-    # Now get the global stats (the ones that are not per-instance).
-    if args.verbose:
-        print '-- Fetching memcache.statistics'
-    scraped = gae_dashboard_scrape.scrape(args.email,
-                                          password,
-                                          args.application,
-                                          ['memcache.statistics'],
-                                          version=args.version)
-    report_memcache_statistics(scraped['memcache.statistics'], download_dt,
-                               args.graphite_host, args.verbose, args.dry_run)
-
-
-if __name__ == '__main__':
-    main()
+    main(args.email, password, args.application, args.version,
+         args.graphite_host, args.verbose, args.dry_run)
