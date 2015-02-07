@@ -81,6 +81,13 @@ def main(email, password, application, graphite_host,
     for thread in threads:
         thread.join()
 
+    # Exceptions in threads are swallowed :-(, so we have to manually
+    # check that they all succeeded.
+    bad_fetches = [k in chartmap if chartmap[k] is None]
+    if bad_fetches:
+        raise ValueError("Failed to fetch the following module/chart-nums: %s"
+                         % bad_fetches)
+
     dashboard_report_input = []
     for module in modules:
         for chartnum in xrange(num_charts):
