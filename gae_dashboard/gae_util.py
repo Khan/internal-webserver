@@ -11,6 +11,10 @@ def _discover_sdk_path():
     # adapted from {http://code.google.com/p/bcannon/source/browse/
     # sites/py3ksupport-hrd/run_tests.py}
 
+    # Since we know this code is running on toby, let's hard-code the
+    # appengine location on toby as the last-ditch option.
+    os.environ['PATH'] += ':/usr/local/google_appengine'
+
     # Poor-man's `which` command.
     for path in os.environ['PATH'].split(':'):
         if os.path.isdir(path) and 'dev_appserver.py' in os.listdir(path):
