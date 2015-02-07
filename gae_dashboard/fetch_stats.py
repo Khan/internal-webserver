@@ -83,7 +83,7 @@ def main(email, password, application, graphite_host,
 
     # Exceptions in threads are swallowed :-(, so we have to manually
     # check that they all succeeded.
-    bad_fetches = [k in chartmap if chartmap[k] is None]
+    bad_fetches = [k for k in chartmap if chartmap[k] is None]
     if bad_fetches:
         raise ValueError("Failed to fetch the following module/chart-nums: %s"
                          % bad_fetches)
