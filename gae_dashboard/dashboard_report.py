@@ -49,7 +49,8 @@ _LAST_RECORD_DB = os.path.join(os.getenv('HOME'), 'dashboard_report_time.db')
 # *must* match the ordering of the dropdown at the GAE dashboard homepage.
 _label_to_field_map = collections.OrderedDict(
     [('Summary', {
-        'Total Errors': 'errors_per_second',
+        'Client (4xx)': 'client_errors_per_second',
+        'Server (5xx)': 'server_errors_per_second',
         'Total Requests': 'requests_per_second',
         }),
      ('Requests by Type/Second', {
