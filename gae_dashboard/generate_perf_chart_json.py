@@ -53,6 +53,8 @@ LATENCY_QUERIES = (
     ("get_feedback_for_focus_latency",
         'api.main:/api/internal/discussions/<focus_kind>/<focus_id>/'
             '<feedback_type>'),
+    ("log_compatability_latency",
+        'api.main:/api/internal/user/videos/<youtube_id>/log_compatability'),
 )
 
 LATENCY_QUERY_PATTERN = """
