@@ -41,7 +41,7 @@ LATENCY_QUERIES = (
         'api.main:/api/internal/user/exercises/<exercise_name>/'
             'problems/<int:problem_number>/attempt [POST]'),
     ("profile_widgets_latency",
-        'api.main:/api/internal/user/<user_data_key>/profile/widgets'),
+        'api.main:/api/internal/user/<kaid>/profile/widgets'),
     ("user_badges_latency",
         'api.main:/api/internal/user/badges'),
     ("user_mission_latency",
