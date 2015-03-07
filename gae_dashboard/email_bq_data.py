@@ -230,7 +230,7 @@ def _embed_images_to_mime(html, images):
 
 # This is a map from module-name to how many processors it has -- so
 # F4 would be 4, F8 would be 8.  If a module is run with
-# multithreading, we divide the num-processes by 8 to emulate having 8
+# multithreading, we divide the num-processes by 4 to emulate having 4
 # threads run concurrently.  This is a total approximation!
 # TODO(csilvers): use webapp's module_util to get the F-class and
 # multithreading status instead of hard-coding.
@@ -239,8 +239,9 @@ _MODULE_CPU_COUNT = {
     'i18n': 4,
     'frontend-highmem': 4,
     'batch-lowlatency': 2,
-    'batch': 2 / 8.0,
+    'batch': 2 / 4.0,
     'highmem': 8,
+    'multithreaded': 4 / 4.0,
     }
 
 
