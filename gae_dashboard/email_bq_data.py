@@ -297,26 +297,28 @@ ORDER BY instance_hours DESC
 def email_rpcs(date):
     """Email RPCs-per-route report for the given datetime.date object."""
     yyyymmdd = date.strftime("%Y%m%d")
-    rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete')
+    rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete', 'Commit')
 
     inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
              for name in rpc_fields]
     inits.append("IFNULL(tcost.rpc_cost, 0) AS rpc_cost")
     joins = ["LEFT OUTER JOIN ( "
-             "SELECT elog_url_route AS url_route, COUNT(*) AS rpc_%s "
-             "FROM FLATTEN([logs.requestlogs_%s], elog_stats_rpc) "
-             "WHERE elog_stats_rpc.key = 'stats.rpc.datastore_v3.%s' "
-             "GROUP BY url_route) AS t%s ON t1.url_route = t%s.url_route"
+             "SELECT elog_url_route AS url_route, "
+             "       SUM(elog_stats_rpc_ops.value) as rpc_%s "
+             "FROM [logs.requestlogs_%s] "
+             "WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.%s.count' "
+             "GROUP BY url_route) AS t%s "
+             "ON t1.url_route = t%s.url_route"
              % (name, yyyymmdd, name, name, name)
              for name in rpc_fields]
-    joins.append("""\
-LEFT OUTER JOIN (
-SELECT elog_url_route AS url_route,
-       SUM(elog_stats_rpc_ops.value) AS rpc_cost
-FROM [logs.requestlogs_%s]
-WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.cost'
-GROUP BY url_route) AS tcost ON t1.url_route = tcost.url_route
-""" % yyyymmdd)
+    joins.append("LEFT OUTER JOIN ( "
+                 "SELECT elog_url_route AS url_route, "
+                 "       SUM(elog_stats_rpc_ops.value) AS rpc_cost "
+                 "FROM [logs.requestlogs_%s] "
+                 "WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.cost' "
+                 "GROUP BY url_route) AS tcost "
+                 "ON t1.url_route = tcost.url_route"
+                 % yyyymmdd)
     query = """\
 SELECT t1.url_route AS url_route,
 t1.url_requests AS requests,
@@ -593,12 +595,10 @@ def email_client_api_usage(date):
     """Emails a report of API usage, segmented by client and build version."""
     yyyymmdd = date.strftime("%Y%m%d")
 
-    ios_user_agent_regex = '^Khan%%20Academy\.(.*)/(.*) CFNetwork/([.0-9]*)' \
+    ios_user_agent_regex = '^Khan%20Academy\.(.*)/(.*) CFNetwork/([.0-9]*)' \
                            ' Darwin/([.0-9]*)$'
 
-    # User agent strings starting with "Khan" indicate our mobile applications.
-    # E.g. "Khan%20Academy.dev/1009 CFNetwork/711.1.12 Darwin/13.4.0".
-    # We group all other user agents into a single bucket to keep this
+    # We group all non-ios user agents into a single bucket to keep this
     # report down to a reasonable size.
     query = """\
 SELECT IF(REGEXP_MATCH(user_agent, r'%(ios_user_agent_regex)s'),
