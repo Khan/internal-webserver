@@ -228,12 +228,36 @@ def _embed_images_to_mime(html, images):
     return msg_root
 
 
-# This is a map from module-name to how many processors it has -- so
-# F4 would be 4, F8 would be 8.  If a module is run with
-# multithreading, we divide the num-processes by 4 to emulate having 4
-# threads run concurrently.  This is a total approximation!
-# TODO(csilvers): use webapp's module_util to get the F-class and
-# multithreading status instead of hard-coding.
+# This is a map from module-name to its cost relative to a
+# perfect-utilization, non-threaded F1.
+# There are two factors to consider here:
+# 1) Our machines use an instance_class more powerful than F1, so
+# we pay a multiple of the cost.  This is based on the chart at
+#   https://cloud.google.com/appengine/docs/python/modules/#Python_Instance_scaling_and_class
+# 2) Our modules do not have perfect scheduling, so their utilization
+# is typically less than 1.  We pay for that unused time, so I spread
+# it out over each request.  On the other hand, some of our modules
+# are multithreaded, and can handle multiple requests simultaneously.
+# In that case, adding up all the latencies *over*estimates the cost.
+# Looking at the average utilization handles that case as well.
+# We calculate the utilization by periodically running (in bigquery):
+"""
+SELECT module_id,
+       round(sum(utilization * util_weight) / sum(util_weight), 3)
+       as avg_utilization
+FROM (
+    -- sum(latency): time was spent by all requests for this instance
+    -- min(start_time): when the instance was created
+    -- max(end_time): when the instance died
+    -- util_weight: to give more weight to longer-lived instances
+    SELECT module_id,
+           sum(latency) / (max(end_time) - min(start_time)) as utilization,
+           max(end_time) - min(start_time) as util_weight
+    FROM logs.requestlogs_20150310
+    GROUP BY module_id, instance_key
+)
+GROUP BY module_id
+"""
 _MODULE_CPU_COUNT = {
     'default': 4,
     'i18n': 4,
