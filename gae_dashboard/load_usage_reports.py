@@ -27,6 +27,8 @@ import os
 import re
 import sys
 
+import pytz
+
 import graphite_util
 
 
@@ -39,7 +41,7 @@ def _time_t_of_latest_record():
     This data is stored in a file.  We could consider this a small database.
 
     Returns:
-        The time_t (# of seconds since the UNIX epoch in UTC) or None if
+        The time_t (# of seconds since the UNIX epoch) or None if
         there is no previous record.
     """
     if os.path.exists(_LAST_RECORD_DB):
@@ -107,9 +109,11 @@ def _reports_since_dt(csvreader, cutoff_dt):
 
         used_str = row['Used'].replace(',', '')  # float() can't parse a comma
         used_num = float(used_str) if '.' in used_str else int(used_str)
-        yield (datetime.datetime.strptime(row['Date'], '%Y-%m-%d'),
-               row['Name'],
-               used_num)
+        dt = datetime.datetime.strptime(row['Date'], '%Y-%m-%d')
+        # All appengine dates are pacific time, I've been informed, so
+        # we set the tzinfo using that.
+        dt -= pytz.timezone('America/Los_Angeles').utcoffset(dt)
+        yield (dt, row['Name'], used_num)
 
 
 def main(csv_iter):
