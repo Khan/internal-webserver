@@ -1,1 +1,6 @@
+GChartWrapper==0.8
+cssselect==0.9.1
+lxml==3.3.3
 pytz==2014.9
+ez-setup==0.9
+bigquery==2.0.17
