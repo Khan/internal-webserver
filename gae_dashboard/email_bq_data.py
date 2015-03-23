@@ -242,20 +242,15 @@ def _embed_images_to_mime(html, images):
 # Looking at the average utilization handles that case as well.
 # We calculate the utilization by periodically running (in bigquery):
 """
-SELECT module_id,
-       round(sum(utilization * util_weight) / sum(util_weight), 3)
-       as avg_utilization
-FROM (
-    -- sum(latency): time was spent by all requests for this instance
+SELECT module_id, round(sum(utilization * util_weight) / sum(util_weight), 3) as avg_utilization from (
+    -- sum(latency - pending_time): time spent by all requests for this instance
     -- min(start_time): when the instance was created
     -- max(end_time): when the instance died
     -- util_weight: to give more weight to longer-lived instances
-    SELECT module_id,
-           sum(latency) / (max(end_time) - min(start_time)) as utilization,
-           max(end_time) - min(start_time) as util_weight
-    FROM logs.requestlogs_20150310
-    GROUP BY module_id, instance_key
-)
+    SELECT module_id, sum(latency - pending_time) / (max(end_time) - min(start_time)) as utilization, max(end_time) - min(start_time) as util_weight
+    FROM logs.requestlogs_20150316
+    WHERE instance_key is not null
+    GROUP BY module_id, instance_key)
 GROUP BY module_id
 """
 _MODULE_CPU_COUNT = {
