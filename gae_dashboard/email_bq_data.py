@@ -251,16 +251,19 @@ SELECT module_id, round(sum(utilization * util_weight) / sum(util_weight), 3) as
     FROM logs.requestlogs_20150316
     WHERE instance_key is not null
     GROUP BY module_id, instance_key)
+-- lame heuristic to try to discard idle instances, which
+-- we're not charged for and can go hours between requests:
+WHERE utilization > 0.1
 GROUP BY module_id
 """
 _MODULE_CPU_COUNT = {
-    'default': 4,
-    'i18n': 4,
-    'frontend-highmem': 4,
-    'batch-lowlatency': 2,
-    'batch': 2 / 4.0,
-    'highmem': 8,
-    'multithreaded': 4 / 4.0,
+    'default': 4 / 0.679,
+    'i18n': 4 / 0.695,
+    'frontend-highmem': 4 / 0.52,
+    'batch-lowlatency': 2 / 0.753,
+    'batch': 2 / 1.697,
+    'highmem': 8 / 0.499,
+    'multithreaded': 4 / 2.152,
     }
 
 
