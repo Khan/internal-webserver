@@ -51,7 +51,8 @@ class DashboardClient(object):
         for i in xrange(3):      # we'll retry up to 3 times
             try:
                 return fetch_contents(self.rpcserver, url)
-            except (urllib2.HTTPError, httplib.HTTPException), why:
+            except (urllib2.HTTPError, urllib2.URLError,
+                    httplib.HTTPException), why:
                 time.sleep(1)
                 print 'Retrying, fetch failed: %s' % why
                 if i == 2:       # last time
