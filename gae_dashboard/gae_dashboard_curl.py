@@ -19,11 +19,9 @@ To use this module as a library:
 
 """
 
-import httplib
 import os
 import sys
 import time
-import urllib2
 
 # Set up GAE import paths via gae_util.py in src/
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -51,8 +49,7 @@ class DashboardClient(object):
         for i in xrange(3):      # we'll retry up to 3 times
             try:
                 return fetch_contents(self.rpcserver, url)
-            except (urllib2.HTTPError, urllib2.URLError,
-                    httplib.HTTPException), why:
+            except Exception, why:
                 time.sleep(1)
                 print 'Retrying, fetch failed: %s' % why
                 if i == 2:       # last time
