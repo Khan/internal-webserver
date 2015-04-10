@@ -28,9 +28,10 @@ import oauth2client.client
 import secrets
 
 OAUTH_SCOPES = ['https://gdata.youtube.com',
+                'https://www.googleapis.com/auth/youtube.force-ssl',
                 'https://www.googleapis.com/auth/userinfo.email',
                 'https://www.googleapis.com/auth/userinfo.profile']
-TO_BE_NOTIFIED = ['theobelaire@khanacademy.org', 'james@khanacademy.org',
+TO_BE_NOTIFIED = ['jamiewong@khanacademy.org', 'james@khanacademy.org',
                   'i18n-blackhole@khanacademy.org']
 
 app = flask.Flask(__name__)
