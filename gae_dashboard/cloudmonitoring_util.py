@@ -35,7 +35,7 @@ def custom_metric(name):
     if len(name) > maxlen:
         raise ValueError('Metric name too long: %d (limit %d): %s'
                          % (len(name), maxlen, name))
-    return ('%s/%s' % (prefix, re.sub('[^a-zA-Z0-9_.]', '_', name)))
+    return ('%s%s' % (prefix, re.sub('[^a-zA-Z0-9_.]', '_', name)))
 
 
 def send_to_cloudmonitoring(project_id, metric_map):
