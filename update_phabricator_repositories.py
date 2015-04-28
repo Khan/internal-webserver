@@ -149,7 +149,7 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     phabricator_repo_info = _retry(
         # Turn on profiling so when phabricator is slow and this command
         # times out, we have a chance of figuring out why.
-        lambda: phabctl.repository.query(__profile__=1),
+        lambda: phabctl.repository.query(__profile__=1, limit=10000),
         times=3, exceptions=(socket.timeout,),
         verbose=verbose)
 
