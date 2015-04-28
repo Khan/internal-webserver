@@ -3,15 +3,17 @@
 """Send HostedGraphite metrics to Cloud Monitoring.
 
 This script is configured with a mapping from graphite metrics to
-Cloud Monitoring timeseries. When run, it exports the youngest data
-point for each graphite metric to Cloud Monitoring.
+Cloud Monitoring timeseries. When run, it exports the youngest
+complete data point for each graphite metric to Cloud Monitoring (the
+youngest data point represents a bucket that's still being filled, so
+we skip it).
 
 We don't have to worry about sending the same data twice as long as
 the window size stays constant because the Cloud Monitoring API
-ignores datapoints older than the youngest data in each of its
-timeseries, and we ensure that a datapoint's timestamp is stable for a
-given window size. See the NOTE for --window-size in the "Usage"
-section below.
+ignores datapoints older than the youngest complete data point in each
+of its timeseries, and we ensure that a datapoint's timestamp is
+stable for a given window size. See the NOTE for --window-size in the
+"Usage" section below.
 
 
 Description:
@@ -32,8 +34,8 @@ a cron job will periodically run this script.
 
 Usage:
 
-Export the youngest data point found within the last 5 minutes for
-each configured graphite metric:
+Export the youngest complete data point found within the last 24 hours
+minutes for each configured graphite metric:
 
   ./graphite_bridge.py
 
@@ -47,16 +49,17 @@ datapoint will be written to the TEST_WRITE timeseries:
 
   ./graphite_bridge.py -vt
 
-By default the last 5 minutes of data is read from graphite. Override
-this with --window-seconds.
+By default the last 24 hours of data is read from graphite. With this
+window size, each data point usually represents a 5-minute bucket of
+aggregated data. Override this with --window-seconds.
 
 NOTE: this feature makes it possible to write the same data twice to
 Cloud Monitoring. If you first use a large window size, then a small
 window size, the small window's timestamp may be younger for the same
-datapoint. E.g., a 24-hour window has 10-minute buckets, and a
-5-minute window has 5-second buckets, so a 1-second old datapoint will
-appear 10-minutes old for the large window, and 5-seconds old for the
-small window.
+datapoint. E.g., a 24-hour window has 5-minute buckets, and a 5-minute
+window has 5-second buckets, so a 1-second old datapoint will appear
+5-minutes old for the large window, and 5-seconds old for the small
+window.
 
 This example reads the last hour's data:
 
@@ -68,7 +71,7 @@ Intended usage:
 It's expected this script will be run periodically as a cron job. How
 frequently to run it depends on how frequently new data shows up in
 graphite that should be exported to Cloud Monitoring, since only the
-youngest datapoint for each graphite metric is sent.
+youngest complete data point for each graphite metric is sent.
 
 """
 
@@ -88,6 +91,7 @@ class Metric(object):
         target: the graphite target for this metric's data.
         name: the preferred name for this metric in other systems. If
             no name is specified, this defaults to the 'target' value.
+
     """
     def __init__(self, target, name=None):
         self.target = target
@@ -104,10 +108,29 @@ def _default_metrics():
         Metric(
             'webapp.gae.dashboard.instances.batch_module.average_latency_ms',
             name='batch_module.average_latency_ms'),
-        Metric(_historical_ratio('webapp.gae.dashboard.instances'
-                                 '.batch_module.average_latency_ms',
-                                 timeshift='7d'),
-               name='batch_module.average_latency_ms.week_over_week'),
+        _historical_ratio_metric(
+            'webapp.gae.dashboard.instances.batch_module.average_latency_ms',
+            name='batch_module.average_latency_ms.week_over_week',
+            timeshift='7d'),
+
+        # Week-over-week change for BigBingo conversions.
+        _historical_ratio_metric(
+            'webapp.stats.bingo.login:sum',
+            name='bingo.login.week_over_week',
+            timeshift='7d',),
+        _historical_ratio_metric(
+            'webapp.stats.bingo.problem_attempt:sum',
+            name='bingo.problem_attempt.week_over_week',
+            timeshift='7d'),
+        _historical_ratio_metric(
+            'webapp.stats.bingo.registration:sum',
+            name='bingo.registration.week_over_week',
+            timeshift='7d'),
+        _historical_ratio_metric(
+            'webapp.stats.bingo.video_started:sum',
+            name='bingo.video_started.week_over_week',
+            timeshift='7d'),
+
         ]
     # Sanity check. This will raise errors on too-long names.
     for metric in metrics:
@@ -115,19 +138,33 @@ def _default_metrics():
     return metrics
 
 
-def _historical_ratio(target, timeshift='7d'):
+def _historical_ratio_metric(target, name, timeshift='7d'):
     """Build the graphite target for a metric compared to itself in the past.
 
-    A value of 1.0 in this series means that current data matches
+    The historical ratio measures how different current values are
+    from historical values. Many website metrics have weekly patterns,
+    so this is useful in comparing, e.g., this Monday against last
+    Monday.
+
+    A value of 0.0 in this series means that current data matches
     historical data.
     """
-    return ('absolute('
-            '  divideSeries('
-            '    diffSeries('
-            '      %(target)s,'
-            '      timeShift(%(target)s, "%(timeshift)s")),'
-            '    timeShift(%(target)s, "%(timeshift)s")))'
-            % {'target': target, 'timeshift': timeshift}).replace(' ', '')
+    # The historical ratio is ((current - old) / old). There are two gotchas:
+    #
+    # 1) We take the absolute value because Cloud Monitoring has only
+    # one threshold we should alert on current > old or old > current.
+    #
+    # 2) In the special case where the current values aren't known
+    # they are null. We use keepLastValue to avoid nulls. Otherwise,
+    # we'd see values of 1.0 when current is null and old is not null.
+    target = ('absolute('
+              '  divideSeries('
+              '    diffSeries('
+              '      keepLastValue(%(target)s),'
+              '      keepLastValue(timeShift(%(target)s, "%(timeshift)s"))),'
+              '    keepLastValue(timeShift(%(target)s, "%(timeshift)s"))))'
+              % {'target': target, 'timeshift': timeshift}).replace(' ', '')
+    return Metric(target, name)
 
 
 def _send_to_cloudmonitoring(google_project_id, data, dry_run=False):
@@ -159,19 +196,30 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
             continue
         
         bucket_seconds = datapoints[1][1] - datapoints[0][1]
+        logging.debug('Detected bucket size of %ss for %s'
+                      % (bucket_seconds, metric.name))
         
-        # Ignore empty buckets. The Render URL API divides the window
-        # of data in equally-sized buckets. If there isn't a datapoint
-        # in a timespan bucket (e.g., a 5-second period) the value is
-        # None (null in JSON).
-        datapoints = [p for p in datapoints if p[0] is not None]
+        # Extract valid data with two filters:
+        #
+        # 1) Ignore the first bucket. This current bucket might still
+        # be collecting data, so it's incomplete and we don't want to
+        # persist it to Cloud Monitoring, which won't let us
+        # subsequently update it.
+        #
+        # 2) Ignore empty buckets. The Render URL API divides the
+        # window of data in equally-sized buckets. If there isn't a
+        # datapoint in a timespan bucket (e.g., a 5-second period) the
+        # value is None (null in JSON).
+        datapoints = [p for p in datapoints[:-1] if p[0] is not None]
 
         # Ignore metrics without any datapoints, only empty buckets.
         if not datapoints:
             logging.info('Ignoring target with no data: %s' % item['target'])
             continue
         
-        # We'll only send the youngest datapoint for each target.
+        # We'll only send the youngest complete data point for each
+        # target. We threw out the youngest, possibly-incomplete
+        # bucket above, so we know we're good here.
         value, timestamp = datapoints[-1]
         
         # Graphite buckets line up depending on when the API call is
@@ -203,12 +251,15 @@ def main():
                         help=('project ID of a Google Cloud Platform project '
                               'with the Cloud Monitoring API enabled '
                               '[default: %(default)s]'))
-    parser.add_argument('--window-seconds', default='300', type=int,
+    # A 24-hour window in graphite produces 5 minute buckets, even
+    # when comparing metrics week-over-week, a consistent default.
+    parser.add_argument('--window-seconds', default='86400', type=int,
                         help=('window of time to read from graphite. '
                               'The most recent datapoint is sent to Cloud '
                               'Monitoring [default: %(default)s]'))
-    parser.add_argument('-v', '--verbose', action='store_true', default=False,
-                        help='enable verbose logging')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help=('enable verbose logging (-vv for very verbose '
+                              'logging)'))
     parser.add_argument('-n', '--dry-run', action='store_true', default=False,
                         help='do not write metrics to Cloud Monitoring')
     parser.add_argument('-t', '--test-write', action='store_true',
@@ -217,8 +268,11 @@ def main():
                               'timeseries named "write_test"'))
     args = parser.parse_args()
     
-    if args.verbose:
+    # -v for INFO, -vv for DEBUG.
+    if args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
+    elif args.verbose == 1:
+        logging.basicConfig(level=logging.INFO)
     
     if args.test_write:
         data = {'write_test': [(math.sin(time.time()), int(time.time()))]}
