@@ -1,5 +1,5 @@
 To install a new internal-webserver machine, see the instructions in
-   git@github.com:Khan/aws-config/internal-webserver/setup.sh
+   git@github.com:Khan/aws-config/toby/setup.sh
 
 (Do NOT execute setup.sh -- read it in a text editor!)
 
