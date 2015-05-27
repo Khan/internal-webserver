@@ -59,7 +59,16 @@ def _name_parser(name):
     """
     parser_name, method = name.split('.')
     parser_class_name = string.capwords(parser_name, sep='_').replace('_', '')
-    return ('/%s' % parser_name, getattr(parsers, parser_class_name), method)
+    # At or around 25 May 2015, GAE seemed to change the name of the
+    # instances url from /instance_summary to /instances.  We could
+    # change the value in _SCRAPE_TABLE but I'm worried about changing
+    # the label name in graphite, messing up historical analyses, so I
+    # just manually fix up the url here.
+    if parser_name == 'instance_summary':
+        url = '/instances'
+    else:
+        url = '/%s' % parser_name
+    return (url, getattr(parsers, parser_class_name), method)
 
 
 def scrape(email, password, appid, names, module=None, version=None):
