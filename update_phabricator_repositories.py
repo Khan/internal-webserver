@@ -253,7 +253,8 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
 def delete_repository(phabctl, repo_rootdir, repo_clone_url,
                       url_to_callsign_map, options):
     """Because it's scary to delete automatically, for now I just warn."""
-    print ('Repository %s has been deleted: run (on toby):\n'
+    print ('Repository %s has been deleted: '
+           'run (on the phabricator machine):\n'
            '   env PHABRICATOR_ENV=khan'
            ' ~/internal-webserver/phabricator/bin/remove destroy r%s'
            % (repo_clone_url, url_to_callsign_map[repo_clone_url]))
