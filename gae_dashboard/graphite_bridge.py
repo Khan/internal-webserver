@@ -181,12 +181,12 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
     targets = [m.target for m in metrics]
     from_str = '-%ss' % window_seconds
     response = graphite_util.fetch(graphite_host, targets, from_str=from_str)
-    
+
     outbound = {}
     assert len(response) == len(metrics)
     for metric, item in zip(metrics, response):
         datapoints = item['datapoints']
-        
+
         # Figure out each target's bucket size returned by graphite. This
         # requires 2 or more datapoints, so we ignore entries without
         # enough data, instead of exporting inaccurate timestamps.
@@ -194,11 +194,11 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
             logging.info('Ignoring target with too little data: %s %s'
                          % (item['target'], datapoints))
             continue
-        
+
         bucket_seconds = datapoints[1][1] - datapoints[0][1]
         logging.debug('Detected bucket size of %ss for %s'
                       % (bucket_seconds, metric.name))
-        
+
         # Extract valid data with two filters:
         #
         # 1) Ignore the first bucket. This current bucket might still
@@ -216,12 +216,12 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
         if not datapoints:
             logging.info('Ignoring target with no data: %s' % item['target'])
             continue
-        
+
         # We'll only send the youngest complete data point for each
         # target. We threw out the youngest, possibly-incomplete
         # bucket above, so we know we're good here.
         value, timestamp = datapoints[-1]
-        
+
         # Graphite buckets line up depending on when the API call is
         # made. We don't choose how to align them when using a relative
         # time like "all data in the last 5 minutes, i.e., -5min". Since
@@ -234,7 +234,7 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
 
         # Use a friendly name in place of a (possibly complex) graphite target.
         outbound[metric.name] = [(value, timestamp)]
-    
+
     # Load data to Cloud Monitoring.
     if outbound:
         _send_to_cloudmonitoring(google_project_id, outbound, dry_run=dry_run)
@@ -267,13 +267,13 @@ def main():
                         help=('write a datapoint to the Cloud Monitoring '
                               'timeseries named "write_test"'))
     args = parser.parse_args()
-    
+
     # -v for INFO, -vv for DEBUG.
     if args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
     elif args.verbose == 1:
         logging.basicConfig(level=logging.INFO)
-    
+
     if args.test_write:
         data = {'write_test': [(math.sin(time.time()), int(time.time()))]}
         _send_to_cloudmonitoring(args.project_id, data, dry_run=args.dry_run)
