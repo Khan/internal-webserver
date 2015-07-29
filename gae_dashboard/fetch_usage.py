@@ -45,7 +45,7 @@ def _date_of_latest_record():
     """
     if os.path.exists(_LAST_RECORD_DB):
         with open(_LAST_RECORD_DB) as f:
-            return int(f.read().strip())
+            return f.read().strip()
     return None
 
 
@@ -183,7 +183,7 @@ def main(graphite_host, verbose=False, dry_run=False):
 
     last_write_date = _date_of_latest_record()
     if last_write_date:
-        start_date = (datetime.date.strptime(last_write_date, "%Y-%m%-d") +
+        start_date = (datetime.datetime.strptime(last_write_date, "%Y-%m-%d") +
                       datetime.timedelta(days=1))
     else:
         start_date = datetime.datetime.now() - datetime.timedelta(days=30)
@@ -196,8 +196,10 @@ def main(graphite_host, verbose=False, dry_run=False):
                                      dry_run=dry_run, verbose=verbose)
         except UsageRecordNotFound:
             break
+
         print "Parsed usage records for %s" % date_string
-        _write_date_of_latest_record(date_string)
+        if not dry_run:
+            _write_date_of_latest_record(date_string)
         start_date += datetime.timedelta(days=1)
 
     print "Done!"

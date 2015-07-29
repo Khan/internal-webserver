@@ -35,7 +35,7 @@ def _time_t_of_latest_record():
 
 
 def _write_time_t_of_latest_record(time_t):
-    """Find the record with the latest time-t and write it to the db."""
+    """Given the record with the latest time-t, write it to the db."""
     with open(_LAST_RECORD_DB, 'w') as f:
         print >>f, time_t
 
@@ -483,14 +483,16 @@ def main(project_id, graphite_host, verbose=False, dry_run=False):
                                          verbose=verbose, dry_run=dry_run)
             if this_last_time_t:     # can be None for 'not implemented yet'
                 last_time_t_seen = max(last_time_t_seen, this_last_time_t)
+        if last_time_t_seen == time_t:      # no new record seen
+            break
 
         if dry_run:
             print ("Would update last-processed-time from %s to %s"
-                   % (start_time_t, last_time_t_seen))
+                   % (_time_t_of_latest_record(), last_time_t_seen))
         else:
             if verbose:
                 print ("Updating last-processed-time from %s to %s"
-                       % (time_t, last_time_t_seen))
+                       % (_time_t_of_latest_record(), last_time_t_seen))
             _write_time_t_of_latest_record(last_time_t_seen)
 
     print "Done!"
