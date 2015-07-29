@@ -488,9 +488,8 @@ def main(project_id, graphite_host, verbose=False, dry_run=False):
             print ("Would update last-processed-time from %s to %s"
                    % (_time_t_of_latest_record(), last_time_t_seen))
         else:
-            if verbose:
-                print ("Updating last-processed-time from %s to %s"
-                       % (_time_t_of_latest_record(), last_time_t_seen))
+            print ("Updating last-processed-time from %s to %s"
+                   % (_time_t_of_latest_record(), last_time_t_seen))
             _write_time_t_of_latest_record(last_time_t_seen)
 
     print "Done!"
