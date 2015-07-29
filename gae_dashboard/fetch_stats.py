@@ -467,19 +467,20 @@ def memcache_total_cache_size_bytes(timeseries_getter):
     return None
 
 
-def main(project_id, graphite_host, verbose=False, dry_run=False):
-    INTERVAL = 300      # process 5 minutes at a time
+def main(project_id, graphite_host, interval_in_seconds=300,
+         verbose=False, dry_run=False):
     start_time_t = _time_t_of_latest_record() or _NOW - 86400 * 30
     end_time_t = _NOW
 
     last_time_t_seen = start_time_t
-    for time_t in xrange(start_time_t, end_time_t, INTERVAL):
+    for range_start in xrange(start_time_t, end_time_t, interval_in_seconds):
+        range_end = range_start + interval_in_seconds
         for (name, stat_func) in _FUNC_MAP.iteritems():
             if verbose:
                 print ("Calculating stats for %s from %s - %s"
-                       % (name, time_t, time_t + INTERVAL))
+                       % (name, range_start, range_end))
             this_last_time_t = stat_func(project_id, graphite_host,
-                                         time_t, time_t + INTERVAL,
+                                         range_start, range_end,
                                          verbose=verbose, dry_run=dry_run)
             if this_last_time_t:     # can be None for 'not implemented yet'
                 last_time_t_seen = max(last_time_t_seen, this_last_time_t)
@@ -506,10 +507,15 @@ if __name__ == '__main__':
                         help=('host:port to send stats to graphite '
                               '(using the pickle protocol). '
                               '(Default: %(default)s)'))
+    parser.add_argument('--interval', type=int,
+                        default=300,
+                        help=('Process this many minutes of logs at a time '
+                              '(Default: %(default)s)'))
     parser.add_argument('--verbose', '-v', action='store_true',
                         help="Show more information about what we're doing.")
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Show what we would do but don't do it.")
     args = parser.parse_args()
 
-    main(args.project_id, args.graphite_host, args.verbose, args.dry_run)
+    main(args.project_id, args.graphite_host, args.interval,
+         args.verbose, args.dry_run)
