@@ -5,6 +5,7 @@ Engine and Compute Engine. We also send it custom metrics based on
 data in graphite, our timeseries-graphing tool.
 """
 
+import calendar
 import json
 import os
 import re
@@ -15,9 +16,19 @@ import httplib2
 import oauth2client.client
 
 
-def rfc3339(time_t):
+def to_rfc3339(time_t):
     """Format a time_t in seconds since the UNIX epoch per RFC 3339."""
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time_t))
+
+
+def from_rfc3339(iso_string):
+    """Parse a time-string in RFC3339 into a time_t."""
+    # This is suprisingly hard to get right, since strptime assumes
+    # the local timezone by default.  I use a technique from
+    # http://aboutsimon.com/2013/06/05/datetime-hell-time-zone-aware-to-unix-timestamp/
+    time_t = time.strptime(iso_string.replace('Z', 'GMT').replace('.000', ''),
+                           '%Y-%m-%dT%H:%M:%S%Z')
+    return calendar.timegm(time_t)
 
 
 def custom_metric(name):
@@ -84,8 +95,8 @@ def send_to_cloudmonitoring(project_id, metric_map):
                 'timeseries': [{
                     'timeseriesDesc': {'project': project_id,
                                        'metric': custom_metric(name)},
-                    'point': {'start': rfc3339(timestamp),
-                              'end': rfc3339(timestamp),
+                    'point': {'start': to_rfc3339(timestamp),
+                              'end': to_rfc3339(timestamp),
                               'doubleValue': value}
                 }]
             })

@@ -65,6 +65,45 @@ def fetch(graphite_host, targets, from_str=None):
     return json.load(urllib2.urlopen(url))
 
 
+def send_to_graphite(graphite_host, records):
+    """Sends the given records to the graphite host.
+
+    The format of the pickle-protocol data is described at:
+    http://graphite.readthedocs.org/en/latest/feeding-carbon.html#the-pickle-protocol
+
+    Arguments:
+        graphite_host: hostname:port (port should be the port for the
+            pickle protocol, probably 2004), or '' or None to avoid
+            sending data to graphite.
+        records: A list of (key, (time_t, value)) pairs.  The key is
+            the graphite metric name (e.g. webapp.gae.summary.errors).
+            The value must be an int.
+    """
+    if not graphite_host or not records:
+        return
+
+    # Load the api key that we need to send data to graphite.
+    # This will (properly) raise an exception if this file isn't installed
+    # (based on the contents of webapp secrets.py).
+    with open(os.path.expanduser('~/hostedgraphite_secret')) as f:
+        api_key = f.read().strip()
+
+    # We need to prepend the api-key to each record we're sending.
+    records = [('%s.%s' % (api_key, k), v) for (k, v) in records]
+
+    (hostname, port_string) = graphite_host.split(':')
+    host_ip = socket.gethostbyname(hostname)
+    port = int(port_string)
+
+    pickled_data = cPickle.dumps(records, cPickle.HIGHEST_PROTOCOL)
+    payload = struct.pack("!L", len(pickled_data)) + pickled_data
+
+    graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    graphite_socket.connect((host_ip, port))
+    graphite_socket.send(payload)
+    graphite_socket.close()
+
+
 def maybe_send_to_graphite(graphite_host, category, records, module=None):
     """Send dashboard statistics to the graphite timeseries-graphing tool.
 
@@ -90,19 +129,8 @@ def maybe_send_to_graphite(graphite_host, category, records, module=None):
             assume this is global (not per-module) data and do not
             include it in the key.
     """
-    if not graphite_host:
-        return
-
-    # Load the api key that we need to send data to graphite.
-    # This will (properly) raise an exception if this file isn't installed
-    # (based on the contents of webapp secrets.py).
-    with open(os.path.expanduser('~/hostedgraphite_secret')) as f:
-        api_key = f.read().strip()
-
     epoch = datetime.datetime.utcfromtimestamp(0)
 
-    # The format of the pickle-protocol data is described at:
-    # http://graphite.readthedocs.org/en/latest/feeding-carbon.html#the-pickle-protocol
     graphite_data = []
     for record in records:
         record = record.copy()    # since we're munging it in place
@@ -116,20 +144,9 @@ def maybe_send_to_graphite(graphite_host, category, records, module=None):
                 module_component = '.%s' % module.replace('-', '_') + '_module'
             else:
                 module_component = ''
-            key = ('%s.webapp.gae.dashboard.%s%s.%s'
-                   % (api_key, category, module_component, field))
+            key = ('webapp.gae.dashboard.%s%s.%s'
+                   % (category, module_component, field))
 
             graphite_data.append((key, (timestamp, value)))
 
-    if graphite_data:
-        (hostname, port_string) = graphite_host.split(':')
-        host_ip = socket.gethostbyname(hostname)
-        port = int(port_string)
-
-        pickled_data = cPickle.dumps(graphite_data, cPickle.HIGHEST_PROTOCOL)
-        payload = struct.pack("!L", len(pickled_data)) + pickled_data
-
-        graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        graphite_socket.connect((host_ip, port))
-        graphite_socket.send(payload)
-        graphite_socket.close()
+    send_to_graphite(graphite_host, graphite_data)
