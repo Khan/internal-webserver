@@ -472,8 +472,8 @@ def main(project_id, graphite_host, verbose=False, dry_run=False):
     start_time_t = _time_t_of_latest_record() or _NOW - 86400 * 30
     end_time_t = _NOW
 
+    last_time_t_seen = start_time_t
     for time_t in xrange(start_time_t, end_time_t, INTERVAL):
-        last_time_t_seen = time_t
         for (name, stat_func) in _FUNC_MAP.iteritems():
             if verbose:
                 print ("Calculating stats for %s from %s - %s"
@@ -483,8 +483,6 @@ def main(project_id, graphite_host, verbose=False, dry_run=False):
                                          verbose=verbose, dry_run=dry_run)
             if this_last_time_t:     # can be None for 'not implemented yet'
                 last_time_t_seen = max(last_time_t_seen, this_last_time_t)
-        if last_time_t_seen == time_t:      # no new record seen
-            break
 
         if dry_run:
             print ("Would update last-processed-time from %s to %s"
