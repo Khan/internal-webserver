@@ -28,6 +28,7 @@ import apiclient.errors
 import httplib2
 import oauth2client.client
 
+import cloudmonitoring_util
 import graphite_util
 
 
@@ -79,8 +80,8 @@ def _get_usage_info(service, date, verbose=False):
     if verbose:
         print 'Fetching %s from bucket %s' % (filename, bucketname)
     try:
-        csv_contents = service.objects().get_media(
-            bucket=bucketname, object=filename).execute()
+        csv_contents = cloudmonitoring_util.execute_with_retries(
+            service.objects().get_media(bucket=bucketname, object=filename))
     except apiclient.errors.HttpError as e:
         if e.resp['status'] == '404':
             raise UsageRecordNotFound(date)

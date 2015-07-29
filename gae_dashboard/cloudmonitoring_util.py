@@ -7,11 +7,14 @@ data in graphite, our timeseries-graphing tool.
 
 import calendar
 import json
+import httplib
 import os
 import re
+import socket
 import time
 
 import apiclient.discovery
+import apiclient.errors
 import httplib2
 import oauth2client.client
 
@@ -65,6 +68,24 @@ def get_cloudmonitoring_service():
     return service
 
 
+def execute_with_retries(request, num_retries=9):
+    """Run request.execute() up to 3 times for non-fatal errors."""
+    for _ in xrange(num_retries):
+        try:
+            return request.execute()
+        except socket.error:
+            pass
+        except httplib.HTTPException:
+            pass
+        except apiclient.errors.HttpError as e:
+            code = int(e.resp['status'])
+            if code == 403 or code >= 500:     # 403: rate-limiting probably
+                pass
+            else:
+                raise
+        time.sleep(0.5)     # wait a bit before the next request
+
+
 def send_to_cloudmonitoring(project_id, metric_map):
     """Send lightweight metrics to the Cloud Monitoring API.
 
@@ -100,4 +121,4 @@ def send_to_cloudmonitoring(project_id, metric_map):
                               'doubleValue': value}
                 }]
             })
-        _ = write_request.execute()  # ignore the response
+        _ = execute_with_retries(write_request)  # ignore the response

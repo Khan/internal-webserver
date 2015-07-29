@@ -60,13 +60,14 @@ def _get_timeseries(metric, project_id, start_time_t, end_time_t):
     page_token = None
     while True:
         # TODO(csilvers): do I want to set 'window'?
-        r = _TIMESERIES.list(
-            project=project_id,
-            metric=metric,
-            oldest=cloudmonitoring_util.to_rfc3339(start_time_t),
-            youngest=cloudmonitoring_util.to_rfc3339(end_time_t),
-            pageToken=page_token,
-            count=10000).execute()
+        r = cloudmonitoring_util.execute_with_retries(
+            _TIMESERIES.list(
+                project=project_id,
+                metric=metric,
+                oldest=cloudmonitoring_util.to_rfc3339(start_time_t),
+                youngest=cloudmonitoring_util.to_rfc3339(end_time_t),
+                pageToken=page_token,
+                count=10000))
 
         # Merge these fields into retval.
         retval['kind'] = r['kind']
