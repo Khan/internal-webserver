@@ -17,14 +17,14 @@ import urllib2
 
 def fetch(graphite_host, targets, from_str=None):
     """Fetch data using graphite's Render URL API.
-    
+
     This requires that $HOME/hostedgraphite_access_secret exists and
     holds the hostedgraphite access key for read-only access. See
     aws-config/toby/setup.sh.
-    
+
     See the Render URL API docs, particularly for from_str, at
     http://graphite.readthedocs.org/en/latest/render_api.html#from-until
-    
+
     Arguments:
         graphite_host: host of graphite Render URL API, the segment
             between https:// and the first / for your graphite
@@ -32,15 +32,15 @@ def fetch(graphite_host, targets, from_str=None):
         targets: a list of graphite targets to fetch.
         from_str: a value for the "from" parameter to the Render URL
             API, e.g., -5min for the last 5 minutes.
-    
+
     Returns the JSON-formatted response as a Python object, which
     looks like this:
-    
+
         [{"target": "a", "datapoints": [[0.123, 1428603130], ...]},
          {"target": "b", "datapoints": [[0.456, 1428603000], ...]},
          ...
          ]
-    
+
     There is one item in the list for each target in the "targets"
     argument. The second argument in each datapoints is a timestamp,
     the number of seconds since the UNIX epoch.
@@ -48,21 +48,26 @@ def fetch(graphite_host, targets, from_str=None):
     """
     assert len(set(targets)) == len(targets), ('Duplicate target in %s'
                                                % targets)
-    
+
     # Load the access key that we need to read data from graphite.
     # This will (properly) raise an exception if this file isn't installed
     # (based on the contents of webapp secrets.py).
     with open(os.path.expanduser('~/hostedgraphite_access_secret')) as f:
         access_key = f.read().strip()
-    
+
     targets = ''.join('&target=%s' % urllib.quote(m, ')(') for m in targets)
     url = ('https://%s/%s/graphite/render/?format=json%s'
            % (graphite_host, access_key, targets))
     if from_str:
         url += '&from=%s' % urllib.quote(from_str.encode('utf-8'), ")(")
-    
-    logging.debug('Loading %s' % url.replace(access_key, '<access key>'))
-    return json.load(urllib2.urlopen(url))
+
+    loggable_url = url.replace(access_key, '<access key>')
+    logging.debug('Loading %s' % loggable_url)
+    try:
+        return json.load(urllib2.urlopen(url))
+    except Exception:
+        logging.error('Error loading %s' % loggable_url)
+        raise
 
 
 def send_to_graphite(graphite_host, records):
