@@ -40,6 +40,32 @@ def _write_time_t_of_latest_record(time_t):
         print >>f, time_t
 
 
+def _get_percentiles(values):
+    """Given a list of (value, count) pairs, returns percentiles as a dict.
+
+    The dict looks like:
+    {1: <value at 1st percentile>, 5: <value at 5th percentile>, ...}
+    """
+    if not values:
+        return {}
+
+    total_count = sum(c for (_, c) in values)
+    retval = {1: None, 5: None, 25: None, 50: None,
+              75: None, 95: None, 99: None}
+    count_so_far = 0
+    for (i, (value, count)) in enumerate(sorted(values)):
+        count_so_far += count
+        pct_so_far = count_so_far * 100.0 / total_count
+        for pct in retval:
+            if pct_so_far > pct and retval[pct] is None:
+                retval[pct] = value
+            elif pct_so_far == pct and retval[pct] is None:
+                # Right on the border!, so we need to average the buckets.
+                next_value = values[i + 1][1]
+                retval[pct] = (value + next_value) / 2
+    return retval
+
+
 _TIMESERIES = None
 _TIMESERIES_CACHE = {}      # map from fn args to returned dict.
 
@@ -108,12 +134,16 @@ def _parse_points(points, make_per_second=False):
     we tend to use per-second counts in graphite, while
     cloudmonitoring likes to give absolute counts over a time-range.
 
+    If points is a distributionValue, value not a single number but a
+    list of (value, count) pairs.  Since we're only given buckets and
+    not real values, these values are estimates.
+
     See
         https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
     for a description of the 'points' array.
 
     """
-    retval = set()
+    retval = []
     for point in points:
         start_time = cloudmonitoring_util.from_rfc3339(point['start'])
         end_time = cloudmonitoring_util.from_rfc3339(point['end'])
@@ -130,7 +160,23 @@ def _parse_points(points, make_per_second=False):
         elif 'int64Value' in point:
             value = int(point['int64Value'])
         elif 'distributionValue' in point:
-            raise NotImplementedError('Support distributionValue')
+            assert not make_per_second, "no per-second for distributions"
+            # distributionValue is documented here:
+            # https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
+            buckets = point['distributionValue']['buckets']
+            if 'underflowBucket' in point['distributionValue']:
+                buckets.append(point['distributionValue']['underflowBucket'])
+            if 'overflowBucket' in point['distributionValue']:
+                buckets.append(point['distributionValue']['overflowBucket'])
+            value = []
+            for bucket in buckets:
+                count = int(bucket['count'])
+                # For underflow buckets, assume the lowest bound is 0.
+                lower_bound = float(bucket.get('lowerBound', 0))
+                # For overflow buckets, be optimistic they're all *barely* over
+                upper_bound = float(bucket.get('upperBound', lower_bound))
+                avg = (lower_bound + upper_bound) / 2.0
+                value.append((avg, count))
         else:
             raise ValueError('Point %s lacks an expected value key' % point)
 
@@ -139,7 +185,7 @@ def _parse_points(points, make_per_second=False):
             value = value * 1.0 / (end_time - start_time)
 
         # We associate the number with the minute it *ends* on.
-        retval.add((end_time, value))
+        retval.append((end_time, value))
 
     return retval
 
@@ -153,24 +199,29 @@ def _add_points(existing_points, new_points, combinator):
     existing and new point.  If no such existing point exists, we just
     add the new point to existing_points.
 
-    The combinator should be 'sum'.  If there's a need for 'avg', we'll
-    need to re-implement this to do proper weighting.
+    The combinator should be 'sum' for normal values and 'append' for
+    distribution values.  If there's a need for 'avg', we'll need to
+    re-implement this to do proper weighting.
 
     This is used when combining points from the same module but
     different versions.  In such cases we'll have two different
     timeseries-maps over the same time-period, but with different
     module and version fields.
     """
-    assert combinator in ('sum',), combinator
-
     new_points = dict(new_points)     # convert to map from time_t -> value
     for i in xrange(len(existing_points)):
         (time_t, value) = existing_points[i]
         if time_t in new_points:
             if combinator == 'sum':
-                existing_points[i] = (time_t, value + new_points.pop(time_t))
+                assert isinstance(value, (int, float)), value
+                new_value = value + new_points.pop(time_t)
+            elif combinator == 'append':
+                assert isinstance(value, list), value
+                # Same implementation!  But a more descriptive name.
+                new_value = value + new_points.pop(time_t)
             else:
                 raise NotImplementedError("We don't support %s" % combinator)
+            existing_points[i] = (time_t, new_value)
     existing_points.extend(sorted(new_points.iteritems()))
 
 
@@ -212,17 +263,8 @@ def _collect_per_module_per_second(data, filter=None):
     return retval
 
 
-# This decorator marks a function that returns data suitable for
-# sending to graphite.  All functions marked with this decorator will
-# automatically be called via fetch_stats, and send data to graphite
-# with the name webapp.gae.dashboard.<string>.  <string> can include
-# '%(module_name)s'.
-_FUNC_MAP = {}     # map from graphite-name to function to call for it
-
-
 def _send_to_graphite_given_values(graphite_host, graphite_name, values,
                                    verbose=False):
-
     """Actually do the sending to graphite once values are computed.
 
     values is either a list of (time_t, value) pairs, or a dict from
@@ -241,7 +283,7 @@ def _send_to_graphite_given_values(graphite_host, graphite_name, values,
                 key_suffix = graphite_name.replace('%(module_name)s.', '')
             else:
                 module = module_name.replace('-', '_') + '_module'
-                key_suffix = graphite_name % {'module_name': module}
+                key_suffix = graphite_name.replace('%(module_name)s', module)
             retval = max(retval,
                          _send_to_graphite_given_values(
                              graphite_host, key_suffix, module_values,
@@ -250,7 +292,20 @@ def _send_to_graphite_given_values(graphite_host, graphite_name, values,
     else:
         assert '%(module_name)s' not in graphite_name, graphite_name
         key = 'webapp.gae.dashboard.%s' % graphite_name
-        graphite_data = [(key, v) for v in sorted(values)]
+        graphite_data = []
+        for (time_t, value) in values:
+            if hasattr(value, '__iter__'):    # a list or the like
+                assert '%(percentile)s' in graphite_name, graphite_name
+                percentile_map = _get_percentiles(value)
+                for (pct, pct_value) in percentile_map.iteritems():
+                    pct_label = 'pct%d' % pct
+                    pct_key = key.replace('%(percentile)s', pct_label)
+                    graphite_data.append((pct_key, (time_t, pct_value)))
+            else:
+                assert '%(percentile)s' not in graphite_name, graphite_name
+                graphite_data.append((key, (time_t, value)))
+        graphite_data.sort()
+
         if verbose:
             if graphite_host:
                 print "--> Sending to graphite:"
@@ -262,7 +317,33 @@ def _send_to_graphite_given_values(graphite_host, graphite_name, values,
                 str(v).replace('webapp.gae.dashboard.summary.', 'w.g.d.s.')
                 for v in graphite_data)
         graphite_util.send_to_graphite(graphite_host, graphite_data)
-        return graphite_data[-1][1][0] if graphite_data else 0
+        if not graphite_data:
+            return 0
+        else:
+            return max(time_t for (_, (time_t, __)) in graphite_data)
+
+
+# This decorator marks a function that returns data suitable for
+# sending to graphite.  All functions marked with this decorator will
+# automatically be called from main(), and send data to graphite
+# with the name webapp.gae.dashboard.<string>.  By default, the
+# decorated function should return a list of (time_t, value) pairs;
+# these will be sent to graphite with the graphite-key taken from
+# the decorator argument.  The decorator-argument can include
+# the following special substrings:
+#    * '%(module_name)s': in this case, the decorated function must
+#      return a map from module-name to (time_t, value) pairs.  We
+#      will incorporate the module name into the graphite-key.  The
+#      map can include a "None" key, which will replace the
+#      "%(module_name)" component of the key with nothing.
+#    * '%(percentile)s': in this case, instead of (time_t, value)
+#      the decorated function should return (time_t, count_value_pairs)
+#      We will generate 7 different graphite stats from a given
+#      piece of data: the 1st percentile value, 5th, 25th, 50th, 75th,
+#      95th, and 99th.
+#    It is possible to have both %(module_name)s and %(percentile)s in a
+#    single key-name.
+_FUNC_MAP = {}     # map from graphite-name to function to call for it
 
 
 def _send_to_graphite(graphite_name):
@@ -361,14 +442,47 @@ def cached_requests_per_second(timeseries_getter):
     return _collect_per_module_per_second(data, filter)
 
 
-@_send_to_graphite('summary.%(module_name)s.milliseconds_per_dynamic_request')
+@_send_to_graphite(
+    'summary.%(module_name)s.milliseconds_per_dynamic_request.%(percentile)s')
 def milliseconds_per_dynamic_request(timeseries_getter):
-    return None
+    data = timeseries_getter(
+        'appengine.googleapis.com/http/server/response_latencies')
+
+    retval = {}
+    for timeseries in data['timeseries']:
+        if timeseries['timeseriesDesc']['labels'][
+                'appengine.googleapis.com/loading'] == 'true':
+            # TODO(csilvers): this is really
+            # "milliseconds_per_non_loading_request().  Figure out how
+            # to filter out non-dynamic!
+            continue
+
+        module = _get_module(timeseries)
+        points = _parse_points(timeseries['points'])
+        _add_points(retval.setdefault(module, []), points, 'append')
+        _add_points(retval.setdefault(None, []), points, 'append')
+
+    return retval
 
 
-@_send_to_graphite('summary.%(module_name)s.milliseconds_per_loading_request')
+@_send_to_graphite(
+    'summary.%(module_name)s.milliseconds_per_loading_request.%(percentile)s')
 def milliseconds_per_loading_request(timeseries_getter):
-    return None
+    data = timeseries_getter(
+        'appengine.googleapis.com/http/server/response_latencies')
+
+    retval = {}
+    for timeseries in data['timeseries']:
+        if timeseries['timeseriesDesc']['labels'][
+                'appengine.googleapis.com/loading'] != 'true':
+            continue
+
+        module = _get_module(timeseries)
+        points = _parse_points(timeseries['points'])
+        _add_points(retval.setdefault(module, []), points, 'append')
+        _add_points(retval.setdefault(None, []), points, 'append')
+
+    return retval
 
 
 @_send_to_graphite('summary.%(module_name)s.quota_denials_per_second')
