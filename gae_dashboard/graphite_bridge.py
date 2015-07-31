@@ -103,13 +103,16 @@ def _default_metrics():
 
     metrics = [
         Metric(
-            'webapp.gae.dashboard.instances.default_module.average_latency_ms',
+            'webapp.gae.dashboard.summary.default_module.'
+            'milliseconds_per_dynamic_request.pct50',
             name='default_module.average_latency_ms'),
         Metric(
-            'webapp.gae.dashboard.instances.batch_module.average_latency_ms',
+            'webapp.gae.dashboard.summary.batch_module.'
+            'milliseconds_per_dynamic_request.pct50',
             name='batch_module.average_latency_ms'),
         _historical_ratio_metric(
-            'webapp.gae.dashboard.instances.batch_module.average_latency_ms',
+            'webapp.gae.dashboard.summary.batch_module.'
+            'milliseconds_per_dynamic_request.pct50',
             name='batch_module.average_latency_ms.week_over_week',
             timeshift='7d'),
 
