@@ -103,8 +103,14 @@ def send_to_graphite(graphite_host, records):
     pickled_data = cPickle.dumps(records, cPickle.HIGHEST_PROTOCOL)
     payload = struct.pack("!L", len(pickled_data)) + pickled_data
 
-    graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    graphite_socket.connect((host_ip, port))
+    for i in xrange(1, 4):
+        try:
+            graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            graphite_socket.connect((host_ip, port))
+            break
+        except socket.error:
+            logging.warning('Failed to connect to graphite, retrying '
+                            '(attempt %s)' % i)
     graphite_socket.send(payload)
     graphite_socket.close()
 
