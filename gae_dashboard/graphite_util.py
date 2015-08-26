@@ -109,8 +109,10 @@ def send_to_graphite(graphite_host, records):
             graphite_socket.connect((host_ip, port))
             break
         except socket.error:
-            logging.warning('Failed to connect to graphite, retrying '
-                            '(attempt %s)' % i)
+            logging.debug('Failed to connect to graphite, retrying '
+                          '(attempt %s)' % i)
+    else:
+        logging.fatal('Failed to connect to graphite after 4 attempts')
     graphite_socket.send(payload)
     graphite_socket.close()
 
