@@ -63,21 +63,30 @@ def get_cloudmonitoring_service():
         json_key['client_email'], json_key['private_key'],
         'https://www.googleapis.com/auth/monitoring')
     http = credentials.authorize(httplib2.Http())
-    service = apiclient.discovery.build(serviceName="cloudmonitoring",
-                                        version="v2beta2", http=http)
-    return service
+    num_retries = 9
+    for i in xrange(num_retries + 1):
+        try:
+            return apiclient.discovery.build(serviceName="cloudmonitoring",
+                                             version="v2beta2", http=http)
+        except (socket.error, httplib.HTTPException,
+                oauth2client.client.Error):
+            if i == num_retries:
+                raise
+            time.sleep(0.5)     # wait a bit before the next request
 
 
 def execute_with_retries(request, num_retries=9):
     """Run request.execute() up to 3 times for non-fatal errors."""
-    for _ in xrange(num_retries):
+    for i in xrange(num_retries + 1):     # the last time, we re-raise
         try:
             return request.execute()
-        except socket.error:
-            pass
-        except httplib.HTTPException:
+        except (socket.error, httplib.HTTPException):
+            if i == num_retries:
+                raise
             pass
         except apiclient.errors.HttpError as e:
+            if i == num_retries:
+                raise
             code = int(e.resp['status'])
             if code == 403 or code >= 500:     # 403: rate-limiting probably
                 pass
