@@ -125,18 +125,29 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         else:
             github_api_url = None
 
+    # When adding a new github repo to phabricator, we want to use the
+    # ssh url for a private repo and the https url for a public repo.
+    # (TODO(csilvers): any reason not to just use the ssh url everywhere?)
+    # But if a repo changes from public to private, we don't want to
+    # (or need to) change the phabricator state.  So for every repo
+    # we store a pair of urls.  The first item of the pair is the url
+    # to use when adding.  But we don't need to add if *either* url is
+    # in phabricator.
     github_repos = set()
     for repo in github_repo_info:
         try:
+            ssh_url = repo['ssh_url']
+            if ssh_url.endswith('.git'):
+                ssh_url = ssh_url[:-len('.git')]
+
+            clone_url = repo['clone_url']
+            if clone_url.endswith('.git'):
+                clone_url = clone_url[:-len('.git')]
+
             if repo['private']:
-                repo_url = repo['ssh_url']
+                github_repos.add((ssh_url, clone_url))
             else:
-                repo_url = repo['clone_url']
-
-            if repo_url.endswith('.git'):
-                repo_url = repo_url[:-len('.git')]
-
-            github_repos.add(repo_url)
+                github_repos.add((clone_url, ssh_url))
         except (TypeError, IndexError):
             raise RuntimeError('Unexpected response from github: %s'
                                % github_repo_info)
@@ -170,14 +181,20 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     if verbose:
         def _print(name, lst):
             print '* Existing %s repos:\n%s\n' % (name, '\n'.join(sorted(lst)))
-        _print('github', github_repos)
+        _print('github', {u1 for (u1, _) in github_repos})
         _print('(tracked) phabricator', tracked_phabricator_repos)
         _print('UNTRACKED phabricator',
                phabricator_repos - tracked_phabricator_repos)
 
-    actual_repos = github_repos
-    new_repos = actual_repos - phabricator_repos
-    deleted_repos = tracked_phabricator_repos - actual_repos
+    new_repos = set()
+    # Either url refers to the same repo, so we have to check both.
+    for (url1, url2) in github_repos:
+        if url1 not in phabricator_repos and url2 not in phabricator_repos:
+            new_repos.add(url1)
+
+    deleted_repos = (tracked_phabricator_repos -
+                     {u1 for (u1, _) in github_repos} -
+                     {u2 for (_, u2) in github_repos})
     return (new_repos, deleted_repos, repo_to_callsign_map)
 
 
