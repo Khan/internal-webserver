@@ -25,7 +25,7 @@ import bq_util
 
 
 # Report on the previous day by default
-_DEFAULT_DAY = datetime.datetime.now() - datetime.timedelta(1)
+_DEFAULT_DAY = datetime.datetime.utcnow() - datetime.timedelta(1)
 
 
 def _is_number(s):
