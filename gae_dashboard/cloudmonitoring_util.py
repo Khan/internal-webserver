@@ -52,35 +52,13 @@ def custom_metric(name):
     return ('%s%s' % (prefix, re.sub('[^a-zA-Z0-9_.]', '_', name)))
 
 
-def get_cloudmonitoring_service():
-    # Load the private key that we need to write data to Cloud
-    # Monitoring. This will (properly) raise an exception if this file
-    # isn't installed (it's acquired from the Cloud Platform Console).
-    with open(os.path.expanduser('~/cloudmonitoring_secret.json')) as f:
-        json_key = json.load(f)
-
-    credentials = oauth2client.client.SignedJwtAssertionCredentials(
-        json_key['client_email'], json_key['private_key'],
-        'https://www.googleapis.com/auth/monitoring')
-    http = credentials.authorize(httplib2.Http())
-    num_retries = 9
-    for i in xrange(num_retries + 1):
-        try:
-            return apiclient.discovery.build(serviceName="cloudmonitoring",
-                                             version="v2beta2", http=http)
-        except (socket.error, httplib.HTTPException,
-                oauth2client.client.Error):
-            if i == num_retries:
-                raise
-            time.sleep(0.5)     # wait a bit before the next request
-
-
-def execute_with_retries(request, num_retries=9):
-    """Run request.execute() up to 3 times for non-fatal errors."""
+def _call_with_retries(fn, num_retries=9):
+    """Run fn (a network command) up to 9 times for non-fatal errors."""
     for i in xrange(num_retries + 1):     # the last time, we re-raise
         try:
-            return request.execute()
-        except (socket.error, httplib.HTTPException):
+            return fn()
+        except (socket.error, httplib.HTTPException,
+                oauth2client.client.Error):
             if i == num_retries:
                 raise
             pass
@@ -93,6 +71,29 @@ def execute_with_retries(request, num_retries=9):
             else:
                 raise
         time.sleep(0.5)     # wait a bit before the next request
+
+
+def get_cloudmonitoring_service():
+    # Load the private key that we need to write data to Cloud
+    # Monitoring. This will (properly) raise an exception if this file
+    # isn't installed (it's acquired from the Cloud Platform Console).
+    with open(os.path.expanduser('~/cloudmonitoring_secret.json')) as f:
+        json_key = json.load(f)
+
+    def get_service():
+        credentials = oauth2client.client.SignedJwtAssertionCredentials(
+            json_key['client_email'], json_key['private_key'],
+            'https://www.googleapis.com/auth/monitoring')
+        http = credentials.authorize(httplib2.Http())
+        return apiclient.discovery.build(serviceName="cloudmonitoring",
+                                         version="v2beta2", http=http)
+
+    return _call_with_retries(get_service)
+
+
+def execute_with_retries(request, num_retries=9):
+    """Run request.execute() up to 9 times for non-fatal errors."""
+    return _call_with_retries(request.execute, num_retries=num_retries)
 
 
 def send_to_cloudmonitoring(project_id, metric_map):
