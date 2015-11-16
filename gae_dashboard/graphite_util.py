@@ -6,6 +6,7 @@ the GAE admin dashboard to graphite in order to graph them.
 
 import cPickle
 import datetime
+import httplib
 import json
 import logging
 import os
@@ -13,6 +14,18 @@ import socket
 import struct
 import urllib
 import urllib2
+
+
+def _retry(fn, description, exceptions_to_retry, retry_count=3):
+    """A simple retry function."""
+    for i in xrange(1, retry_count):
+        try:
+            return fn()
+        except exceptions_to_retry():
+            logging.debug('FAILED: %s (attempt %s, retrying)'
+                          % (description, i))
+    # Try one last time, which will just raise if it fails.
+    return fn()
 
 
 def fetch(graphite_host, targets, from_str=None):
@@ -64,7 +77,9 @@ def fetch(graphite_host, targets, from_str=None):
     loggable_url = url.replace(access_key, '<access key>')
     logging.debug('Loading %s' % loggable_url)
     try:
-        return json.load(urllib2.urlopen(url))
+        data = _retry(lambda: urllib2.urlopen(url), 'loading graphite data',
+                      (socket.error, urllib2.HTTPError, httplib.HTTPException))
+        return json.load(data)
     except Exception:
         logging.error('Error loading %s' % loggable_url)
         raise
@@ -103,16 +118,13 @@ def send_to_graphite(graphite_host, records):
     pickled_data = cPickle.dumps(records, cPickle.HIGHEST_PROTOCOL)
     payload = struct.pack("!L", len(pickled_data)) + pickled_data
 
-    for i in xrange(1, 4):
-        try:
-            graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            graphite_socket.connect((host_ip, port))
-            break
-        except socket.error:
-            logging.debug('Failed to connect to graphite, retrying '
-                          '(attempt %s)' % i)
-    else:
-        logging.fatal('Failed to connect to graphite after 4 attempts')
+    def _connect_to_graphite():
+        graphite_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        graphite_socket.connect((host_ip, port))
+        return graphite_socket
+
+    graphite_socket = _retry(_connect_to_graphite, 'connecting to graphite',
+                             (socket.error,))
     graphite_socket.send(payload)
     graphite_socket.close()
 

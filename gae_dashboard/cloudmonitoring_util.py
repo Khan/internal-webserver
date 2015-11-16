@@ -68,6 +68,12 @@ def _call_with_retries(fn, num_retries=9):
             code = int(e.resp['status'])
             if code == 403 or code >= 500:     # 403: rate-limiting probably
                 pass
+            elif (code == 400 and
+                      'Timeseries data must be more recent' in str(e)):
+                # This error just means we uploaded the same data
+                # twice by accident (probably because the first time
+                # the connection to google died before we got their ACK).
+                pass
             else:
                 raise
         time.sleep(0.5)     # wait a bit before the next request
