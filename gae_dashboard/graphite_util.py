@@ -21,7 +21,7 @@ def _retry(fn, description, exceptions_to_retry, retry_count=3):
     for i in xrange(1, retry_count):
         try:
             return fn()
-        except exceptions_to_retry():
+        except exceptions_to_retry:
             logging.debug('FAILED: %s (attempt %s, retrying)'
                           % (description, i))
     # Try one last time, which will just raise if it fails.
