@@ -291,4 +291,13 @@ def main():
 
 
 if __name__ == "__main__":
+    # I put this in to debug where this process is (sometimes) timing out.
+    # When `timeout` sends a SIGTERM, we will print the stacktrace first.
+    import signal
+    import sys
+    import traceback
+    signal.signal(signal.SIGTERM,
+                  lambda sig, stack: (traceback.print_stack(stack),
+                                      sys.exit(1)))
+
     main()
