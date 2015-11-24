@@ -73,7 +73,8 @@ def _call_with_retries(fn, num_retries=9):
                 # This error just means we uploaded the same data
                 # twice by accident (probably because the first time
                 # the connection to google died before we got their ACK).
-                pass
+                # We just pretend the call magically succeeded.
+                return
             else:
                 raise
         time.sleep(0.5)     # wait a bit before the next request
