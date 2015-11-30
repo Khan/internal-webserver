@@ -77,7 +77,8 @@ def fetch(graphite_host, targets, from_str=None):
     loggable_url = url.replace(access_key, '<access key>')
     logging.debug('Loading %s' % loggable_url)
     try:
-        data = _retry(lambda: urllib2.urlopen(url), 'loading graphite data',
+        data = _retry(lambda: urllib2.urlopen(url, timeout=60),
+                      'loading graphite data',
                       (socket.error, urllib2.HTTPError, httplib.HTTPException))
         return json.load(data)
     except Exception:
