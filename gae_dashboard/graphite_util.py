@@ -79,7 +79,7 @@ def fetch(graphite_host, targets, from_str=None):
     try:
         data = _retry(lambda: urllib2.urlopen(url, timeout=60),
                       'loading graphite data',
-                      (socket.error, urllib2.HTTPError, httplib.HTTPException))
+                      (socket.error, urllib2.URLError, httplib.HTTPException))
         return json.load(data)
     except Exception:
         logging.error('Error loading %s' % loggable_url)
