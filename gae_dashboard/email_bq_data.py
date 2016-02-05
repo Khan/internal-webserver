@@ -242,12 +242,17 @@ def _embed_images_to_mime(html, images):
 # Looking at the average utilization handles that case as well.
 # We calculate the utilization by periodically running (in bigquery):
 """
-SELECT module_id, round(sum(utilization * util_weight) / sum(util_weight), 3) as avg_utilization from (
-    -- sum(latency - pending_time): time spent by all requests for this instance
+SELECT module_id,
+       round(sum(utilization * util_weight) / sum(util_weight), 3)
+          as avg_utilization from (
+    -- sum(latency-pending_time): time spent by all requests for this instance
     -- min(start_time): when the instance was created
     -- max(end_time): when the instance died
     -- util_weight: to give more weight to longer-lived instances
-    SELECT module_id, sum(latency - pending_time) / (max(end_time) - min(start_time)) as utilization, max(end_time) - min(start_time) as util_weight
+    SELECT module_id,
+           sum(latency - pending_time) / (max(end_time) - min(start_time))
+             as utilization,
+           max(end_time) - min(start_time) as util_weight
     FROM logs.requestlogs_20150316
     WHERE instance_key is not null
     GROUP BY module_id, instance_key)
@@ -317,7 +322,11 @@ ORDER BY instance_hours DESC
 
 
 def email_rpcs(date):
-    """Email RPCs-per-route report for the given datetime.date object."""
+    """Email RPCs-per-route report for the given datetime.date object.
+
+    Also email a more urgent message if one of the RPCs is too expensive.
+    This indicates a bug that is costing us money.
+    """
     yyyymmdd = date.strftime("%Y%m%d")
     rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete', 'Commit')
 
@@ -389,6 +398,16 @@ ORDER BY tcost.rpc_cost DESC;
     _send_email({heading: data[:75]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject)
+
+    # As of 1 Feb 2016, the most expensive RPC route is about $300 a
+    # day.  More than $750 a day and we should be very suspcious.
+    # TODO(csilvers): do this check more frequently.
+    # TODO(csilvers): send to slack and/or 911 as well as emailing
+    if any(row[2] > 750 for row in data):
+        _send_email({heading: data[:75]}, None,
+                    to=['infrastructure@khanacademy.org'],
+                    subject=('WARNING: some very expensive RPC calls on %s!'
+                             % _pretty_date(yyyymmdd)))
 
 
 def email_out_of_memory_errors(date):
