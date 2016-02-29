@@ -55,7 +55,15 @@ push_upstream phabricator
 push_upstream libphutil
 push_upstream arcanist
 
-git -c status.submodulesummary=true status
+git status
+# The summary has lines like '* arcanist db0f22a...b3021f4 (1):'
+git submodule summary --summary-limit 1 | grep '^\*' | while read line; do
+    subrepo=`echo "$line" | cut -d" " -f2`
+    range=`echo "$line" | cut -d" " -f3`
+    echo
+    echo ">>> $subrepo"
+    ( cd "$subrepo" && git log --oneline "$range" | cat)
+done
 
 echo -n "Does everything look ok? (y/N) "
 read prompt
