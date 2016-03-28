@@ -10,6 +10,11 @@ import subprocess
 _DATA_DIRECTORY = os.path.join(os.getenv('HOME'), 'bq_data/')
 
 
+class BQException(Exception):
+    """An error trying to fetch data from bigquery."""
+    pass
+
+
 def _get_data_filename(report, yyyymmdd):
     """Gets the filename in which old data might be stored.
 
@@ -110,20 +115,24 @@ def query_bigquery(sql_query, retries=2):
     # want to display the first 100 or so, but the rest may be useful to save.
 
     data = None
+    error_msg = None
 
     for i in range(1 + retries):
         try:
             data = subprocess.check_output(
-                            ['bq', '-q', '--format=json', '--headless',
-                             'query', '--max_rows=10000', sql_query])
+                ['bq', '-q', '--format=json', '--headless',
+                 '--project_id', 'khanacademy.org:deductive-jet-827',
+                 'query', '--max_rows=10000', sql_query])
 
             break
         except subprocess.CalledProcessError as why:
             print "-- Running query failed with retcode %d --" % why.returncode
-            print why.output
+            error_msg = why.output
+            print error_msg
 
     if data is None:
-        raise Exception("-- Query failed after %d retries --" % retries)
+        raise BQException("-- Query failed after %d retries: %s --"
+                          % (retries, error_msg))
 
     table = json.loads(data)
 
