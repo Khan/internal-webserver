@@ -14,7 +14,6 @@ you run it twice without a new requestlogs_hourly log showing up, the
 second time is a noop.
 """
 
-import logging
 import os
 import time
 
@@ -62,7 +61,7 @@ WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
                for row in data]
 
     if not graphite_host:
-        logging.info('Would send to graphite: %s' % records)
+        print 'Would send to graphite: %s' % records
     else:
         graphite_util.send_to_graphite(graphite_host, records)
 
@@ -76,7 +75,7 @@ def main(graphite_host):
     for time_t in xrange(start_time_t, _NOW, 3600):
         # We use gmtime since bigquery stores all its data in UTC.
         yyyymmdd_hh = time.strftime('%Y%m%d_%H', time.gmtime(time_t))
-        logging.info("Collecting stats for %s" % yyyymmdd_hh)
+        print "Collecting stats for %s" % yyyymmdd_hh
 
         try:
             report_out_of_memory_errors(yyyymmdd_hh, graphite_host)
@@ -100,13 +99,6 @@ if __name__ == '__main__':
                               '(Default: %(default)s)'))
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Show what we would do but don't do it.")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help="Give more verbose output")
     args = parser.parse_args()
-
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     main(None if args.dry_run else args.graphite_host)
