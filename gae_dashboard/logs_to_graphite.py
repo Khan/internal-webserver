@@ -69,10 +69,10 @@ WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
 def main(graphite_host):
     """graphite_host can be None to not actually send the data to graphite."""
     # The hourly logs only go back in time a week.
-    start_time_t = _time_t_of_latest_record() or _NOW - 86400 * 7
-    time_t = start_time_t
+    last_time_t = _time_t_of_latest_record() or _NOW - 86400 * 7
+    time_t = last_time_t
 
-    for time_t in xrange(start_time_t, _NOW, 3600):
+    for time_t in xrange(last_time_t + 3600, _NOW, 3600):
         # We use gmtime since bigquery stores all its data in UTC.
         yyyymmdd_hh = time.strftime('%Y%m%d_%H', time.gmtime(time_t))
         print "Collecting stats for %s" % yyyymmdd_hh
