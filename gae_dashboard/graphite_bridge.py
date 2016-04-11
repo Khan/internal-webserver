@@ -24,7 +24,7 @@ health, error counts, billed resources, and so on.
 
 Google's Cloud Monitoring integrates nicely with App Engine, which
 runs www.khanacademy.org, and has some very nice alerting features to
-notify developers via HipChat, PagerDuty, email, &c. when things go
+notify developers via Slack, PagerDuty, email, &c. when things go
 wrong.
 
 This script is the bridge that enables Cloud Monitoring to trigger

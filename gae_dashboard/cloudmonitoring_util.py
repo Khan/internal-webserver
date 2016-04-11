@@ -29,7 +29,7 @@ def from_rfc3339(iso_string):
     # This is suprisingly hard to get right, since strptime assumes
     # the local timezone by default.  I use a technique from
     # http://aboutsimon.com/2013/06/05/datetime-hell-time-zone-aware-to-unix-timestamp/
-    time_t = time.strptime(iso_string.replace('Z', 'GMT').replace('.000', ''),
+    time_t = time.strptime(re.sub(r'\.\d{3}Z$', 'GMT', iso_string),
                            '%Y-%m-%dT%H:%M:%S%Z')
     return calendar.timegm(time_t)
 
@@ -44,7 +44,7 @@ def custom_metric(name):
     characters are converted to underscores.
     """
     # Don't guess at automatic truncation. Let the caller decide.
-    prefix = 'custom.cloudmonitoring.googleapis.com/'
+    prefix = 'custom.googleapis.com/'
     maxlen = 100 - len(prefix)
     if len(name) > maxlen:
         raise ValueError('Metric name too long: %d (limit %d): %s'
@@ -92,8 +92,8 @@ def get_cloudmonitoring_service():
             json_key['client_email'], json_key['private_key'],
             'https://www.googleapis.com/auth/monitoring')
         http = credentials.authorize(httplib2.Http())
-        return apiclient.discovery.build(serviceName="cloudmonitoring",
-                                         version="v2beta2", http=http)
+        return apiclient.discovery.build(serviceName="monitoring",
+                                         version="v3", http=http)
 
     return _call_with_retries(get_service)
 
@@ -127,15 +127,25 @@ def send_to_cloudmonitoring(project_id, metric_map):
         assert len(datapoints) == 1, datapoints  # ensure one point per metric
         value, timestamp = datapoints[0]
         # TODO(chris): use labeled metrics and batch sending datapoints.
-        write_request = service.timeseries().write(
-            project=project_id,
+        # Documentation for this is at
+        #   https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
+        write_request = service.projects().timeSeries().create(
+            name='projects/%s' % project_id,
             body={
-                'timeseries': [{
-                    'timeseriesDesc': {'project': project_id,
-                                       'metric': custom_metric(name)},
-                    'point': {'start': to_rfc3339(timestamp),
-                              'end': to_rfc3339(timestamp),
-                              'doubleValue': value}
+                'timeSeries': [{
+                    'metricKind': 'gauge',
+                    'metric': {
+                        'type': custom_metric(name),
+                    },
+                    'points': [{
+                        'interval': {
+                            'startTime': to_rfc3339(timestamp),
+                            'endTime': to_rfc3339(timestamp),
+                        },
+                        'value': {
+                            'doubleValue': value,
+                        }
+                    }]
                 }]
             })
         _ = execute_with_retries(write_request)  # ignore the response

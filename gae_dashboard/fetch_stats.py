@@ -71,7 +71,7 @@ _TIMESERIES_CACHE = {}      # map from fn args to returned dict.
 
 
 def _get_timeseries(metric, project_id, start_time_t, end_time_t):
-    """service.timeseries().list(), but with caching and auto-paging."""
+    """service.projects().timeSeries().list() plus caching and auto-paging."""
     global _TIMESERIES
 
     cache_key = (project_id, metric, start_time_t, end_time_t)
@@ -80,30 +80,23 @@ def _get_timeseries(metric, project_id, start_time_t, end_time_t):
 
     if _TIMESERIES is None:
         service = cloudmonitoring_util.get_cloudmonitoring_service()
-        _TIMESERIES = service.timeseries()
+        _TIMESERIES = service.projects().timeSeries()
 
-    retval = {'timeseries': []}
+    retval = {'timeSeries': []}
     page_token = None
     while True:
         # TODO(csilvers): do I want to set 'window'?
         r = cloudmonitoring_util.execute_with_retries(
             _TIMESERIES.list(
-                project=project_id,
-                metric=metric,
-                oldest=cloudmonitoring_util.to_rfc3339(start_time_t),
-                youngest=cloudmonitoring_util.to_rfc3339(end_time_t),
+                name='projects/%s' % project_id,
+                filter='metric.type = "%s"' % metric,
+                interval_startTime=cloudmonitoring_util.to_rfc3339(
+                    start_time_t),
+                interval_endTime=cloudmonitoring_util.to_rfc3339(end_time_t),
                 pageToken=page_token,
-                count=10000))
+                pageSize=10000))
 
-        # Merge these fields into retval.
-        retval['kind'] = r['kind']
-        # Luckily, RFC3339 dates can be lexicographically compared.
-        if 'youngest' not in retval or r['youngest'] > retval['youngest']:
-            retval['youngest'] = r['youngest']
-        if 'oldest' not in retval or r['oldest'] < retval['oldest']:
-            retval['oldest'] = r['oldest']
-
-        retval['timeseries'].extend(r.get('timeseries', []))
+        retval['timeSeries'].extend(r.get('timeSeries', []))
 
         # Go to the next page of results, if necessary.
         if 'nextPageToken' in r:
@@ -116,14 +109,13 @@ def _get_timeseries(metric, project_id, start_time_t, end_time_t):
 
 
 def _get_module(timeseries):
-    """Extracts the module from an entry in the 'timeseries' array.
+    """Extracts the module from an entry in the 'timeSeries' array.
 
     See
-        https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
-    for a description of the 'timeseries' array.
+        https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
+    for a description of the 'timeSeries' array.
     """
-    return timeseries['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/module']
+    return timeseries['resource']['labels']['module_id']
 
 
 def _parse_points(points, make_per_second=False):
@@ -139,42 +131,60 @@ def _parse_points(points, make_per_second=False):
     not real values, these values are estimates.
 
     See
-        https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
+        https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
     for a description of the 'points' array.
 
     """
     retval = []
     for point in points:
-        start_time = cloudmonitoring_util.from_rfc3339(point['start'])
-        end_time = cloudmonitoring_util.from_rfc3339(point['end'])
+        interval = point['interval']
+        start_time = cloudmonitoring_util.from_rfc3339(interval['startTime'])
+        end_time = cloudmonitoring_util.from_rfc3339(interval['endTime'])
 
+        point_value = point['value']
         # For some reason -- maybe 32-bit compatibility? -- the
-        # cloudmonitoring API converts doubles and bools to native
-        # type, but not int64.
-        if 'doubleValue' in point:
-            value = point['doubleValue']
-        elif 'boolValue' in point:
-            value = point['boolValue']
-        elif 'stringValue' in point:
-            value = point['stringValue']
-        elif 'int64Value' in point:
-            value = int(point['int64Value'])
-        elif 'distributionValue' in point:
+        # Monitoring API converts doubles and bools to native type,
+        # but not int64.
+        if 'doubleValue' in point_value:
+            value = point_value['doubleValue']
+        elif 'boolValue' in point_value:
+            value = point_value['boolValue']
+        elif 'stringValue' in point_value:
+            value = point_value['stringValue']
+        elif 'int64Value' in point_value:
+            value = int(point_value['int64Value'])
+        elif 'distributionValue' in point_value:
             assert not make_per_second, "no per-second for distributions"
+            assert 'exponentialBuckets' in point_value['distributionValue'][
+                'bucketOptions'], 'unsupported non-exponential distribution'
             # distributionValue is documented here:
-            # https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
-            buckets = point['distributionValue']['buckets']
-            if 'underflowBucket' in point['distributionValue']:
-                buckets.append(point['distributionValue']['underflowBucket'])
-            if 'overflowBucket' in point['distributionValue']:
-                buckets.append(point['distributionValue']['overflowBucket'])
+            # https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
+            # The option exponentialBuckets defines buckets as
+            # `numFiniteBuckets + 2` (= N) buckets with these
+            # boundaries for bucket i:
+            #  Lower bound (1 <= i < N): scale * (growthFactor ^ (i - 1))
+            #  Upper bound (0 <= i < N-1): scale * (growthFactor ^ i)
+            # Note that bucket 0 is the underflow bucket, and bucket n - 1
+            # is the overflow bucket.
+            exponential_options = point_value['distributionValue'][
+                'bucketOptions']['exponentialBuckets']
+            n = exponential_options['numFiniteBuckets'] + 2
+            # Scale is 1 if missing (empirically compared to v2 API).
+            scale = exponential_options.get('scale', 1)
+            growthfactor = exponential_options['growthFactor']
             value = []
-            for bucket in buckets:
-                count = int(bucket['count'])
+            # Trailing buckets with 0 counts may be omitted; there may
+            # be not buckets at all.
+            for i, count in enumerate(point_value['distributionValue'].get(
+                    'bucketCounts', [])):
+                count = int(count)
+                if count == 0:
+                    continue
                 # For underflow buckets, assume the lowest bound is 0.
-                lower_bound = float(bucket.get('lowerBound', 0))
+                lower_bound = 0 if i == 0 else scale * pow(growthfactor, i - 1)
                 # For overflow buckets, be optimistic they're all *barely* over
-                upper_bound = float(bucket.get('upperBound', lower_bound))
+                upper_bound = lower_bound if i == n - 1 else (
+                    scale * pow(growthfactor, i))
                 avg = (lower_bound + upper_bound) / 2.0
                 value.append((avg, count))
         else:
@@ -228,7 +238,7 @@ def _add_points(existing_points, new_points, combinator):
 def _collect_per_module_per_second(data, filter=None):
     """Create a per-module dict of (time_t, value) pairs.
 
-    For every timeseries in 'data', which is a timeseries object
+    For every timeseries in 'data', which is a timeSeries object
     returned by the cloudmonitoring API, we apply the filter (if
     given), ignoring the timeseries if the filter returns False.
     Then, we take every datapoint in the timeseries and add it
@@ -245,14 +255,14 @@ def _collect_per_module_per_second(data, filter=None):
 
     Arguments:
        data: A cloudmonitoring data structure as returned by
-           service.timeseries().list(...).execute()
+           service.projects().timeSeries().list(...).execute()
        filter: a function that takes a timeseries dict and
            returns True if we should consider that dict and
            False else.  The timeseries dict is described at
-               https://developers.google.com/resources/api-libraries/documentation/cloudmonitoring/v2beta2/python/latest/cloudmonitoring_v2beta2.timeseries.html
+               https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
     """
     retval = {}
-    for timeseries in data['timeseries']:
+    for timeseries in data['timeSeries']:
         if filter and not filter(timeseries):
             continue
 
@@ -383,8 +393,8 @@ def client_errors_per_second(timeseries_getter):
     data = timeseries_getter(
         'appengine.googleapis.com/http/server/response_count')
 
-    filter = lambda ts: (ts['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/response_code'].startswith('4'))  # 4xx
+    filter = lambda ts: (ts['metric']['labels'][
+        'response_code'].startswith('4'))  # 4xx
 
     return _collect_per_module_per_second(data, filter)
 
@@ -394,8 +404,8 @@ def server_errors_per_second(timeseries_getter):
     data = timeseries_getter(
         'appengine.googleapis.com/http/server/response_count')
 
-    filter = lambda ts: (ts['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/response_code'].startswith('5'))  # 5xx
+    filter = lambda ts: (ts['metric']['labels'][
+        'response_code'].startswith('5'))  # 5xx
 
     return _collect_per_module_per_second(data, filter)
 
@@ -414,8 +424,7 @@ def static_requests_per_second(timeseries_getter):
     data = timeseries_getter(
         'appengine.googleapis.com/http/server/response_style_count')
 
-    filter = lambda ts: (ts['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/dynamic'] == 'false')
+    filter = lambda ts: (ts['metric']['labels']['dynamic'] == 'false')
 
     return _collect_per_module_per_second(data, filter)
 
@@ -425,8 +434,7 @@ def dynamic_requests_per_second(timeseries_getter):
     data = timeseries_getter(
         'appengine.googleapis.com/http/server/response_style_count')
 
-    filter = lambda ts: (ts['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/dynamic'] == 'true')
+    filter = lambda ts: (ts['metric']['labels']['dynamic'] == 'true')
 
     return _collect_per_module_per_second(data, filter)
 
@@ -436,8 +444,7 @@ def cached_requests_per_second(timeseries_getter):
     data = timeseries_getter(
         'appengine.googleapis.com/http/server/response_style_count')
 
-    filter = lambda ts: (ts['timeseriesDesc']['labels'][
-        'appengine.googleapis.com/cached'] == 'true')
+    filter = lambda ts: (ts['metric']['labels']['cached'] == 'true')
 
     return _collect_per_module_per_second(data, filter)
 
@@ -449,9 +456,8 @@ def milliseconds_per_dynamic_request(timeseries_getter):
         'appengine.googleapis.com/http/server/response_latencies')
 
     retval = {}
-    for timeseries in data['timeseries']:
-        if timeseries['timeseriesDesc']['labels'][
-                'appengine.googleapis.com/loading'] == 'true':
+    for timeseries in data['timeSeries']:
+        if timeseries['metric']['labels']['loading'] == 'true':
             # TODO(csilvers): this is really
             # "milliseconds_per_non_loading_request().  Figure out how
             # to filter out non-dynamic!
@@ -472,9 +478,8 @@ def milliseconds_per_loading_request(timeseries_getter):
         'appengine.googleapis.com/http/server/response_latencies')
 
     retval = {}
-    for timeseries in data['timeseries']:
-        if timeseries['timeseriesDesc']['labels'][
-                'appengine.googleapis.com/loading'] != 'true':
+    for timeseries in data['timeSeries']:
+        if timeseries['metric']['labels']['loading'] != 'true':
             continue
 
         module = _get_module(timeseries)
@@ -522,7 +527,7 @@ def total_instance_count(timeseries_getter):
 
     # Can't use _collect_per_module_per_second because we're not per-second.
     retval = {}
-    for timeseries in data['timeseries']:
+    for timeseries in data['timeSeries']:
         module = _get_module(timeseries)
         points = _parse_points(timeseries['points'])
         _add_points(retval.setdefault(module, []), points, 'sum')
@@ -536,9 +541,8 @@ def active_instance_count(timeseries_getter):
         'appengine.googleapis.com/system/instance_count')
 
     retval = {}
-    for timeseries in data['timeseries']:
-        if timeseries['timeseriesDesc']['labels'][
-                'appengine.googleapis.com/state'] != 'active':
+    for timeseries in data['timeSeries']:
+        if timeseries['metric']['labels']['state'] != 'active':
             continue
         module = _get_module(timeseries)
         points = _parse_points(timeseries['points'])
