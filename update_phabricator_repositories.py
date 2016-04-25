@@ -35,6 +35,8 @@ _INTERNAL_WEBSERVER_ROOT = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(_INTERNAL_WEBSERVER_ROOT, 'python-phabricator'))
 import phabricator
 
+_DEBUG = False
+
 
 def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
     """Retry cmd up to times times, if it gives an exception in exceptions."""
@@ -157,12 +159,16 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
                        '"arc install-certificate %s"' % phabctl.host)
     if verbose:
         print 'Fetching list of repositories from %s' % phabctl.host
-    phabricator_repo_info = _retry(
+
+    if _DEBUG:
         # Turn on profiling so when phabricator is slow and this command
         # times out, we have a chance of figuring out why.
-        lambda: phabctl.repository.query(__profile__=1, limit=10000),
-        times=3, exceptions=(socket.timeout,),
-        verbose=verbose)
+        query_cmd = lambda: phabctl.repository.query(__profile__=1, limit=9999)
+    else:
+        query_cmd = lambda: phabctl.repository.query(limit=9999)
+
+    phabricator_repo_info = _retry(query_cmd, times=3, verbose=verbose,
+                                   exceptions=(socket.timeout,))
 
     phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
