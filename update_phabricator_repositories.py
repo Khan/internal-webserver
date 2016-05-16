@@ -160,29 +160,47 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     if verbose:
         print 'Fetching list of repositories from %s' % phabctl.host
 
+    # Ugh, we have to use the low-level API because python-phabricator
+    # doesn't understand requests with 3 components (`diff.repo.search`).
+    urlparams = {}
     if _DEBUG:
         # Turn on profiling so when phabricator is slow and this command
         # times out, we have a chance of figuring out why.
-        query_cmd = lambda: phabctl.repository.query(__profile__=1, limit=9999)
-    else:
-        query_cmd = lambda: phabctl.repository.query(limit=9999)
+        urlparams = {'__profile__': 1}
 
-    phabricator_repo_info = _retry(query_cmd, times=3, verbose=verbose,
-                                   exceptions=(socket.timeout,))
+    phabricator_repo_info = []
+    cursor = None
+    # We have to do paging ourselves. :-(
+    while True:
+        query_cmd = lambda: phabctl.make_request('diffusion.repository.search',
+                                                 {'after': cursor,
+                                                  'attachments': {'uris': True}
+                                                 },
+                                                 urlparams)
+        new_info = _retry(query_cmd, times=3, verbose=verbose,
+                          exceptions=(socket.timeout,))
+        phabricator_repo_info.extend(new_info.response['data'])
+        cursor = new_info.response['cursor']['after']
+        if not cursor:
+            break
 
-    phabricator_repos = set(r['remoteURI'] for r in phabricator_repo_info)
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
     # We also store the associated url to help with delete commands.
-    repo_to_callsign_map = dict((r['remoteURI'], r['callsign'])
-                                for r in phabricator_repo_info)
+    # We also want to distinguish 'active' from 'inactive' phabricator
+    # repos.  We treat inactive repos -- for historical reasons, we
+    # call them 'untracked' -- much like deleted repos: they just sit
+    # around so old urls pointing to the repo still work.
+    repo_to_callsign_map = {}
+    tracked_phabricator_repos = set()
+    for repo_info in phabricator_repo_info:
+        for uri_info in repo_info['attachments']['uris']['uris']:
+            repo_url = uri_info['fields']['uri']['raw']
+            repo_to_callsign_map[repo_url] = repo_info['fields']['callsign']
+            if repo_info['fields']['status'] == 'active':
+                tracked_phabricator_repos.add(repo_url)
 
-    # We want to distinguish 'tracked' from 'untracked' phabricator
-    # repos.  We treat untracked repos much like deleted repos: they
-    # just sit around so old urls pointing to the repo still work.
-    tracked_phabricator_repos = set(r['remoteURI']
-                                    for r in phabricator_repo_info
-                                    if r['isActive'])
+    phabricator_repos = frozenset(repo_to_callsign_map)
 
     if verbose:
         def _print(name, lst):
@@ -266,10 +284,29 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
                'url=%s, callsign=%s, vcs=%s %s'
                % (name, repo_clone_url, callsign, vcs_type,
                   'PRIVATE' if passphrase_id else ''))
-        phabctl.repository.create(name=name, vcs=vcs_type, callsign=callsign,
-                                  uri=repo_clone_url,
-                                  tracking=True, pullFrequency=60,
-                                  credentialPHID=passphrase_phid)
+
+        # Ugh, we have to use the low-level API because python-phabricator
+        # doesn't understand requests with 3 components (`diff.repo.edit`).
+
+        def _make_txn(m):
+            """Turn all {key: value}s into {'type': key, 'value': value}."""
+            return [{'type': k, 'value': v} for (k, v) in m.iteritems()]
+
+        txns = {'name': name, 'vcs': vcs_type, 'callsign': callsign}
+        r = phabctl.make_request('diffusion.repository.edit',
+                                 {'transactions': _make_txn(txns)})
+        phid = r.response['object']['phid']
+
+        txns = {'repository': phid, 'io': 'observe', 'uri': repo_clone_url,
+                'credentialPHID': passphrase_phid}
+        phabctl.make_request('diffusion.uri.edit',
+                             {'transactions': _make_txn(txns)})
+
+        txns = {'status': 'active'}
+        phabctl.make_request('diffusion.repository.edit',
+                             {'transactions': _make_txn(txns),
+                              'objectIdentifier': phid})
+
     url_to_callsign_map[repo_clone_url] = callsign
 
 
@@ -308,6 +345,7 @@ def main(repo_rootdir, options):
 
     phabricator_domain = 'https://phabricator.khanacademy.org'
     phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
+
     (new_repos, deleted_repos, url_to_callsign_map) = (
         _get_repos_to_add_and_delete(phabctl, options.verbose))
 
