@@ -298,7 +298,7 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
         phid = r.response['object']['phid']
 
         txns = {'repository': phid, 'io': 'observe', 'uri': repo_clone_url,
-                'credentialPHID': passphrase_phid}
+                'credential': passphrase_phid}
         phabctl.make_request('diffusion.uri.edit',
                              {'transactions': _make_txn(txns)})
 
