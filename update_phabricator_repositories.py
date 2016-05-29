@@ -284,6 +284,7 @@ def add_repository(phabctl, repo_rootdir, repo_clone_url, url_to_callsign_map,
                'url=%s, callsign=%s, vcs=%s %s'
                % (name, repo_clone_url, callsign, vcs_type,
                   'PRIVATE' if passphrase_id else ''))
+        sys.stdout.flush()
 
         # Ugh, we have to use the low-level API because python-phabricator
         # doesn't understand requests with 3 components (`diff.repo.edit`).
