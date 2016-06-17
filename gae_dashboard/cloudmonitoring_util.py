@@ -15,8 +15,7 @@ import time
 
 import apiclient.discovery
 import apiclient.errors
-import httplib2
-import oauth2client.client
+import oauth2client.service_account
 
 
 def to_rfc3339(time_t):
@@ -88,12 +87,9 @@ def get_cloudmonitoring_service():
         json_key = json.load(f)
 
     def get_service():
-        credentials = oauth2client.client.SignedJwtAssertionCredentials(
-            json_key['client_email'], json_key['private_key'],
-            'https://www.googleapis.com/auth/monitoring')
-        http = credentials.authorize(httplib2.Http())
-        return apiclient.discovery.build(serviceName="monitoring",
-                                         version="v3", http=http)
+        creds = (oauth2client.service_account.ServiceAccountCredentials
+                    .from_json_keyfile_dict(json_key))
+        return apiclient.discovery.build("monitoring", "v3", credentials=creds)
 
     return _call_with_retries(get_service)
 

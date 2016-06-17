@@ -25,8 +25,7 @@ import time
 
 import apiclient.discovery
 import apiclient.errors
-import httplib2
-import oauth2client.client
+import oauth2client.service_account
 
 import cloudmonitoring_util
 import graphite_util
@@ -63,12 +62,9 @@ def _get_service():
     with open(os.path.expanduser('~/cloudmonitoring_secret.json')) as f:
         json_key = json.load(f)
 
-    credentials = oauth2client.client.SignedJwtAssertionCredentials(
-        json_key['client_email'], json_key['private_key'],
-        'https://www.googleapis.com/auth/devstorage.read_only')
-    http = credentials.authorize(httplib2.Http())
-    return apiclient.discovery.build(serviceName="storage",
-                                     version="v1", http=http)
+    creds = (oauth2client.service_account.ServiceAccountCredentials
+                .from_json_keyfile_dict(json_key))
+    return apiclient.discovery.build("storage", "v1", credentials=creds)
 
 
 def _get_usage_info(service, date, verbose=False):

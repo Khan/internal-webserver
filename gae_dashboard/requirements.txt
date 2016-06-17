@@ -2,6 +2,7 @@ GChartWrapper==0.8
 bigquery==2.0.17
 cssselect==0.9.1
 ez-setup==0.9
-google-api-python-client==1.2
+oauth2client==2.1.0
+google-api-python-client==1.5.1
 lxml==3.3.3
 pytz==2014.9
