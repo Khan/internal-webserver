@@ -45,7 +45,7 @@ read data from graphite, but won't write to Cloud Monitoring:
   ./graphite_bridge.py -nv
 
 There's also a testing mode to send data to Cloud Monitoring. One
-datapoint will be written to the TEST_WRITE timeseries:
+datapoint will be written to the `write_test` timeseries:
 
   ./graphite_bridge.py -vt
 

@@ -103,6 +103,7 @@ def execute_with_retries(request, num_retries=9):
     return _call_with_retries(request.execute, num_retries=num_retries)
 
 
+# TODO(csilvers): rewrite to use alertlib's send_to_stackdriver()?
 def send_to_cloudmonitoring(project_id, metric_map):
     """Send lightweight metrics to the Cloud Monitoring API.
 

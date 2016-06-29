@@ -35,7 +35,6 @@ def _time_t_of_latest_record():
 
 
 def _write_time_t_of_latest_record(time_t):
-    """Given the record with the latest time-t, write it to the db."""
     with open(_LAST_RECORD_DB, 'w') as f:
         print >>f, time_t
 

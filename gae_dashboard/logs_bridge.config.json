@@ -1,0 +1,54 @@
+// Add a new entry for your metric:
+//   metricName: what the metric will be called in stackdriver.  We
+//       will disaggregate the metric based on magic %(field)s strings
+//       in the metric name.  For instance, 'log.404.%(metric)s will
+//       store 404s separate for each appengine module (aka service).
+//       Here is the list of fields you can disaggregate on:
+//           %(module)s: module_id: the appengine module which logged the msg
+//           %(browser)s: elog_browser: the browser of the request's client
+//
+//   query: the bigquery snippet that should match for the metric you
+//       are collecting.  It can access the following variables:
+//           status
+//           log_messages (all log-messages for a single request, concatted)
+//           TODO
+//       Example queries:
+//           SUM(status = 404)
+//           AVG(INTEGER(REGEXP_EXTRACT(log_messages,
+//                                      r"stats.time.server.wall_ms:(\d+)")))
+//
+//   normalizeByRequests (optional): if present and true, normalize this
+//        metric by the number of requests seen in the same time period.
+//        That is, we store "<result of query>/<num requests seen>".
+//        If the number of requests is 0, we do not store a data point.
+//        Default is false.
+//
+//   normalizeByLastWeek (optional): if present and true, normalize this
+//        metric by the value of the metric exactly 1 week prior.
+//        That is, we store "<result of query now>/<result of query a week ago>"
+//        If the value a week ago was 0, we do not store a data point.
+//        Default is false.
+//
+//   normalizeByLastDeploy (optional): if present and true, normalize this
+//        metric by the value of the metric at the same time-delta from
+//        the previous deploy.  That is, if we are currently running a
+//        deploy and set-default was called 124 seconds ago, then we will
+//        calculate the value of this metric now, and also 124 seconds after
+//        the prior set-default (before this one), and store the ratio of
+//        the two.  If the value for the previous deploy was 0, we do not
+//        store a data point.  Default is false.
+[
+    {
+        "metricName": "logs.404.%(module)s",
+        "query": "SUM(status = 404)"
+    },
+    {
+        "metricName": "logs.wall_ms.avg",
+        "query": "AVG(INTEGER(REGEXP_EXTRACT(log_messages, r'stats.time.server.wall_ms:(\\d+)')))"
+    },
+    {
+        "metricName": "logs.conversions.problem_attempt.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
+        "normalizeByLastWeek": true
+    }
+]
