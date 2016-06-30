@@ -111,6 +111,26 @@ def _should_run_query(config_entry, start_time_t, time_of_last_successful_run):
 
 
 def _create_subquery(config_entry, start_time_t, time_interval_seconds):
+    """Return a query that captures all loglines matching the config-entry.
+
+    We look through the streaming logs to find all requests that *ended*
+    between start_time_t and start_time_t + time_interval_seconds.
+    ("start_time_t" is a bit of a confusing name).  We want "ended"
+    because that's when a request gets written to the logs.  As an
+    example, if a request took 10 minutes to run, if we were filtering
+    on start_time we'd miss it unless we happened to be running this
+    script on data 10 minutes in the past.  Usually we run it on data
+    1 minute in the past, so we'd miss it.
+
+    This subquery also returns all the data needed for normalization
+    by num-requests, etc.
+
+    We use a table decorator to restrict the query, making it faster
+    and cheaper.  Note that the dates on table decorators refer to
+    when the logline was inserted into bigquery, not when the relevant
+    request either started or ended.  So it's not a complete
+    substitute for the last_time check.
+    """
     # Instead of using the logs_streaming.last_hour, which is a view
     # on logs_all_time that uses the `@-3600000-` table decorator, we
     # make our own table-decorator that starts only a few minutes in
@@ -122,7 +142,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     innermost_from = """(
         SELECT 'now' as when, %s, %s
         FROM [khan-academy:logs_streaming.logs_all_time@%d-]
-        WHERE start_time >= %d and start_time < %d
+        WHERE end_time >= %d and end_time < %d
     )""" % (', '.join(_GROUP_BY.itervalues()),
             ', '.join('%s as %s' % (v, k)
                       for (k, v) in _QUERY_FIELDS.iteritems()),
@@ -143,7 +163,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
         innermost_from += """, (
             SELECT 'some days ago' as when, %s, %s
             FROM [%s]
-            WHERE start_time >= %d and start_time < %d
+            WHERE end_time >= %d and end_time < %d
         )""" % (', '.join(_GROUP_BY.itervalues()),
                 ', '.join('%s as %s' % (v, k)
                           for (k, v) in _QUERY_FIELDS.iteritems()),
