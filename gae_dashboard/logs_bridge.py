@@ -110,6 +110,36 @@ def _should_run_query(config_entry, start_time_t, time_of_last_successful_run):
     return last_epoch != this_epoch
 
 
+def _tables_for_time(start_time_t, delta):
+    """Given a time_t, return a table that best has logs for that time.
+
+    If the time is in the very recent past, we use the streaming logs,
+    with a table decorator to restrict the time.
+    """
+    now = int(time.time())
+    start_time_t = int(start_time_t)
+    # Give 3 hours for the hourly logs table to be written.
+    if now - start_time_t <= 3600 * 3:
+        return ('[khan-academy:logs_streaming.logs_all_time@%d-]'
+                % (start_time_t * 1000))
+
+    # Otherwise, if it's within the last week and a bit, use the hourly
+    # table(s).  (We only keep that table around for a week + 2 hours.)
+    if now - start_time_t <= 86400 * 7 + 3600 * 2:
+        retval = []
+        for time_t in xrange(start_time_t, start_time_t + delta, 3600):
+            retval.append(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
+                                        time.gmtime(time_t)))
+        return ', '.join(retval)
+
+    # Otherwise just use the appropriate daily logs table(s).
+    retval = []
+    for time_t in xrange(start_time_t, start_time_t + delta, 86400):
+        retval.append(time.strftime('[logs.requestlogs_%Y%m%d]',
+                                    time.gmtime(time_t)))
+    return ', '.join(retval)
+
+
 def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     """Return a query that captures all loglines matching the config-entry.
 
@@ -141,33 +171,26 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     # end-time be "now" is probably ok.
     innermost_from = """(
         SELECT 'now' as when, %s, %s
-        FROM [khan-academy:logs_streaming.logs_all_time@%d-]
+        FROM %s
         WHERE end_time >= %d and end_time < %d
     )""" % (', '.join(_GROUP_BY.itervalues()),
             ', '.join('%s as %s' % (v, k)
                       for (k, v) in _QUERY_FIELDS.iteritems()),
-            start_time_t * 1000,
+            _tables_for_time(start_time_t, time_interval_seconds),
             start_time_t, start_time_t + time_interval_seconds)
 
     if config_entry.get('normalizeByDaysAgo'):
         days_ago = config_entry['normalizeByDaysAgo']
         old_time_t = start_time_t - 86400 * days_ago
-        if days_ago <= 7:
-            # We can use the hourly log, which we keep around for a week.
-            old_log = time.strftime('logs_hourly.requestlogs_%Y%m%d_%H',
-                                    time.gmtime(old_time_t))
-        else:
-            old_log = time.strftime('logs.requestlogs_%Y%m%d',
-                                    time.gmtime(old_time_t))
-
         innermost_from += """, (
             SELECT 'some days ago' as when, %s, %s
-            FROM [%s]
+            FROM %s
             WHERE end_time >= %d and end_time < %d
         )""" % (', '.join(_GROUP_BY.itervalues()),
                 ', '.join('%s as %s' % (v, k)
                           for (k, v) in _QUERY_FIELDS.iteritems()),
-                old_log, old_time_t, old_time_t + time_interval_seconds)
+                _tables_for_time(old_time_t, time_interval_seconds),
+                old_time_t, old_time_t + time_interval_seconds)
 
     if config_entry.get('normalizeByLastDeploy'):
         raise NotImplementedError("Augment innermost-from in this case too")
