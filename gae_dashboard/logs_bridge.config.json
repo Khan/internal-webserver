@@ -65,6 +65,31 @@
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
-        "normalizeByDaysAgo": 7
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.conversions.pageview.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"pageview\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.conversions.video_started.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"video_started\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.conversions.article_view.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"article_view\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.conversions.scratchpad_updated.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"scratchpad_updated\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     }
 ]
