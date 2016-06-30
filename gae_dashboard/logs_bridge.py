@@ -111,13 +111,22 @@ def _should_run_query(config_entry, start_time_t, time_of_last_successful_run):
 
 
 def _create_subquery(config_entry, start_time_t, time_interval_seconds):
+    # Instead of using the logs_streaming.last_hour, which is a view
+    # on logs_all_time that uses the `@-3600000-` table decorator, we
+    # make our own table-decorator that starts only a few minutes in
+    # the past.  Because it can take a while for logs to stream into
+    # this table, we don't put an end-time on, though in theory it
+    # could be start_time_t + time_interval_seconds + <some slack>.
+    # Since we only tend to run this script in the recent past, having
+    # end-time be "now" is probably ok.
     innermost_from = """(
         SELECT 'now' as when, %s, %s
-        FROM [logs_streaming.last_hour]
+        FROM [khan-academy:logs_streaming.logs_all_time@%d-]
         WHERE start_time >= %d and start_time < %d
     )""" % (', '.join(_GROUP_BY.itervalues()),
             ', '.join('%s as %s' % (v, k)
                       for (k, v) in _QUERY_FIELDS.iteritems()),
+            start_time_t * 1000,
             start_time_t, start_time_t + time_interval_seconds)
 
     if config_entry.get('normalizeByDaysAgo'):
@@ -248,13 +257,12 @@ def _get_values_from_bigquery(config, start_time_t,
 if __name__ == '__main__':
     config = _load_config()
     start_time = time.time() - 120
-    time_of_last_successful_run = time.time() - 600
+    time_of_last_successful_run = start_time - 600
 
-    print len(config)
     # Get rid of entries we shouldn't run now (because they're only
     # run hourly, e.g.).
     config = [e for e in config
               if _should_run_query(e, start_time, time_of_last_successful_run)]
-    print len(config)
+    assert config
 
     print _get_values_from_bigquery(config, start_time, verbose=True)
