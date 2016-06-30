@@ -87,6 +87,29 @@ def _load_config(config_name="logs_bridge.config.json"):
     return json.loads(config_contents)
 
 
+def _should_run_query(config_entry, start_time_t, time_of_last_successful_run):
+    """True if the config-entry's frequency means it should be run now."""
+    frequency = config_entry.get('frequency', 'minutely')
+    if frequency == 'minutely':
+        time_range = 60
+    elif frequency == 'hourly':
+        time_range = 60 * 60
+    elif frequency == 'daily':
+        time_range = 60 * 60 * 24
+    elif frequency == 'weekly':
+        time_range = 60 * 60 * 24 * 7
+    else:
+        raise ValueError("Unknown frequency '%s' for %s'"
+                         % (frequency, config_entry['metricName']))
+
+    # We say to run if our start-time is in a different 'epoch' --
+    # defined in terms of the time-range -- than the last successful
+    # run.
+    last_epoch = int(time_of_last_successful_run / time_range)
+    this_epoch = int(start_time_t / time_range)
+    return last_epoch != this_epoch
+
+
 def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     innermost_from = """(
         SELECT 'now' as when, %s, %s
@@ -156,8 +179,8 @@ def _run_bigquery(config, start_time_t, time_interval_seconds,
     return r
 
 
-def _get_values_from_bigquery(config, start_time_t, time_interval_seconds=60,
-                              verbose=False):
+def _get_values_from_bigquery(config, start_time_t,
+                              time_interval_seconds=60, verbose=False):
     bigquery_results = _run_bigquery(config, start_time_t,
                                      time_interval_seconds, verbose)
     # A single result looks like:
@@ -223,5 +246,15 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds=60,
 
 
 if __name__ == '__main__':
-    print _get_values_from_bigquery(_load_config(), time.time() - 120,
-                                    verbose=True)
+    config = _load_config()
+    start_time = time.time() - 120
+    time_of_last_successful_run = time.time() - 600
+
+    print len(config)
+    # Get rid of entries we shouldn't run now (because they're only
+    # run hourly, e.g.).
+    config = [e for e in config
+              if _should_run_query(e, start_time, time_of_last_successful_run)]
+    print len(config)
+
+    print _get_values_from_bigquery(config, start_time, verbose=True)
