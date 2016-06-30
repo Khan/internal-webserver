@@ -29,11 +29,13 @@ minute.
 """
 
 import json
+import logging
 import os
 import re
 import time
 
 import bq_util
+import cloudmonitoring_util
 
 
 # This maps from the query fields that users are allowed to access to
@@ -51,7 +53,6 @@ _GROUP_BY = {
     '%(browser)s': 'elog_browser',
 }
 
-_NOW = int(time.time())
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
 
 
@@ -75,7 +76,7 @@ def _write_time_t_of_latest_successful_run(time_t):
         print >>f, time_t
 
 
-def _load_config(config_name="logs_bridge.config.json"):
+def _load_config(config_name):
     """If config_name is a relative path, it's relative to this dir."""
     if not os.path.isabs(config_name):
         config_name = os.path.join(os.path.dirname(__file__), config_name)
@@ -210,8 +211,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     return '(%s)' % subquery
 
 
-def _run_bigquery(config, start_time_t, time_interval_seconds,
-                  verbose=False):
+def _run_bigquery(config, start_time_t, time_interval_seconds):
     """config is as described in logs_bridge.config.json."""
     # TODO(csilvers): use table decorators to limit how much we read.
 
@@ -221,20 +221,19 @@ def _run_bigquery(config, start_time_t, time_interval_seconds,
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds)
                   for entry in config]
     query = 'SELECT * FROM %s' % ',\n'.join(subqueries)
-    if verbose:
-        print 'BIGQUERY QUERY: %s' % query
+    logging.debug('BIGQUERY QUERY: %s' % query)
 
+    logging.info("Sending query to bigquery")
     r = bq_util.query_bigquery(query)
-    if verbose:
-        print 'BIGQUERY RESULTS: %s' % r
+    logging.debug('BIGQUERY RESULTS: %s' % r)
 
     return r
 
 
 def _get_values_from_bigquery(config, start_time_t,
-                              time_interval_seconds=60, verbose=False):
+                              time_interval_seconds=60):
     bigquery_results = _run_bigquery(config, start_time_t,
-                                     time_interval_seconds, verbose)
+                                     time_interval_seconds)
     # A single result looks like:
     #   {u'module_id': u'multithreaded',
     #    u'num': 10.0,
@@ -297,15 +296,82 @@ def _get_values_from_bigquery(config, start_time_t,
     return retval
 
 
+def _send_to_stackdriver(google_project_id, bigquery_values,
+                         start_time_t, time_interval_seconds, dry_run):
+    """bigquery_values is {metricName: val}, via _get_values_from_bigquery."""
+    # send_to_cloudmonitoring wants data in a particular format, including
+    # the timestamp.  We give all these datapoints the timestamp at the
+    # *end* of our time-range: start_time_t + time_interval_seconds
+    time_t = start_time_t + time_interval_seconds
+    metric_map = {}
+    for (metric_name, value) in bigquery_values.iteritems():
+        logging.info("Sending %s %s %s" % (metric_name, value, time_t))
+        metric_map[metric_name] = [(value, time_t)]
+
+    if metric_map and not dry_run:
+        cloudmonitoring_util.send_to_cloudmonitoring(google_project_id,
+                                                     metric_map)
+    return len(metric_map)
+
+
+def main(config_filename, google_project_id, time_interval_seconds, dry_run):
+    config = _load_config(config_filename)
+
+    # We'll collect data minute-by-minute until we've collected data
+    # from the time range (two-minutes-ago, one-minute-ago).
+    run_until = int(time.time()) - 120
+
+    time_of_last_successful_run = _time_t_of_latest_successful_run()
+    if time_of_last_successful_run is None:
+        # If there's no record of previous runs, just do the most recent run.
+        time_of_last_successful_run = run_until - time_interval_seconds
+
+    while time_of_last_successful_run < run_until:
+        start_time = time_of_last_successful_run + time_interval_seconds
+        # Get rid of entries we shouldn't run now (because they're only
+        # run hourly, e.g.).
+        current_config = [e for e in config
+                          if _should_run_query(e, start_time,
+                                               time_of_last_successful_run)]
+
+        bigquery_values = _get_values_from_bigquery(current_config, start_time)
+        num_metrics = _send_to_stackdriver(
+            google_project_id, bigquery_values, start_time,
+            time_interval_seconds, dry_run)
+
+        logging.info("Time %s: wrote %s metrics to stackdriver",
+                     start_time + time_interval_seconds, num_metrics)
+        time_of_last_successful_run = start_time
+        if not dry_run:
+            _write_time_t_of_latest_successful_run(time_of_last_successful_run)
+
+
 if __name__ == '__main__':
-    config = _load_config()
-    start_time = time.time() - 120
-    time_of_last_successful_run = start_time - 600
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--config', default='logs_bridge.config.json',
+                        help=('JSON file holding the stats to extract from '
+                              'the logs'))
+    parser.add_argument('--project_id', default='khan-academy',
+                        help=('project ID of a Google Cloud Platform project '
+                              'with the Cloud Monitoring API enabled '
+                              '[default: %(default)s]'))
+    # In general we run this script minute-ly, over a minute of data.
+    parser.add_argument('--window-seconds', default=60, type=int,
+                        help=('window of time to read from the logs. '
+                              'This should not be longer than the frequency '
+                              'this script is run [default: %(default)s]'))
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help=('enable verbose logging (-vv for very verbose '
+                              'logging)'))
+    parser.add_argument('-n', '--dry-run', action='store_true', default=False,
+                        help='do not write metrics to Cloud Monitoring')
+    args = parser.parse_args()
 
-    # Get rid of entries we shouldn't run now (because they're only
-    # run hourly, e.g.).
-    config = [e for e in config
-              if _should_run_query(e, start_time, time_of_last_successful_run)]
-    assert config
+    # default for WARNING, -v for INFO, -vv for DEBUG.
+    if args.verbose >= 2:
+        logging.basicConfig(level=logging.DEBUG)
+    elif args.verbose == 1 or args.dry_run:
+        logging.basicConfig(level=logging.INFO)
 
-    print _get_values_from_bigquery(config, start_time, verbose=True)
+    main(args.config, args.project_id, args.window_seconds, args.dry_run)
