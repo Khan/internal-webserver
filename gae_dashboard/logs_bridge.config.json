@@ -43,12 +43,24 @@
 //        store a data point.  Default is false.
 [
     {
+        "metricName": "logs.400.%(module)s",
+        "query": "SUM(status = 400)"
+    },
+    {
+        "metricName": "logs.401_or_403.%(module)s",
+        "query": "SUM(status = 401 or status = 403)"
+    },
+    {
         "metricName": "logs.404.%(module)s",
         "query": "SUM(status = 404)"
     },
     {
-        "metricName": "logs.wall_ms.avg",
-        "query": "AVG(INTEGER(REGEXP_EXTRACT(log_messages, r'stats.time.server.wall_ms:(\\d+)')))"
+        "metricName": "logs.500.%(module)s",
+        "query": "SUM(status = 500)"
+    },
+    {
+        "metricName": "logs.502_or_503.%(module)s",
+        "query": "SUM(status = 502 or status = 503)"
     },
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
