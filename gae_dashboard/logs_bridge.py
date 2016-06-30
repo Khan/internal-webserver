@@ -97,19 +97,25 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
                       for (k, v) in _QUERY_FIELDS.iteritems()),
             start_time_t, start_time_t + time_interval_seconds)
 
-    if config_entry.get('normalizeByLastWeek'):
-        last_week_time_t = start_time_t - 86400 * 7
-        last_week_log = time.strftime('logs_hourly.requestlogs_%Y%m%d_%H',
-                                      time.gmtime(last_week_time_t))
+    if config_entry.get('normalizeByDaysAgo'):
+        days_ago = config_entry['normalizeByDaysAgo']
+        old_time_t = start_time_t - 86400 * days_ago
+        if days_ago <= 7:
+            # We can use the hourly log, which we keep around for a week.
+            old_log = time.strftime('logs_hourly.requestlogs_%Y%m%d_%H',
+                                    time.gmtime(old_time_t))
+        else:
+            old_log = time.strftime('logs.requestlogs_%Y%m%d',
+                                    time.gmtime(old_time_t))
+
         innermost_from += """, (
-            SELECT 'last week' as when, %s, %s
+            SELECT 'some days ago' as when, %s, %s
             FROM [%s]
             WHERE start_time >= %d and start_time < %d
         )""" % (', '.join(_GROUP_BY.itervalues()),
                 ', '.join('%s as %s' % (v, k)
                           for (k, v) in _QUERY_FIELDS.iteritems()),
-                last_week_log,
-                last_week_time_t, last_week_time_t + time_interval_seconds)
+                old_log, old_time_t, old_time_t + time_interval_seconds)
 
     if config_entry.get('normalizeByLastDeploy'):
         raise NotImplementedError("Augment innermost-from in this case too")
@@ -194,14 +200,14 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds=60,
             if config_entry.get('normalizeByRequests'):
                 value /= result['num_requests']
 
-            if config_entry.get('normalizeByLastWeek'):
-                last_week_result = results_by_name_and_when[
-                    (resolved_metric_name, 'last week')]
-                last_week_value = last_week_result['num']
+            if config_entry.get('normalizeByDaysAgo'):
+                old_result = results_by_name_and_when[
+                    (resolved_metric_name, 'some days ago')]
+                old_value = old_result['num']
                 # Weird to normalize by two things, but possible.
                 if config_entry.get('normalizeByRequests'):
-                    last_week_value /= last_week_result['num_requests']
-                value /= last_week_value
+                    old_value /= old_result['num_requests']
+                value /= old_value
 
             if config_entry.get('normalizeByLastDeploy'):
                 last_deploy_result = results_by_name_and_when[

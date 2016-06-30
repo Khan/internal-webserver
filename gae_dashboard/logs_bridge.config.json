@@ -17,17 +17,21 @@
 //           AVG(INTEGER(REGEXP_EXTRACT(log_messages,
 //                                      r"stats.time.server.wall_ms:(\d+)")))
 //
+//   frequency (optional): how often to run this query.  Default is
+//        'minutely'.  Other options are 'hourly', 'daily', 'weekly'.
+//
 //   normalizeByRequests (optional): if present and true, normalize this
 //        metric by the number of requests seen in the same time period.
 //        That is, we store "<result of query>/<num requests seen>".
 //        If the number of requests is 0, we do not store a data point.
 //        Default is false.
 //
-//   normalizeByLastWeek (optional): if present and true, normalize this
-//        metric by the value of the metric exactly 1 week prior.
-//        That is, we store "<result of query now>/<result of query a week ago>"
-//        If the value a week ago was 0, we do not store a data point.
-//        Default is false.
+//   normalizeByDaysAgo (optional): if present it must be a number X,
+//        normalize this metric by the value of the metric exactly X
+//        days ago.  (It's recommended that X be a multiple of 7.)
+//        That is, we store "<result of query now>/<result of query a
+//        X days ago>". If the value X days ago was 0, we do not store a
+//        data point.  Default is 0, meaning not to normalize.
 //
 //   normalizeByLastDeploy (optional): if present and true, normalize this
 //        metric by the value of the metric at the same time-delta from
@@ -49,6 +53,6 @@
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
-        "normalizeByLastWeek": true
+        "normalizeByDaysAgo": 7
     }
 ]
