@@ -10,3 +10,6 @@
 [submodule "python-phabricator"]
 	path = python-phabricator
 	url = http://github.com/Khan/python-phabricator
+[submodule "alertlib-src"]
+	path = alertlib-src
+	url = https://github.com/Khan/alertlib

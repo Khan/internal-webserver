@@ -1,21 +1,23 @@
 // Add a new entry for your metric:
-//   metricName: what the metric will be called in stackdriver.  We
-//       will disaggregate the metric based on magic %(field)s strings
-//       in the metric name.  For instance, 'log.404.%(metric)s will
-//       store 404s separate for each appengine module (aka service).
-//       Here is the list of fields you can disaggregate on:
-//           %(module)s: module_id: the appengine module which logged the msg
-//           %(browser)s: elog_browser: the browser of the request's client
+//   metricName: what the metric will be called in stackdriver.  (But
+//       see also 'labels', below.)
 //
 //   query: the bigquery snippet that should match for the metric you
-//       are collecting.  It can access the following variables:
-//           status
-//           log_messages (all log-messages for a single request, concatted)
-//           TODO
+//       are collecting.  It can access the field-names listed in
+//       logs_bridge.py:_QUERY_FIELDS.
 //       Example queries:
 //           SUM(status = 404)
 //           AVG(INTEGER(REGEXP_EXTRACT(log_messages,
 //                                      r"stats.time.server.wall_ms:(\d+)")))
+//
+//   labels (optional): a list of labels that are used to disaggregate
+//        data.  For an introduction to metric-lables, see
+//        https://cloud.google.com/monitoring/api/v3/metrics#intro-time-series
+//        Basically, each metricName (above) will resolve to a graph
+//        in stackdriver, and each possible label-value will resolve
+//        to a line on that graph.  So if labels were ['lang', 'os']
+//        you'd have lines for 'en'+'chrome', 'es'+'safari', etc.
+//        The list of allowable labels is in logs_bridge.py:_LABELS.
 //
 //   frequency (optional): how often to run this query.  Default is
 //        'minutely'.  Other options are 'hourly', 'daily', 'weekly'.
@@ -43,43 +45,54 @@
 //        store a data point.  Default is false.
 [
     {
-        "metricName": "logs.400.%(module)s",
+        "metricName": "logs.status.400",
+        "labels": ["module_id"],
         "query": "SUM(status = 400)"
     },
     {
-        "metricName": "logs.401_or_403.%(module)s",
+        "metricName": "logs.status.401_or_403",
+        "labels": ["module_id"],
         "query": "SUM(status = 401 or status = 403)"
     },
     {
-        "metricName": "logs.404.%(module)s",
+        "metricName": "logs.status.404",
+        "labels": ["module_id"],
         "query": "SUM(status = 404)"
     },
     {
-        "metricName": "logs.500.%(module)s",
+        "metricName": "logs.status.500",
+        "labels": ["module_id"],
         "query": "SUM(status = 500)"
     },
     {
-        "metricName": "logs.502_or_503.%(module)s",
+        "metricName": "logs.status.502_or_503",
+        "labels": ["module_id"],
         "query": "SUM(status = 502 or status = 503)"
     },
     {
-        "metricName": "logs.all_by_browser.%(browser)s",
+        "metricName": "logs.distinct_ips_by_browser",
+        "labels": ["browser"],
+        "query": "COUNT(DISTINCT ip)"
+    },
+// TODO(csilvers): uncomment when we figure out the best bq field for this.
+//    {
+//        "metricName": "logs.distinct_ips_by_device",
+//        "labels": ["device"],
+//        "query": "COUNT(DISTINCT ip)"
+//    },
+    {
+        "metricName": "logs.distinct_ips_by_ka_app",
+        "labels": ["KA_APP"],
         "query": "COUNT(DISTINCT ip)"
     },
     {
-        "metricName": "logs.all_by_device.%(device)s",
+        "metricName": "logs.distinct_ips_by_os",
+        "labels": ["os"],
         "query": "COUNT(DISTINCT ip)"
     },
     {
-        "metricName": "logs.all_by_ka_app.%(KA_APP)s",
-        "query": "COUNT(DISTINCT ip)"
-    },
-    {
-        "metricName": "logs.all_by_os.%(os)s",
-        "query": "COUNT(DISTINCT ip)"
-    },
-    {
-        "metricName": "logs.all_by_language.%(language)s",
+        "metricName": "logs.distinct_ips_by_language",
+        "labels": ["lang"],
         "query": "COUNT(DISTINCT ip)"
     },
     {

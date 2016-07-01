@@ -31,30 +31,30 @@ minute.
 import json
 import logging
 import os
-import re
 import time
 
+import alertlib
 import bq_util
-import cloudmonitoring_util
 
 
-# This maps from the query fields that users are allowed to access to
-# the bigquery snippet that populates that query field in the innermost
-# subquery.
+# This maps from the bigquery table fields and aliases that users are
+# allowed to reference as part of the 'query' entry in the config
+# file, to the bigquery snippet that populates that field/alias in the
+# innermost subquery.
 _QUERY_FIELDS = {
     'status': 'status',
+    'ip': 'ip',
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
 }
 
-# This maps from the %(...)s disaggregators in a metric-name, to the
-# bigquery field that represents it.
-_GROUP_BY = {
-    '%(module)s': 'module_id',
-    '%(browser)s': 'elog_browser',
-    '%(device)s': 'elog_device_type',
-    '%(KA_APP)s': 'elog_KA_APP',
-    '%(os)s': 'elog_os',
-    '%(language)s': 'elog_language',
+# This maps from the possible values for the 'labels' entry in the
+# config file, to the bigquery field that represents it.
+_LABELS = {
+    'module_id': 'module_id',
+    'browser': 'elog_browser',
+    'KA_APP': 'elog_KA_APP',
+    'os': 'elog_os',
+    'lang': 'elog_language',
 }
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
@@ -179,7 +179,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
         SELECT 'now' as when, %s, %s
         FROM %s
         WHERE end_time >= %d and end_time < %d
-    )""" % (', '.join(_GROUP_BY.itervalues()),
+    )""" % (', '.join(_LABELS.itervalues()),
             ', '.join('%s as %s' % (v, k)
                       for (k, v) in _QUERY_FIELDS.iteritems()),
             _tables_for_time(start_time_t, time_interval_seconds),
@@ -192,7 +192,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
             SELECT 'some days ago' as when, %s, %s
             FROM %s
             WHERE end_time >= %d and end_time < %d
-        )""" % (', '.join(_GROUP_BY.itervalues()),
+        )""" % (', '.join(_LABELS.itervalues()),
                 ', '.join('%s as %s' % (v, k)
                           for (k, v) in _QUERY_FIELDS.iteritems()),
                 _tables_for_time(old_time_t, time_interval_seconds),
@@ -201,10 +201,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     if config_entry.get('normalizeByLastDeploy'):
         raise NotImplementedError("Augment innermost-from in this case too")
 
-    selectors = [
-        _GROUP_BY[group_by]
-        for group_by in re.findall(r'%\([^)]*\)s', config_entry['metricName'])
-    ]
+    selectors = [_LABELS[label] for label in config_entry.get('labels', [])]
 
     subquery = ("SELECT '%s' as metricName, when, "
                 "COUNT(*) as num_requests, FLOAT(%s) as num"
@@ -237,6 +234,7 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
 
 def _get_values_from_bigquery(config, start_time_t,
                               time_interval_seconds=60):
+    """Return a list of (metric-name, metric-labels, values) triples."""
     bigquery_results = _run_bigquery(config, start_time_t,
                                      time_interval_seconds)
     # A single result looks like:
@@ -244,31 +242,29 @@ def _get_values_from_bigquery(config, start_time_t,
     #    u'num': 10.0,
     #    u'when': u'now',
     #    u'num_requests': 69441,
-    #    u'metricName': u'logs.404.%(module)s'}
-    # We need to convert this to {'logs.404.multithreaded': 10.0}.
-    retval = {}
+    #    u'metricName': u'logs.status'}
 
     # Key each result by its resolved metric name.
-    results_by_name_and_when = {}
+    results_by_metric_and_when = {}
     for result in bigquery_results:
-        # This replaces '(module)s' with result['module_id'], e.g.
-        resolved_metric_name = result['metricName']
-        for (s, selector) in _GROUP_BY.iteritems():
-            if s in resolved_metric_name:
-                # A special case: bigquery doesn't store module-id for default
-                if s == '%(module)s' and result[selector] == '(None)':
-                    resolve_to = 'default'
-                else:
-                    resolve_to = result[selector]
-                resolved_metric_name = resolved_metric_name.replace(
-                    s, resolve_to)
-        key = (resolved_metric_name, result['when'])
+        config_entry = next(c for c in config
+                            if c['metricName'] == result['metricName'])
+        label_values = []
+        for label in config_entry.get('labels', []):
+            selector = _LABELS[label]
+            label_value = result[selector]
+            # A special case: bigquery doesn't store module-id for default
+            if label == 'module_id' and label_value == '(None)':
+                label_value = 'default'
+            label_values.append(label_value)
+        key = (config_entry['metricName'], tuple(label_values), result['when'])
         assert key not in result, "%s is not a unique key!" % key
-        results_by_name_and_when[key] = result
+        results_by_metric_and_when[key] = result
 
+    retval = []
     for config_entry in config:
-        for ((resolved_metric_name, when), result) in \
-                results_by_name_and_when.iteritems():
+        for ((metric_name, metric_label_values, when), result) in \
+                results_by_metric_and_when.iteritems():
             if (result['metricName'] != config_entry['metricName'] or
                    when != 'now'):
                 continue
@@ -281,8 +277,8 @@ def _get_values_from_bigquery(config, start_time_t,
                     value /= result['num_requests']
 
                 if config_entry.get('normalizeByDaysAgo'):
-                    old_result = results_by_name_and_when[
-                        (resolved_metric_name, 'some days ago')]
+                    old_result = results_by_metric_and_when[
+                        (metric_name, metric_label_values, 'some days ago')]
                     old_value = old_result['num']
                     # Weird to normalize by two things, but possible.
                     if config_entry.get('normalizeByRequests'):
@@ -290,8 +286,8 @@ def _get_values_from_bigquery(config, start_time_t,
                     value /= old_value
 
                 if config_entry.get('normalizeByLastDeploy'):
-                    last_deploy_result = results_by_name_and_when[
-                        (resolved_metric_name, 'last deploy')]
+                    last_deploy_result = results_by_metric_and_when[
+                        (metric_name, metric_label_values, 'last deploy')]
                     last_deploy_value = last_deploy_result['num']
                     if config_entry.get('normalizeByRequests'):
                         last_deploy_value /= last_deploy_result['num_requests']
@@ -304,28 +300,53 @@ def _get_values_from_bigquery(config, start_time_t,
             # In that case, we just ignore the metric entirely.
             # TODO(csilvers): better would be to set value to 0 for counts,
             #                 but to not-send the value for ratios.
-            if value != "(None)":
-                retval[resolved_metric_name] = value
+            if value == "(None)":
+                continue
+
+            # Get the labels to be a dict of label-name->label-value
+            metric_labels = dict(zip(config_entry.get('labels', []),
+                                     metric_label_values))
+            retval.append((metric_name, metric_labels, value))
 
     return retval
 
 
 def _send_to_stackdriver(google_project_id, bigquery_values,
                          start_time_t, time_interval_seconds, dry_run):
-    """bigquery_values is {metricName: val}, via _get_values_from_bigquery."""
+    """bigquery_values is a list of triples via _get_values_from_bigquery."""
     # send_to_cloudmonitoring wants data in a particular format, including
     # the timestamp.  We give all these datapoints the timestamp at the
     # *end* of our time-range: start_time_t + time_interval_seconds
     time_t = start_time_t + time_interval_seconds
-    metric_map = {}
-    for (metric_name, value) in bigquery_values.iteritems():
-        logging.info("Sending %s %s %s" % (metric_name, value, time_t))
-        metric_map[metric_name] = [(value, time_t)]
 
-    if metric_map and not dry_run:
-        cloudmonitoring_util.send_to_cloudmonitoring(google_project_id,
-                                                     metric_map)
-    return len(metric_map)
+    # alertlib is set up to only send one timeseries per call.  But we
+    # want to send all the timeseries in a single call, so we have to
+    # do some hackery.
+    timeseries_data = []
+    alert = alertlib.Alert('logs-bridge metrics')
+    old_send_datapoints = alert.send_datapoints_to_stackdriver
+    alert.send_datapoints_to_stackdriver = lambda timeseries, *a, **kw: (
+        timeseries_data.extend(timeseries))
+
+    # This will put the data into timeseries_data but not actually send it.
+    try:
+        for (metric_name, metric_labels, value) in bigquery_values:
+            logging.info("Sending %s (%s) %s %s",
+                         metric_name, metric_labels, value, time_t)
+            alert.send_to_stackdriver(metric_name, value,
+                                      metric_labels=metric_labels,
+                                      project=google_project_id,
+                                      when=time_t)
+    finally:
+        alert.send_datapoints_to_stackdriver = old_send_datapoints
+
+    # Now we do the actual send.
+    logging.debug("Sending to stackdriver: %s", timeseries_data)
+    if timeseries_data and not dry_run:
+        alert.send_datapoints_to_stackdriver(timeseries_data,
+                                             project=google_project_id)
+
+    return len(timeseries_data)
 
 
 def main(config_filename, google_project_id, time_interval_seconds, dry_run):
@@ -349,6 +370,9 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
                                                time_of_last_successful_run)]
 
         bigquery_values = _get_values_from_bigquery(current_config, start_time)
+
+        # TODO(csilvers): compute ALL facet-totals for counting-stats.
+
         num_metrics = _send_to_stackdriver(
             google_project_id, bigquery_values, start_time,
             time_interval_seconds, dry_run)
