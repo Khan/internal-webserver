@@ -291,10 +291,16 @@ def _get_values_from_bigquery(config, start_time_t,
                     if config_entry.get('normalizeByRequests'):
                         last_deploy_value /= last_deploy_result['num_requests']
                     value /= last_deploy_value
-            except ZeroDivisionError:
+            except (ZeroDivisionError, TypeError):
+                # A TypeError happens when we do '3 / "(None)"' or the reverse.
                 continue
 
-            retval[resolved_metric_name] = value
+            # The value can be 'None' if no rows matched the query.
+            # In that case, we just ignore the metric entirely.
+            # TODO(csilvers): better would be to set value to 0 for counts,
+            #                 but to not-send the value for ratios.
+            if value != "(None)":
+                retval[resolved_metric_name] = value
 
     return retval
 
@@ -308,10 +314,6 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
     time_t = start_time_t + time_interval_seconds
     metric_map = {}
     for (metric_name, value) in bigquery_values.iteritems():
-        # TODO(csilvers): better would be to set value to 0 for counts,
-        #                 but to not-send the value for ratios.
-        if value is None:
-            continue
         logging.info("Sending %s %s %s" % (metric_name, value, time_t))
         metric_map[metric_name] = [(value, time_t)]
 
