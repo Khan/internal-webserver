@@ -83,7 +83,8 @@ def _load_config(config_name):
 
     # Read the file, ignoring any lines that start with `//`.
     with open(config_name) as f:
-        config_lines = [l for l in f.readlines() if not l.startswith('//')]
+        config_lines = [l for l in f.readlines()
+                        if not l.lstrip().startswith('//')]
     config_contents = ''.join(config_lines)
     return json.loads(config_contents)
 
