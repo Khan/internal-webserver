@@ -51,6 +51,10 @@ _QUERY_FIELDS = {
 _GROUP_BY = {
     '%(module)s': 'module_id',
     '%(browser)s': 'elog_browser',
+    '%(device)s': 'elog_device_type',
+    '%(KA_APP)s': 'elog_KA_APP',
+    '%(os)s': 'elog_os',
+    '%(language)s': 'elog_language',
 }
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')

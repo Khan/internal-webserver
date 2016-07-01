@@ -63,6 +63,26 @@
         "query": "SUM(status = 502 or status = 503)"
     },
     {
+        "metricName": "logs.all_by_browser.%(browser)s",
+        "query": "COUNT(DISTINCT ip)"
+    },
+    {
+        "metricName": "logs.all_by_device.%(device)s",
+        "query": "COUNT(DISTINCT ip)"
+    },
+    {
+        "metricName": "logs.all_by_ka_app.%(KA_APP)s",
+        "query": "COUNT(DISTINCT ip)"
+    },
+    {
+        "metricName": "logs.all_by_os.%(os)s",
+        "query": "COUNT(DISTINCT ip)"
+    },
+    {
+        "metricName": "logs.all_by_language.%(language)s",
+        "query": "COUNT(DISTINCT ip)"
+    },
+    {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
         "normalizeByDaysAgo": 7,
