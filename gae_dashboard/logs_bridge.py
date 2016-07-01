@@ -271,25 +271,28 @@ def _get_values_from_bigquery(config, start_time_t,
             value = result['num']
 
             # Normalize if asked.
-            if config_entry.get('normalizeByRequests'):
-                value /= result['num_requests']
-
-            if config_entry.get('normalizeByDaysAgo'):
-                old_result = results_by_name_and_when[
-                    (resolved_metric_name, 'some days ago')]
-                old_value = old_result['num']
-                # Weird to normalize by two things, but possible.
+            try:
                 if config_entry.get('normalizeByRequests'):
-                    old_value /= old_result['num_requests']
-                value /= old_value
+                    value /= result['num_requests']
 
-            if config_entry.get('normalizeByLastDeploy'):
-                last_deploy_result = results_by_name_and_when[
-                    (resolved_metric_name, 'last deploy')]
-                last_deploy_value = last_deploy_result['num']
-                if config_entry.get('normalizeByRequests'):
-                    last_deploy_value /= last_deploy_result['num_requests']
-                value /= last_deploy_value
+                if config_entry.get('normalizeByDaysAgo'):
+                    old_result = results_by_name_and_when[
+                        (resolved_metric_name, 'some days ago')]
+                    old_value = old_result['num']
+                    # Weird to normalize by two things, but possible.
+                    if config_entry.get('normalizeByRequests'):
+                        old_value /= old_result['num_requests']
+                    value /= old_value
+
+                if config_entry.get('normalizeByLastDeploy'):
+                    last_deploy_result = results_by_name_and_when[
+                        (resolved_metric_name, 'last deploy')]
+                    last_deploy_value = last_deploy_result['num']
+                    if config_entry.get('normalizeByRequests'):
+                        last_deploy_value /= last_deploy_result['num_requests']
+                    value /= last_deploy_value
+            except ZeroDivisionError:
+                continue
 
             retval[resolved_metric_name] = value
 
@@ -305,6 +308,10 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
     time_t = start_time_t + time_interval_seconds
     metric_map = {}
     for (metric_name, value) in bigquery_values.iteritems():
+        # TODO(csilvers): better would be to set value to 0 for counts,
+        #                 but to not-send the value for ratios.
+        if value is None:
+            continue
         logging.info("Sending %s %s %s" % (metric_name, value, time_t))
         metric_map[metric_name] = [(value, time_t)]
 
