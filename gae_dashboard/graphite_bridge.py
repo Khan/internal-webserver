@@ -135,9 +135,6 @@ def _default_metrics():
             timeshift='7d'),
 
         ]
-    # Sanity check. This will raise errors on too-long names.
-    for metric in metrics:
-        cloudmonitoring_util.custom_metric(metric.name)
     return metrics
 
 
@@ -170,22 +167,13 @@ def _historical_ratio_metric(target, name, timeshift='7d'):
     return Metric(target, name)
 
 
-def _send_to_cloudmonitoring(google_project_id, data, dry_run=False):
-    for target, datapoints in data.iteritems():
-        value, timestamp = datapoints[0]
-        logging.info('Sending %s %s %s' % (target, value, timestamp))
-    if not dry_run:
-        cloudmonitoring_util.send_to_cloudmonitoring(google_project_id, data)
-    return len(data)
-
-
 def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
                                 window_seconds=300, dry_run=False):
     targets = [m.target for m in metrics]
     from_str = '-%ss' % window_seconds
     response = graphite_util.fetch(graphite_host, targets, from_str=from_str)
 
-    outbound = {}
+    outbound = []
     assert len(response) == len(metrics)
     for metric, item in zip(metrics, response):
         datapoints = item['datapoints']
@@ -236,11 +224,12 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
             timestamp = timestamp - timestamp % bucket_seconds
 
         # Use a friendly name in place of a (possibly complex) graphite target.
-        outbound[metric.name] = [(value, timestamp)]
+        # The '{}' is because we don't use stackdriver metric-labels yet.
+        outbound.append((metric.name, {}, value, timestamp))
 
     # Load data to Cloud Monitoring.
-    if outbound:
-        _send_to_cloudmonitoring(google_project_id, outbound, dry_run=dry_run)
+    cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
+        google_project_id, outbound, dry_run=dry_run)
     return outbound
 
 
@@ -278,8 +267,9 @@ def main():
         logging.basicConfig(level=logging.INFO)
 
     if args.test_write:
-        data = {'write_test': [(math.sin(time.time()), int(time.time()))]}
-        _send_to_cloudmonitoring(args.project_id, data, dry_run=args.dry_run)
+        data = [('write_test', {}, math.sin(time.time()), int(time.time()))]
+        cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
+            args.project_id, data, dry_run=args.dry_run)
     else:
         data = _graphite_to_cloudmonitoring(
             args.graphite_host, args.project_id, _default_metrics(),

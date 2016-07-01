@@ -8,6 +8,7 @@ data in graphite, our timeseries-graphing tool.
 import calendar
 import json
 import httplib
+import logging
 import os
 import re
 import socket
@@ -17,6 +18,8 @@ import apiclient.discovery
 import apiclient.errors
 import httplib2
 import oauth2client.client
+
+import alertlib
 
 
 def to_rfc3339(time_t):
@@ -32,24 +35,6 @@ def from_rfc3339(iso_string):
     time_t = time.strptime(re.sub(r'\.\d{3}Z$', 'GMT', iso_string),
                            '%Y-%m-%dT%H:%M:%S%Z')
     return calendar.timegm(time_t)
-
-
-def custom_metric(name):
-    """Make a metric suitable for sending to Cloud Monitoring's API.
-
-    Metric names must not exceed 100 characters.
-
-    It's not clear to me (chris) what the naming requirements are, so
-    for now we limit to alphanumeric plus dot and underscore. Invalid
-    characters are converted to underscores.
-    """
-    # Don't guess at automatic truncation. Let the caller decide.
-    prefix = 'custom.googleapis.com/'
-    maxlen = 100 - len(prefix)
-    if len(name) > maxlen:
-        raise ValueError('Metric name too long: %d (limit %d): %s'
-                         % (len(name), maxlen, name))
-    return ('%s%s' % (prefix, re.sub('[^a-zA-Z0-9_.]', '_', name)))
 
 
 def _call_with_retries(fn, num_retries=9):
@@ -68,13 +53,6 @@ def _call_with_retries(fn, num_retries=9):
             code = int(e.resp['status'])
             if code == 403 or code >= 500:     # 403: rate-limiting probably
                 pass
-            elif (code == 400 and
-                      'Timeseries data must be more recent' in str(e)):
-                # This error just means we uploaded the same data
-                # twice by accident (probably because the first time
-                # the connection to google died before we got their ACK).
-                # We just pretend the call magically succeeded.
-                return
             else:
                 # cloud-monitoring API seems to put more content in 'content'
                 if hasattr(e, 'content'):
@@ -106,50 +84,33 @@ def execute_with_retries(request, num_retries=9):
     return _call_with_retries(request.execute, num_retries=num_retries)
 
 
-# TODO(csilvers): rewrite to use alertlib's send_to_stackdriver()?
-def send_to_cloudmonitoring(project_id, metric_map):
-    """Send lightweight metrics to the Cloud Monitoring API.
+def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
+    """data is a list of 4tuples: (metric-name, metric-labels, value, time)."""
+    # alertlib is set up to only send one timeseries per call.  But we
+    # want to send all the timeseries in a single call, so we have to
+    # do some hackery.
+    timeseries_data = []
+    alert = alertlib.Alert('gae-dashboard metrics')
+    old_send_datapoints = alert.send_datapoints_to_stackdriver
+    alert.send_datapoints_to_stackdriver = lambda timeseries, *a, **kw: (
+        timeseries_data.extend(timeseries))
 
-    This required $HOME/cloudmonitoring_secret.json exist and hold the
-    JSON credentials for a Google Cloud Platform service account. See
-    aws-config/toby/setup.sh.
+    # This will put the data into timeseries_data but not actually send it.
+    try:
+        for (metric_name, metric_labels, value, time_t) in data:
+            logging.info("Sending %s (%s) %s %s",
+                         metric_name, metric_labels, value, time_t)
+            alert.send_to_stackdriver(metric_name, value,
+                                      metric_labels=metric_labels,
+                                      project=google_project_id,
+                                      when=time_t)
+    finally:
+        alert.send_datapoints_to_stackdriver = old_send_datapoints
 
-    Arguments:
-        project_id: project ID of a Google Cloud Platform project
-            with the Cloud Monitoring API enabled.
-        metric_map: dict mapping each metric timeseries name to a list
-            of one datapoint.  Each datapoint is a (value, timestamp)
-            2-tuple. For example, { "metric": [(0.123, 1428603130)] }.
+    # Now we do the actual send.
+    logging.debug("Sending to stackdriver: %s", timeseries_data)
+    if timeseries_data and not dry_run:
+        alert.send_datapoints_to_stackdriver(timeseries_data,
+                                             project=google_project_id)
 
-    """
-    service = get_cloudmonitoring_service()
-
-    # Using what the Cloud Monitoring API calls lightweight metrics,
-    # we can only send one data point per write request. That's OK for
-    # now, since we only have a few series.
-    for name, datapoints in metric_map.iteritems():
-        assert len(datapoints) == 1, datapoints  # ensure one point per metric
-        value, timestamp = datapoints[0]
-        # TODO(chris): use labeled metrics and batch sending datapoints.
-        # Documentation for this is at
-        #   https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
-        write_request = service.projects().timeSeries().create(
-            name='projects/%s' % project_id,
-            body={
-                'timeSeries': [{
-                    'metricKind': 'gauge',
-                    'metric': {
-                        'type': custom_metric(name),
-                    },
-                    'points': [{
-                        'interval': {
-                            'startTime': to_rfc3339(timestamp),
-                            'endTime': to_rfc3339(timestamp),
-                        },
-                        'value': {
-                            'doubleValue': value,
-                        }
-                    }]
-                }]
-            })
-        _ = execute_with_retries(write_request)  # ignore the response
+    return len(timeseries_data)

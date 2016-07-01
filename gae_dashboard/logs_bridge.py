@@ -33,8 +33,8 @@ import logging
 import os
 import time
 
-import alertlib
 import bq_util
+import cloudmonitoring_util
 
 
 # This maps from the bigquery table fields and aliases that users are
@@ -323,39 +323,12 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
     # *end* of our time-range: start_time_t + time_interval_seconds
     time_t = start_time_t + time_interval_seconds
 
-    # alertlib is set up to only send one timeseries per call.  But we
-    # want to send all the timeseries in a single call, so we have to
-    # do some hackery.
-    timeseries_data = []
-    alert = alertlib.Alert('logs-bridge metrics')
-    old_send_datapoints = alert.send_datapoints_to_stackdriver
-    alert.send_datapoints_to_stackdriver = lambda timeseries, *a, **kw: (
-        timeseries_data.extend(timeseries))
+    # Get the data in the format needed by cloudmonitoring_util.
+    data = [(metric_name, metric_labels, value, time_t)
+            for (metric_name, metric_labels, value) in bigquery_values]
 
-    # This will put the data into timeseries_data but not actually send it.
-    try:
-        for (metric_name, metric_labels, value) in bigquery_values:
-            logging.info("Sending %s (%s) %s %s",
-                         metric_name, metric_labels, value, time_t)
-            alert.send_to_stackdriver(metric_name, value,
-                                      metric_labels=metric_labels,
-                                      project=google_project_id,
-                                      when=time_t)
-    finally:
-        alert.send_datapoints_to_stackdriver = old_send_datapoints
-
-    # Now we do the actual send.
-    logging.debug("Sending to stackdriver: %s", timeseries_data)
-    if timeseries_data and not dry_run:
-        try:
-            alert.send_datapoints_to_stackdriver(timeseries_data,
-                                                 project=google_project_id)
-        except Exception:
-            logging.error("Error sending data to stackdriver: %r",
-                          timeseries_data)
-            raise
-
-    return len(timeseries_data)
+    return cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
+        google_project_id, data, dry_run)
 
 
 def main(config_filename, google_project_id, time_interval_seconds, dry_run):
