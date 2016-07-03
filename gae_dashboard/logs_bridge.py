@@ -343,8 +343,13 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
     # Now we do the actual send.
     logging.debug("Sending to stackdriver: %s", timeseries_data)
     if timeseries_data and not dry_run:
-        alert.send_datapoints_to_stackdriver(timeseries_data,
-                                             project=google_project_id)
+        try:
+            alert.send_datapoints_to_stackdriver(timeseries_data,
+                                                 project=google_project_id)
+        except Exception:
+            logging.error("Error sending data to stackdriver: %r",
+                          timeseries_data)
+            raise
 
     return len(timeseries_data)
 
