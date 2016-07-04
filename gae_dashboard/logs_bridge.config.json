@@ -74,7 +74,7 @@
         "labels": ["browser"],
         "query": "COUNT(DISTINCT ip)"
     },
-// TODO(csilvers): uncomment when we figure out the best bq field for this.
+// TODO(csilvers): uncomment when we get elog_device_kind into streaming logs
 //    {
 //        "metricName": "logs.distinct_ips_by_device",
 //        "labels": ["device"],
@@ -90,12 +90,13 @@
         "labels": ["os"],
         "query": "COUNT(DISTINCT ip)"
     },
-    {
-        "metricName": "logs.distinct_ips_by_language",
-        "labels": ["lang"],
-        "query": "COUNT(DISTINCT ip)"
-    },
-    {
+// TODO(csilvers): uncomment when we fix the way elog_lang is parsed by java
+//    {
+//        "metricName": "logs.distinct_ips_by_language",
+//        "labels": ["lang"],
+//        "query": "COUNT(DISTINCT ip)"
+//    },
+//    {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
         "normalizeByDaysAgo": 7,
