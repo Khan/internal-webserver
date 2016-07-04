@@ -96,7 +96,7 @@
 //        "labels": ["lang"],
 //        "query": "COUNT(DISTINCT ip)"
 //    },
-//    {
+    {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
         "normalizeByDaysAgo": 7,
