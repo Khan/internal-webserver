@@ -53,6 +53,16 @@ def _call_with_retries(fn, num_retries=9):
             code = int(e.resp['status'])
             if code == 403 or code >= 500:     # 403: rate-limiting probably
                 pass
+<<<<<<< 699d76d4e71fc840c1847a25a45c49ccb12a562a
+=======
+            elif (code == 400 and
+                    'Timeseries data must be more recent' in str(e)):
+                # This error just means we uploaded the same data
+                # twice by accident (probably because the first time
+                # the connection to google died before we got their ACK).
+                # We just pretend the call magically succeeded.
+                return
+>>>>>>> Added fetch_instance_stats to get the number of failed vm instances.
             else:
                 # cloud-monitoring API seems to put more content in 'content'
                 if hasattr(e, 'content'):
@@ -61,9 +71,9 @@ def _call_with_retries(fn, num_retries=9):
         time.sleep(0.5)     # wait a bit before the next request
 
 
-def get_cloudmonitoring_service():
-    # Load the private key that we need to write data to Cloud
-    # Monitoring. This will (properly) raise an exception if this file
+def get_cloud_service(service_name, version_number):
+    # Load the private key that we need to get data from Cloud compute.
+    # This will (properly) raise an exception if this file
     # isn't installed (it's acquired from the Cloud Platform Console).
     with open(os.path.expanduser('~/cloudmonitoring_secret.json')) as f:
         json_key = json.load(f)
@@ -71,10 +81,10 @@ def get_cloudmonitoring_service():
     def get_service():
         credentials = oauth2client.client.SignedJwtAssertionCredentials(
             json_key['client_email'], json_key['private_key'],
-            'https://www.googleapis.com/auth/monitoring')
+            'https://www.googleapis.com/auth/%s' % service_name)
         http = credentials.authorize(httplib2.Http())
-        return apiclient.discovery.build(serviceName="monitoring",
-                                         version="v3", http=http)
+        return apiclient.discovery.build(serviceName=service_name,
+                                         version=version_number, http=http)
 
     return _call_with_retries(get_service)
 
@@ -84,6 +94,7 @@ def execute_with_retries(request, num_retries=9):
     return _call_with_retries(request.execute, num_retries=num_retries)
 
 
+<<<<<<< 699d76d4e71fc840c1847a25a45c49ccb12a562a
 def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
     """data is a list of 4tuples: (metric-name, metric-labels, value, time)."""
     # alertlib is set up to only send one timeseries per call.  But we
@@ -114,3 +125,52 @@ def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
                                              project=google_project_id)
 
     return len(timeseries_data)
+=======
+# TODO(csilvers): rewrite to use alertlib's send_to_stackdriver()?
+def send_to_cloudmonitoring(project_id, metric_map):
+    """Send lightweight metrics to the Cloud Monitoring API.
+
+    This required $HOME/cloudmonitoring_secret.json exist and hold the
+    JSON credentials for a Google Cloud Platform service account. See
+    aws-config/toby/setup.sh.
+
+    Arguments:
+        project_id: project ID of a Google Cloud Platform project
+            with the Cloud Monitoring API enabled.
+        metric_map: dict mapping each metric timeseries name to a list
+            of one datapoint.  Each datapoint is a (value, timestamp)
+            2-tuple. For example, { "metric": [(0.123, 1428603130)] }.
+
+    """
+    service = get_cloud_service('monitoring', 'v3')
+
+    # Using what the Cloud Monitoring API calls lightweight metrics,
+    # we can only send one data point per write request. That's OK for
+    # now, since we only have a few series.
+    for name, datapoints in metric_map.iteritems():
+        assert len(datapoints) == 1, datapoints  # ensure one point per metric
+        value, timestamp = datapoints[0]
+        # TODO(chris): use labeled metrics and batch sending datapoints.
+        # Documentation for this is at
+        #   https://developers.google.com/resources/api-libraries/documentation/monitoring/v3/python/latest/monitoring_v3.projects.timeSeries.html
+        write_request = service.projects().timeSeries().create(
+            name='projects/%s' % project_id,
+            body={
+                'timeSeries': [{
+                    'metricKind': 'gauge',
+                    'metric': {
+                        'type': custom_metric(name),
+                    },
+                    'points': [{
+                        'interval': {
+                            'startTime': to_rfc3339(timestamp),
+                            'endTime': to_rfc3339(timestamp),
+                        },
+                        'value': {
+                            'doubleValue': value,
+                        }
+                    }]
+                }]
+            })
+        _ = execute_with_retries(write_request)  # ignore the response
+>>>>>>> Added fetch_instance_stats to get the number of failed vm instances.

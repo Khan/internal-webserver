@@ -78,7 +78,7 @@ def _get_timeseries(metric, project_id, start_time_t, end_time_t):
         return _TIMESERIES_CACHE[cache_key]
 
     if _TIMESERIES is None:
-        service = cloudmonitoring_util.get_cloudmonitoring_service()
+        service = cloudmonitoring_util.get_cloud_service('monitoring', 'v3')
         _TIMESERIES = service.projects().timeSeries()
 
     retval = {'timeSeries': []}
