@@ -1,6 +1,5 @@
 import alertlib
 import cloudmonitoring_util
-import json
 
 
 def _get_num_failed_matches(response, name_substring):
