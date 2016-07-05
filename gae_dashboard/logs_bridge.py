@@ -49,6 +49,7 @@ _QUERY_FIELDS = {
 
 # This maps from the possible values for the 'labels' entry in the
 # config file, to the bigquery field that represents it.
+# For us, labels always have type 'string'.
 _LABELS = {
     'module_id': 'module_id',
     'browser': 'elog_browser',
@@ -252,8 +253,11 @@ def _get_values_from_bigquery(config, start_time_t,
         label_values = []
         for label in config_entry.get('labels', []):
             selector = _LABELS[label]
-            label_value = result[selector]
-            # A special case: bigquery doesn't store module-id for default
+            # bq_io can turn labels like '8' into an int; we want them
+            # to be strings so we turn them back.
+            label_value = str(result[selector])
+            # A special case: bigquery doesn't store module-id for default.
+            # "(None)" is how bq_io translates `None`.
             if label == 'module_id' and label_value == '(None)':
                 label_value = 'default'
             label_values.append(label_value)
