@@ -369,6 +369,15 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
     if time_of_last_successful_run is None:
         # If there's no record of previous runs, just do the most recent run.
         time_of_last_successful_run = run_until - time_interval_seconds
+    if time.time() - time_of_last_successful_run > 45 * 60:
+        # Stackdriver doesn't let you insert datapoints that are more than
+        # an hour old, and we would never catch up from being so far behind
+        # anyway.  So we just declare bankruptcy.
+        logging.error('Last successful run was too long ago (at time %s). '
+                      'Declaring bankruptcy and skipping ahead to time %s.'
+                      % (time_of_last_successful_run,
+                         run_until - time_interval_seconds))
+        time_of_last_successful_run = run_until - time_interval_seconds
 
     while time_of_last_successful_run < run_until:
         start_time = time_of_last_successful_run + time_interval_seconds
