@@ -1,5 +1,6 @@
 import unittest
 
+import cloudmonitoring_util
 import fetch_instance_stats
 
 
@@ -81,7 +82,7 @@ class TestMain(unittest.TestCase):
         self.mock_origs = {}   # used to unmock if needed
 
         def new_send_to_stackdriver(alert, metric_name, value=1,
-                                    metric_labels=None):
+                                    metric_labels=None, **kwargs):
             module_id = metric_labels['module_id']
             self.sent_to_cloud_monitoring[module_id] = (metric_name, value)
 
@@ -112,7 +113,7 @@ class TestMain(unittest.TestCase):
             serial_port_output_lines = serial_port_output.split('\n')
             return serial_port_output_lines
 
-        self.mock(fetch_instance_stats.alertlib.Alert, 'send_to_stackdriver',
+        self.mock(cloudmonitoring_util.alertlib.Alert, 'send_to_stackdriver',
                   new_send_to_stackdriver)
         self.mock(fetch_instance_stats,
                   '_get_instances_list_from_cloud_compute',

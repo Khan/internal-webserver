@@ -111,6 +111,7 @@ def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
     logging.debug("Sending to stackdriver: %s", timeseries_data)
     if timeseries_data and not dry_run:
         alert.send_datapoints_to_stackdriver(timeseries_data,
-                                             project=google_project_id)
+                                             project=google_project_id,
+                                             ignore_errors=False)
 
     return len(timeseries_data)

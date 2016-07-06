@@ -12,8 +12,8 @@ minutes.
 """
 
 import re
+import time
 
-import alertlib
 import apiclient.errors
 import cloudmonitoring_util
 
@@ -117,6 +117,8 @@ def _get_instances_list_from_cloud_compute(service, project_id):
 
 
 def main(project_id, dry_run):
+    now = time.time()
+
     service = cloudmonitoring_util.get_cloud_service('compute', 'v1')
 
     # Get the number of failed GCE instances for each module of interest
@@ -151,12 +153,14 @@ def main(project_id, dry_run):
                    % (module_id, num_failed_instances))
             continue
 
-        # Send metric to Stackdriver
-        metric_name = 'gce.failed_instance_count'
-        metric_labels = {'module_id': module_id}
-        alert = alertlib.Alert('Instance failure metrics')
-        alert.send_to_stackdriver(metric_name, value=num_failed_instances,
-                                  metric_labels=metric_labels)
+        # Send metric to Stackdriver.
+        data = ('gce.failed_instance_count',
+                {'module_id': module_id},
+                num_failed_instances,
+                now)
+        cloudmonitoring_util.send_timeseries_to_cloudmonitoring(project_id,
+                                                                [data])
+
 
 if __name__ == '__main__':
     import argparse
