@@ -53,10 +53,9 @@ _QUERY_FIELDS = {
 _LABELS = {
     'module_id': 'module_id',
     'browser': 'elog_browser',
-    'device': 'elog_device_type',
     'KA_APP': 'elog_KA_APP',
     'os': 'elog_os',
-    'lang': 'elog_ka_locale',
+    'lang': 'elog_language',
 }
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
