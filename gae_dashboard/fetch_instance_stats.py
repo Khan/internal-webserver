@@ -11,10 +11,11 @@ It's expected this script will be run periodically as a cron job every 5
 minutes.
 """
 
+import re
+
 import alertlib
 import apiclient.errors
 import cloudmonitoring_util
-import re
 
 
 class GCEInstance(object):
@@ -142,10 +143,8 @@ def main(project_id, dry_run):
         unhealthy_count_threshold = 5
 
         num_failed_instances = len(
-            filter(
-                lambda lines: _instance_is_failed(lines,
-                                                  unhealthy_count_threshold),
-                serial_port_output_lines))
+            [l for l in serial_port_output_lines
+             if _instance_is_failed(l, unhealthy_count_threshold)])
 
         if dry_run:
             print ('module=%s, num_failed_instances=%s'
