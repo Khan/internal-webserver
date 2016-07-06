@@ -114,7 +114,7 @@ def main(project_id, dry_run):
             continue
 
         # Send metric to Stackdriver
-        metric_name = 'gce.number_failed_instances'
+        metric_name = 'gce.failed_instance_count'
         metric_labels = {'module_id': module_id}
         alert = alertlib.Alert('Instance failure metrics')
         alert.send_to_stackdriver(metric_name, value=num_failed_instances,

@@ -118,8 +118,8 @@ class TestMain(unittest.TestCase):
         sent to Stackdriver"""
 
         fetch_instance_stats.main('proj_id', False)
-        self.assertEqual({'react-render': ('gce.number_failed_instances', 2),
-                          'vm': ('gce.number_failed_instances', 0)},
+        self.assertEqual({'react-render': ('gce.failed_instance_count', 2),
+                          'vm': ('gce.failed_instance_count', 0)},
                          self.sent_to_cloud_monitoring)
 
 if __name__ == '__main__':
