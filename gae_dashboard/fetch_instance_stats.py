@@ -14,8 +14,6 @@ minutes.
 import alertlib
 import apiclient
 import cloudmonitoring_util
-import json
-import logging
 
 
 class GCEInstance(object):
@@ -54,7 +52,7 @@ def _get_serial_port_output_lines_from_cloud_compute(service, project_id,
     try:
         response = cloudmonitoring_util.execute_with_retries(request)
     # This can fail, for example when an instance is spinning up.
-    except apiclient.errors.HttpError as e:
+    except apiclient.errors.HttpError:
         return []
     return response['contents'].split('\n')
 
