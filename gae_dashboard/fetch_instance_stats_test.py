@@ -5,29 +5,47 @@ import fetch_instance_stats
 
 class TestInstanceIsFailed(unittest.TestCase):
     def test_unhealthy_over_threshold_returns_true(self):
-        serial_port_output = 'STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
+        serial_port_output = 'TIME=10;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
         serial_port_output_lines = serial_port_output.split('\n')
         unhealthy_count_threshold = 5
         self.assertTrue(fetch_instance_stats._instance_is_failed(
             serial_port_output_lines, unhealthy_count_threshold))
 
     def test_unhealthy_under_threshold_returns_false(self):
-        serial_port_output = 'STATUS=HEALTH_CHECK_UNHEALTHY\n' * 4
+        serial_port_output = 'TIME=10;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 4
         serial_port_output_lines = serial_port_output.split('\n')
         unhealthy_count_threshold = 5
         self.assertFalse(fetch_instance_stats._instance_is_failed(
             serial_port_output_lines, unhealthy_count_threshold))
 
     def test_not_unhealthy_returns_false(self):
-        serial_port_output = 'STATUS=HEALTH_CHECK_HEALTHY\n' * 10
+        serial_port_output = 'TIME=10;STATUS=HEALTH_CHECK_HEALTHY\n' * 10
         serial_port_output_lines = serial_port_output.split('\n')
         unhealthy_count_threshold = 5
         self.assertFalse(fetch_instance_stats._instance_is_failed(
             serial_port_output_lines, unhealthy_count_threshold))
 
     def test_unhealthy_long_time_ago_returns_false(self):
-        serial_port_output = 'STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
-        serial_port_output += 'newline\n' * 100
+        serial_port_output = 'TIME=10;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
+        serial_port_output += 'TIME=20;STATUS=ALL_COMMANDS_SUCCEEDED\n' * 100
+        serial_port_output_lines = serial_port_output.split('\n')
+        unhealthy_count_threshold = 5
+        self.assertFalse(fetch_instance_stats._instance_is_failed(
+            serial_port_output_lines, unhealthy_count_threshold))
+
+    def test_out_of_order_timestamps_unhealthy_recent_returns_true(self):
+        serial_port_output = 'TIME=30;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 100
+        serial_port_output += 'TIME=10;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
+        serial_port_output += 'TIME=20;STATUS=ALL_COMMANDS_SUCCEEDED\n' * 100
+        serial_port_output_lines = serial_port_output.split('\n')
+        unhealthy_count_threshold = 5
+        self.assertTrue(fetch_instance_stats._instance_is_failed(
+            serial_port_output_lines, unhealthy_count_threshold))
+
+    def test_out_of_order_timestamps_healthy_recent_returns_false(self):
+        serial_port_output = 'TIME=30;STATUS=ALL_COMMANDS_SUCCEEDED\n' * 100
+        serial_port_output += 'TIME=10;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 10
+        serial_port_output += 'TIME=20;STATUS=HEALTH_CHECK_UNHEALTHY\n' * 100
         serial_port_output_lines = serial_port_output.split('\n')
         unhealthy_count_threshold = 5
         self.assertFalse(fetch_instance_stats._instance_is_failed(
@@ -114,9 +132,6 @@ class TestMain(unittest.TestCase):
         setattr(container, var_str, new_value)
 
     def test_sent_errors_to_stackdriver(self):
-        """Mock out the appropriate functions, make a list of what would be
-        sent to Stackdriver"""
-
         fetch_instance_stats.main('proj_id', False)
         self.assertEqual({'react-render': ('gce.failed_instance_count', 2),
                           'vm': ('gce.failed_instance_count', 0)},

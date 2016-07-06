@@ -12,8 +12,9 @@ minutes.
 """
 
 import alertlib
-import apiclient
+import apiclient.errors
 import cloudmonitoring_util
+import re
 
 
 class GCEInstance(object):
@@ -26,17 +27,26 @@ class GCEInstance(object):
 def _instance_is_failed(serial_port_output, unhealthy_count_threshold):
     """Return true if instance is considered failed.
 
-    Return true if the gce instance is considered to have failed based
-    there are at least `unhealthy_count_threshold` lines indicating
-    unhealthy instance status in the last 5 * unhealthy_count_threshold
-    serial output port lines. The last `5 * x` lines was chosen because not
-    every output line is a health check. There can be other messages such as
-    heartbeats.
+    Return true if the gce instance is considered to have failed because
+    there are at least `unhealthy_count_threshold` consecutive lines indicating
+    unhealthy instance status in the most recent 1000 serial output port lines,
+    uninterrupted by a healthy status message when sorted by timestamp.
     """
-    recent_lines = serial_port_output[-8 * unhealthy_count_threshold:]
-    unhealthy_lines = filter(lambda l: 'STATUS=HEALTH_CHECK_UNHEALTHY' in l,
-                             recent_lines)
-    return len(unhealthy_lines) >= unhealthy_count_threshold
+    # only look at last (most recent) 1000 entries in serial port output so
+    # that the full serial port output history isn't sorted
+    serial_port_output = serial_port_output[-1000:]
+    timestamp_re = re.compile(r'TIME=(\d+)')
+    serial_port_output.sort(key=lambda l: timestamp_re.findall(l),
+                            reverse=True)
+
+    num_consecutive_unhealthy = 0
+    for line in serial_port_output:
+        if 'STATUS=HEALTH_CHECK_UNHEALTHY' in line:
+            num_consecutive_unhealthy += 1
+        elif 'STATUS=' in line:  # probably 'ALL_COMMANDS_SUCCEEDED'
+            break
+
+    return num_consecutive_unhealthy >= unhealthy_count_threshold
 
 
 def _get_serial_port_output_lines_from_cloud_compute(service, project_id,
@@ -45,7 +55,27 @@ def _get_serial_port_output_lines_from_cloud_compute(service, project_id,
 
     List of serial port output lines for the gce instance is ordered from
     least recent to most recent. With each port output as a separate list
-    entry."""
+    entry.
+
+    Documentation: cloud.google.com/compute/docs/reference/latest/instances
+    Examples of expected serial_port_output lines:
+
+    Failed instance:
+        gcm-StatusUpdate:TIME=1467830173000;STATUS=HEALTH_CHECK_UNHEALTHY;
+            STATUS_MESSAGE=0
+        gcm-Heartbeat:1467830173000
+        gcm-StatusUpdate:TIME=1467830178000;STATUS=HEALTH_CHECK_UNHEALTHY;
+            STATUS_MESSAGE=0
+        gcm-StatusUpdate:TIME=1467830183000;STATUS=HEALTH_CHECK_UNHEALTHY;
+            STATUS_MESSAGE=0
+
+    Healthy instance:
+        gcm-StatusUpdate:TIME=1467826034000;STATUS=ALL_COMMANDS_SUCCEEDED
+        gcm-Heartbeat:1467830669000
+        gcm-StatusUpdate:TIME=1467826034000;STATUS=ALL_COMMANDS_SUCCEEDED
+        gcm-Heartbeat:1467830699000
+        gcm-StatusUpdate:TIME=1467826034000;STATUS=ALL_COMMANDS_SUCCEEDED
+    """
     request = service.instances().getSerialPortOutput(
         project=project_id, zone=gce_instance.zone_name,
         instance=gce_instance.instance_name)
@@ -93,6 +123,8 @@ def main(project_id, dry_run):
     instance_list_response = _get_instances_list_from_cloud_compute(
         service, project_id)
 
+    # Map module_id as used in Stackdriver to the identifying substring for
+    # that module in GCE instance names.
     module_id_to_name_substring = {'react-render': 'gae-react--render',
                                    'vm': 'gae-vm-'}
     for module_id, name_substring in module_id_to_name_substring.iteritems():
@@ -105,12 +137,19 @@ def main(project_id, dry_run):
             for instance in instances
         ]
 
+        # Number of consecutive "unhealthy" instance statuses required to
+        # consider that instance "failed".
+        unhealthy_count_threshold = 5
+
         num_failed_instances = len(
-            filter(lambda lines: _instance_is_failed(lines, 5),
-                   serial_port_output_lines))
+            filter(
+                lambda lines: _instance_is_failed(lines,
+                                                  unhealthy_count_threshold),
+                serial_port_output_lines))
 
         if dry_run:
-            print module_id, num_failed_instances
+            print ('module=%s, num_failed_instances=%s'
+                   % (module_id, num_failed_instances))
             continue
 
         # Send metric to Stackdriver
