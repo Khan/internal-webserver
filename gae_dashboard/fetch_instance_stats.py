@@ -1,18 +1,80 @@
+#!/usr/bin/env python
+
+"""Send GCE Instance Metrics from the Cloud Compute API to Cloud Monitoring.
+
+GCE Instance Metrics such as instance health are displayed on the cloud console
+here: https://console.cloud.google.com/appengine/instances?project=khan-academy
+but are not available in Cloud Monitoring. This script collects GCE instance
+metrics and sends them to cloud monitoring.
+
+It's expected this script will be run periodically as a cron job every 5
+minutes.
+"""
+
 import alertlib
+import apiclient
 import cloudmonitoring_util
+import json
+import logging
 
 
-def _get_num_failed_matches(response, name_substring):
-    num_failed = 0
-    for zone_name, zone in response['items'].iteritems():
+class GCEInstance(object):
+    """Simple class to hold gce instance data."""
+    def __init__(self, instance_name, zone_name):
+        self.instance_name = instance_name
+        self.zone_name = zone_name
+
+
+def _instance_is_failed(serial_port_output, unhealthy_count_threshold):
+    """Return true if instance is considered failed.
+
+    Return true if the gce instance is considered to have failed based
+    on there being at least unhealthy_count_threshold lines indicating
+    unhealthy instance status in the last 5*unhealthy_count_threshold
+    serial output port lines.
+    """
+    recent_lines = serial_port_output[-8 * unhealthy_count_threshold:]
+    unhealthy_lines = filter(lambda l: 'STATUS=HEALTH_CHECK_UNHEALTHY' in l,
+                             recent_lines)
+    return len(unhealthy_lines) >= unhealthy_count_threshold
+
+
+def _get_serial_port_output_lines_from_cloud_compute(service, project_id,
+                                                     gce_instance):
+    """Return a list of serial port output lines for the gce instance."""
+    request = service.instances().getSerialPortOutput(
+        project=project_id, zone=gce_instance.zone_name,
+        instance=gce_instance.instance_name)
+    try:
+        response = cloudmonitoring_util.execute_with_retries(request)
+    except apiclient.errors.HttpError as e:
+        return []
+    return response['contents'].split('\n')
+
+
+def _get_instances_matching_name_from_response(instances_list_response,
+                                               name_substring):
+    """Return a list of GCEInstance objects from an instances response list.
+
+    Returns a list of GCEInstance objects from the cloud compute instances
+    response list for all instances whose name includes `name_subtring`. Note
+    that this returns only instances matching a name_substring here so that
+    the number of instances returned is as small as possible so that the number
+    of future operations on each instance (such as a per instance API call) is
+    minimized.
+    """
+    gce_instances = []
+    for zone_name, zone in instances_list_response['items'].iteritems():
+        zone_name = zone_name.replace('zones/', '')
         for instance in zone.get('instances', {}):
-            if (name_substring in instance['name'] and
-                    instance['status'] == 'TERMINATED'):
-                num_failed += 1
-    return num_failed
+            if name_substring in instance['name']:
+                gce_instance = GCEInstance(instance['name'], zone_name)
+                gce_instances.append(gce_instance)
+    return gce_instances
 
 
-def _get_from_cloud_compute(service, project_id):
+def _get_instances_list_from_cloud_compute(service, project_id):
+    """Get the aggregated GCE instances list via cloud compute API."""
     request = service.instances().aggregatedList(project=project_id)
     response = cloudmonitoring_util.execute_with_retries(request)
     return response
@@ -25,22 +87,41 @@ def _send_num_failed_instances_to_cloud_monitoring(num_failed_instances,
     alert = alertlib.Alert('Instance failure metrics')
     alert.send_to_stackdriver(metric_name, metric_labels=metric_labels)
 
+
+def main(project_id, dry_run):
+    service = cloudmonitoring_util.get_cloud_service('compute', 'v1')
+    instance_list_response = _get_instances_list_from_cloud_compute(
+        service, project_id)
+
+    module_id_to_name_substring = {'react-render': 'gae-react--render',
+                                   'vm': 'gae-vm-'}
+    for module_id, name_substring in module_id_to_name_substring.iteritems():
+        instances = _get_instances_matching_name_from_response(
+            instance_list_response, name_substring)
+
+        serial_port_output_lines = [
+            _get_serial_port_output_lines_from_cloud_compute(
+                service, project_id, instance)
+            for instance in instances
+        ]
+
+        num_failed_instances = len(
+            filter(lambda lines: _instance_is_failed(lines, 5),
+                   serial_port_output_lines))
+
+        if dry_run:
+            print module_id, num_failed_instances
+            continue
+        _send_num_failed_instances_to_cloud_monitoring(num_failed_instances,
+                                                       module_id)
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--project-id', '-p', default='khan-academy',
                         help=('The cloud-monitoring project-id to fetch '
                               'stats for (Default: %(default)s)'))
+    parser.add_argument('-n', '--dry-run', action='store_true', default=False,
+                        help='do not write metrics to Cloud Monitoring')
     args = parser.parse_args()
-
-    service = cloudmonitoring_util.get_cloud_service('compute', 'v1')
-    response = _get_from_cloud_compute(service, args.project_id)
-
-    num_react_render_failed = _get_num_failed_matches(response,
-                                                      'gae-react--render')
-    num_vm_failed = _get_num_failed_matches(response, 'gae-vm-')
-
-    _send_num_failed_instances_to_cloud_monitoring(num_react_render_failed,
-                                                   'react-render')
-    _send_num_failed_instances_to_cloud_monitoring(num_vm_failed,
-                                                   'vm')
+    main(args.project_id, args.dry_run)
