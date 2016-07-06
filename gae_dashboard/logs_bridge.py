@@ -336,7 +336,7 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
 
     # We'll collect data minute-by-minute until we've collected data
     # from the time range (two-minutes-ago, one-minute-ago).
-    run_until = int(time.time()) - 120
+    run_until = int(time.time()) - time_interval_seconds * 2
 
     time_of_last_successful_run = _time_t_of_latest_successful_run()
     if time_of_last_successful_run is None:
