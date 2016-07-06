@@ -54,9 +54,6 @@ def _call_with_retries(fn, num_retries=9):
             if code == 403 or code >= 500:     # 403: rate-limiting probably
                 pass
             else:
-                # cloud-monitoring API seems to put more content in 'content'
-                if hasattr(e, 'content'):
-                    print 'CLOUD-MONITORING ERROR: %s' % e.content
                 raise
         time.sleep(0.5)     # wait a bit before the next request
 
