@@ -204,7 +204,12 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
 
     selectors = [_LABELS[label] for label in config_entry.get('labels', [])]
 
-    subquery = ("SELECT '%s' as metricName, when, FLOAT(%s) as num"
+    # num_requests_by_field is the total number of requests broken down by
+    # field. E.g. if this metric is broken down by browser,
+    # num_requests_by_field would be for a particular browser such as the
+    # total number of requests for Chrome.
+    subquery = ("SELECT '%s' as metricName, when, COUNT(*) as "
+                "num_requests_by_field, FLOAT(%s) as num"
                 % (config_entry['metricName'], config_entry['query']))
     for selector in selectors:
         subquery += ', %s' % selector
@@ -222,8 +227,13 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     # because a different sub-query.
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds)
                   for entry in config]
-    query = ('SELECT *, SUM(num) OVER() as num_requests FROM %s'
-             % ',\n'.join(subqueries))
+
+    # num_requests is the total number of requests in the specified time period
+    # (either `now` or some other time). In order to get this value, we sum
+    # the total number of requests for each field (e.g. we sum the total number
+    # of requests for each browser) partioned by the time, `when`.
+    query = ('SELECT *, SUM(num_requests_by_field) OVER(PARTITION BY when)'
+             ' as num_requests FROM %s' % ',\n'.join(subqueries))
     logging.debug('BIGQUERY QUERY: %s' % query)
 
     logging.info("Sending query to bigquery")
