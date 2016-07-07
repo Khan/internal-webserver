@@ -47,32 +47,44 @@
     {
         "metricName": "logs.status.400",
         "labels": ["module_id"],
-        "query": "SUM(status = 400)"
+        "query": "SUM(status = 400)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.status.401_or_403",
         "labels": ["module_id"],
-        "query": "SUM(status = 401 or status = 403)"
+        "query": "SUM(status = 401 or status = 403)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.status.404",
         "labels": ["module_id"],
-        "query": "SUM(status = 404)"
+        "query": "SUM(status = 404)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.status.500",
         "labels": ["module_id"],
-        "query": "SUM(status = 500)"
+        "query": "SUM(status = 500)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.status.502_or_503",
         "labels": ["module_id"],
-        "query": "SUM(status = 502 or status = 503)"
+        "query": "SUM(status = 502 or status = 503)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.distinct_ips_by_browser",
         "labels": ["browser"],
-        "query": "COUNT(DISTINCT ip)"
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
 // TODO(csilvers): uncomment when we get elog_device_kind into streaming logs
 //    {
@@ -83,12 +95,16 @@
     {
         "metricName": "logs.distinct_ips_by_ka_app",
         "labels": ["KA_APP"],
-        "query": "COUNT(DISTINCT ip)"
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
     {
         "metricName": "logs.distinct_ips_by_os",
         "labels": ["os"],
-        "query": "COUNT(DISTINCT ip)"
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     },
 // TODO(csilvers): uncomment when we fix the way elog_lang is parsed by java
 //    {
