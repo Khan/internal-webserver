@@ -270,7 +270,7 @@ def _get_values_from_bigquery(config, start_time_t,
         for ((metric_name, metric_label_values, when), result) in \
                 results_by_metric_and_when.iteritems():
             if (result['metricName'] != config_entry['metricName'] or
-                   when != 'now'):
+                    when != 'now'):
                 continue
 
             value = result['num']
@@ -281,8 +281,17 @@ def _get_values_from_bigquery(config, start_time_t,
                     value /= result['num_requests']
 
                 if config_entry.get('normalizeByDaysAgo'):
-                    old_result = results_by_metric_and_when[
-                        (metric_name, metric_label_values, 'some days ago')]
+                    last_week_key = (metric_name, metric_label_values,
+                                     'some days ago')
+                    # if number of requests for this key was 0 a week ago, the
+                    # week over week ratio is a divide by zero; so, we ignore.
+                    # TODO(alexanderforsyth): better would be to aggregate
+                    # all browsers, etc. with count < X into an
+                    # 'Other category', which is more useful than sending
+                    # that some browser has 3 users, for example
+                    if last_week_key not in results_by_metric_and_when:
+                        continue
+                    old_result = results_by_metric_and_when[last_week_key]
                     old_value = old_result['num']
                     # Weird to normalize by two things, but possible.
                     if config_entry.get('normalizeByRequests'):
