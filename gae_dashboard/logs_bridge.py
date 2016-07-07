@@ -204,8 +204,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
 
     selectors = [_LABELS[label] for label in config_entry.get('labels', [])]
 
-    subquery = ("SELECT '%s' as metricName, when, "
-                "COUNT(*) as num_requests, FLOAT(%s) as num"
+    subquery = ("SELECT '%s' as metricName, when, FLOAT(%s) as num"
                 % (config_entry['metricName'], config_entry['query']))
     for selector in selectors:
         subquery += ', %s' % selector
@@ -223,7 +222,8 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     # because a different sub-query.
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds)
                   for entry in config]
-    query = 'SELECT * FROM %s' % ',\n'.join(subqueries)
+    query = ('SELECT *, SUM(num) OVER() as num_requests FROM %s'
+             % ',\n'.join(subqueries))
     logging.debug('BIGQUERY QUERY: %s' % query)
 
     logging.info("Sending query to bigquery")
