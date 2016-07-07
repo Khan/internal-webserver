@@ -45,42 +45,42 @@
 //        store a data point.  Default is false.
 [
     {
-        "metricName": "logs.status.400",
+        "metricName": "logs.status.400.week_over_week",
         "labels": ["module_id"],
         "query": "SUM(status = 400)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.status.401_or_403",
+        "metricName": "logs.status.401_or_403.week_over_week",
         "labels": ["module_id"],
         "query": "SUM(status = 401 or status = 403)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.status.404",
+        "metricName": "logs.status.404.week_over_week",
         "labels": ["module_id"],
         "query": "SUM(status = 404)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.status.500",
+        "metricName": "logs.status.500.week_over_week",
         "labels": ["module_id"],
         "query": "SUM(status = 500)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.status.502_or_503",
+        "metricName": "logs.status.502_or_503.week_over_week",
         "labels": ["module_id"],
         "query": "SUM(status = 502 or status = 503)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.distinct_ips_by_browser",
+        "metricName": "logs.distinct_ips_by_browser.week_over_week",
         "labels": ["browser"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
@@ -88,19 +88,19 @@
     },
 // TODO(csilvers): uncomment when we get elog_device_kind into streaming logs
 //    {
-//        "metricName": "logs.distinct_ips_by_device",
+//        "metricName": "logs.distinct_ips_by_device.week_over_week",
 //        "labels": ["device"],
 //        "query": "COUNT(DISTINCT ip)"
 //    },
     {
-        "metricName": "logs.distinct_ips_by_ka_app",
+        "metricName": "logs.distinct_ips_by_ka_app.week_over_week",
         "labels": ["KA_APP"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
     {
-        "metricName": "logs.distinct_ips_by_os",
+        "metricName": "logs.distinct_ips_by_os.week_over_week",
         "labels": ["os"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
