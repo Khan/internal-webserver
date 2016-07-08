@@ -20,12 +20,16 @@ import email.utils
 import hashlib
 import smtplib
 import subprocess
+import time
 
 import bq_util
+import cloudmonitoring_util
 
 
 # Report on the previous day by default
 _DEFAULT_DAY = datetime.datetime.utcnow() - datetime.timedelta(1)
+
+_GOOGLE_PROJECT_ID = 'khan-academy'    # used when sending to stackdriver
 
 
 def _is_number(s):
@@ -195,6 +199,66 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     s.quit()
 
 
+def _send_table_to_stackdriver(table, metric_name, metric_label_name,
+                               metric_label_col, data_col):
+    """Send week-over-week data to stackdriver.
+
+    For tables that have sparklines, we take the ratio of the most
+    recent point on the sparkline to the oldest point (which is
+    probably two weeks ago), and send that ratio as a datapoint to
+    stackdriver (Google Cloud Monitoring), using the given metric-name
+    and metric-label.
+
+    Arguments:
+       table: A list of lists of the form:
+              [[HEADING_A, HEADING_B], [1A, 1B], [2A, 2B], ...].
+           If a table cell value is itself a list, it is interpreted
+           as a sparkline.
+       metric_name: The name of the metric to use in stackdriver,
+           e.g. "webapp.routes.daily_cost".  Think of it as the name
+           of a graph in stackdriver.
+       metric_label_name: The name of the label to be used with this
+           metric, e.g. "url_route".  Think of it as a description of
+           what the lines in the stackdriver graph represent.
+       metric_label_col: the column of the table that holds the
+           label value for a particular row, e.g. "url_route".  This
+           should be a string that matches one of the HEADING_X fields.
+       data_col: the column of the table that holds the sparkline
+           historical data for this row, e.g. "last 2 weeks (per request)".
+           This should be a string that matches one of the HEADING_X fields.
+    """
+    # Stackdriver doesn't let you send a time more than an hour in the
+    # past, so we just set the time to be the start of the current
+    # hour.  Hopefully, if the script runs at the same time each day,
+    # this will end up with us having the datapoints be at the same
+    # time each day.
+    time_t = int(time.time() / 3600) * 3600   # round down to the hour
+
+    headings = table[0]
+    rows = table[1:]
+
+    metric_label_index = headings.index(metric_label_col)
+    data_index = headings.index(data_col)
+
+    stackdriver_input = []
+    for row in rows:
+        metric_label_value = row[metric_label_index]
+        data = row[data_index]
+        if data[-1] is None or data[0] is None:
+            continue      # we don't have historical data, just bail
+        num = data[-1] / data[0]
+
+        # send_timeseries_to_cloudmonitoring() wants 4-tuples:
+        #    (metric-name, metric-labels, value, time).
+        stackdriver_input.append((metric_name,
+                                  {metric_label_name: metric_label_value},
+                                  num,
+                                  time_t))
+
+    cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
+        _GOOGLE_PROJECT_ID, data)
+
+
 def _embed_images_to_mime(html, images):
     """Given HTML with placeholders, insert images and return a MIME object.
 
@@ -319,6 +383,12 @@ ORDER BY instance_hours DESC
                 to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject)
 
+    # We'll also send the most-most expensive ones to stackdriver.
+    _send_table_to_stackdriver(data[:20],
+                               'webapp.routes.instance_hours.week_over_week',
+                               'url_route', metric_label_col='url_route',
+                               data_col='last 2 weeks (per request)')
+
 
 def email_rpcs(date):
     """Email RPCs-per-route report for the given datetime.date object.
@@ -397,6 +467,12 @@ ORDER BY tcost.rpc_cost DESC;
     _send_email({heading: data[:75]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
                 subject=subject)
+
+    # We'll also send the most-most expensive ones to stackdriver.
+    _send_table_to_stackdriver(data[:20],
+                               'webapp.routes.rpc_cost.week_over_week',
+                               'url_route', metric_label_col='url_route',
+                               data_col='last 2 weeks (%s/req)' % micropennies)
 
     # As of 1 Feb 2016, the most expensive RPC route is about $300 a
     # day.  More than $750 a day and we should be very suspcious.
