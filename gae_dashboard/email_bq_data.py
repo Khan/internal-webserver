@@ -253,7 +253,7 @@ SELECT module_id,
            sum(latency - pending_time) / (max(end_time) - min(start_time))
              as utilization,
            max(end_time) - min(start_time) as util_weight
-    FROM logs.requestlogs_20150316
+    FROM logs.requestlogs_YYYYMMDD
     WHERE instance_key is not null
     GROUP BY module_id, instance_key)
 -- lame heuristic to try to discard idle instances, which
@@ -262,13 +262,12 @@ WHERE utilization > 0.1
 GROUP BY module_id
 """
 _MODULE_CPU_COUNT = {
-    'default': 4 / 0.679,
-    'i18n': 4 / 0.695,
-    'frontend-highmem': 4 / 0.52,
-    'batch-lowlatency': 2 / 0.753,
-    'batch': 2 / 1.697,
-    'highmem': 8 / 0.499,
-    'multithreaded': 4 / 2.152,
+    'default': 4 / 0.555,
+    'i18n': 4 / 0.601,
+    'frontend-highmem': 4 / 0.413,
+    'batch': 2 / 3.232,
+    'highmem': 8 / 0.528,
+    'multithreaded': 4 / 2.996,
     }
 
 
