@@ -34,11 +34,12 @@ daemon_pids=`ps --no-header --ppid="$daemon_runner_pid" -o pid`
 
 # Now, find *their* children, which are the tasks the daemons are running.
 for daemon_pid in $daemon_pids; do
-    task_pids=`ps --no-header --ppid="$daemon_pid" -o pid || true`
+    # The `| xargs` is a simple way to strip whitespace off the front and back
+    task_pids=`ps --no-header --ppid="$daemon_pid" -o pid | xargs`
     # For each child, complain if the elapsed time since process-start is
     # more than 3600 seconds.
     for task_pid in $task_pids; do
-        elapsed_time=`ps --no-header --pid="$task_pid" -o etimes || true`
+        elapsed_time=`ps --no-header --pid="$task_pid" -o etimes | xargs`
         if [ -n "$elapsed_time" -a "$elapsed_time" -gt 3600 ]; then
             bad_pids="$bad_pids $task_pid"
         fi
