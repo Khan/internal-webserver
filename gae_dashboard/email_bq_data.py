@@ -256,7 +256,7 @@ def _send_table_to_stackdriver(table, metric_name, metric_label_name,
                                   time_t))
 
     cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
-        _GOOGLE_PROJECT_ID, data)
+        _GOOGLE_PROJECT_ID, stackdriver_input)
 
 
 def _embed_images_to_mime(html, images):
