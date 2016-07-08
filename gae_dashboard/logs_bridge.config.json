@@ -86,12 +86,13 @@
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
-// TODO(csilvers): uncomment when we get elog_device_kind into streaming logs
-//    {
-//        "metricName": "logs.distinct_ips_by_device.week_over_week",
-//        "labels": ["device"],
-//        "query": "COUNT(DISTINCT ip)"
-//    },
+    {
+        "metricName": "logs.distinct_ips_by_device.week_over_week",
+        "labels": ["device"],
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
     {
         "metricName": "logs.distinct_ips_by_ka_app.week_over_week",
         "labels": ["KA_APP"],
@@ -106,12 +107,13 @@
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
-// TODO(csilvers): uncomment when we fix the way elog_lang is parsed by java
-//    {
-//        "metricName": "logs.distinct_ips_by_language",
-//        "labels": ["lang"],
-//        "query": "COUNT(DISTINCT ip)"
-//    },
+    {
+        "metricName": "logs.distinct_ips_by_language.week_over_week",
+        "labels": ["lang"],
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
