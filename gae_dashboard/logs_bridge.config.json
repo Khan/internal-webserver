@@ -145,5 +145,17 @@
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"scratchpad_updated\"')",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.line_count.week_over_week",
+        "query": "COUNT(*)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": false
+    },
+    {
+        "metricName": "logs.byte_count.week_over_week",
+        "query": "SUM(LENGTH(log_messages))",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": false
     }
 ]
