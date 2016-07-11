@@ -3,6 +3,7 @@
 import cPickle
 import datetime
 import json
+import md5
 import os
 import subprocess
 
@@ -115,20 +116,28 @@ def query_bigquery(sql_query, retries=2):
     # want to display the first 100 or so, but the rest may be useful to save.
 
     data = None
+    job_name = None
     error_msg = None
+
+    _BQ = ['bq', '-q', '--format=json', '--headless',
+           '--project_id', 'khanacademy.org:deductive-jet-827']
 
     for i in range(1 + retries):
         try:
+            # We specify the job-name so we can cancel it.
+            job_name = 'bq_util_%s' % md5.md5(sql_query).hexdigest()
             data = subprocess.check_output(
-                ['bq', '-q', '--format=json', '--headless',
-                 '--project_id', 'khanacademy.org:deductive-jet-827',
-                 'query', '--max_rows=10000', sql_query])
-
+                _BQ + ['--job_id', job_name, 'query', '--max_rows=10000',
+                       sql_query])
+            job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
             print "-- Running query failed with retcode %d --" % why.returncode
             error_msg = why.output
             print error_msg
+        finally:
+            if job_name:    # Cancel the job if it's still running
+                subprocess.call(_BQ + ['--nosync', 'cancel', job_name])
 
     if data is None:
         raise BQException("-- Query failed after %d retries: %s --"
