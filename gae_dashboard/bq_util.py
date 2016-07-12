@@ -125,7 +125,7 @@ def query_bigquery(sql_query, retries=2):
     for i in range(1 + retries):
         try:
             # We specify the job-name so we can cancel it.
-            job_name = 'bq_util_%s' % md5.md5(sql_query).hexdigest()
+            job_name = 'bq_util_%s_%d' % (md5.md5(sql_query).hexdigest(), i)
             data = subprocess.check_output(
                 _BQ + ['--job_id', job_name, 'query', '--max_rows=10000',
                        sql_query])
