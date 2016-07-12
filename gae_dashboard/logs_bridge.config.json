@@ -147,6 +147,12 @@
         "normalizeByRequests": true
     },
     {
+        "metricName": "logs.conversions.login.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"login\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
         "metricName": "logs.line_count.week_over_week",
         "query": "COUNT(*)",
         "normalizeByDaysAgo": 7,
