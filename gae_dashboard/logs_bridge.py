@@ -57,6 +57,7 @@ _LABELS = {
     'KA_APP': 'elog_KA_APP',
     'os': 'elog_os',
     'lang': 'elog_ka_locale',
+    'route': 'elog_url_route'
 }
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
@@ -203,7 +204,8 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
     if config_entry.get('normalizeByLastDeploy'):
         raise NotImplementedError("Augment innermost-from in this case too")
 
-    selectors = [_LABELS[label] for label in config_entry.get('labels', [])]
+    label_names = config_entry.get('labels', [])
+    selectors = [_LABELS[label_name] for label_name in label_names]
 
     # num_requests_by_field is the total number of requests broken down by
     # field. E.g. if this metric is broken down by browser,
@@ -244,6 +246,79 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     return r
 
 
+def _maybe_filter_out_infrequent_label_values(config,
+                                              results_by_metric_and_when):
+    """Filter out infrequent label values if config specifies a label limit.
+
+    Return `results_by_metric_and_when` with the following modifications.
+    For each config entry, if `num_unique_labels` is not specified, do nothing.
+    Otherwise, keep the top `num_unique_labels` label values for each label,
+    for each entry where when = 'now'. Return all metric results for
+    when != 'now' so that we can decide what to do with these later (e.g. you
+    can just ignore all metrics returned that have a when != 'now' but no
+    when = 'now').
+    TODO(alexanderforsyth): This function should eventually aggregate the
+    remaining label values into an "Other" category. It does not do so because
+    of difficulty calculating the query value of the "Other" label value with
+    the current implementation and assumptions as mentioned in the config file.
+    When determining the top metric label values, the label values are sorted
+    in descending order according to `unique_labels_sorting_field` (which
+    currently supports either `num` or `num_requests_by_field` with the latter
+    as default if it is not specified).
+    """
+    metric_to_max_num_labels = {
+        config_entry['metricName']:
+            (config_entry.get('num_unique_labels', None),
+             config_entry.get('unique_labels_sorting_field',
+                              'num_requests_by_field'))
+        for config_entry in config
+    }
+
+    # Modified results_by_metric_and_when that this function returns.
+    return_dict = {}
+
+    # Map metric_name -> [(metric_label_value, label_sorting_value, result)...]
+    now_results_by_metric = {}
+
+    # Add all metric results directly to the return_dict if when != 'now' or if
+    # the metric should not have infrequent label values removed according to
+    # the config. Otherwise, build up the now_results_by_metric dict in order
+    # to determine the top label values for each metric.
+    for (metric_name, metric_label_values, when), result in \
+            results_by_metric_and_when.iteritems():
+        (max_num_labels, labels_sorting_field) = (
+            metric_to_max_num_labels[metric_name])
+        if (max_num_labels is None or when != 'now'):
+            return_dict[(metric_name, metric_label_values, when)] = result
+            continue
+
+        if len(metric_label_values) != 1:
+            raise NotImplementedError('Aggregation of label values into an '
+                                      '`Other` value is not yet supported '
+                                      'when there is more than one label name '
+                                      'for a single config entry.')
+        label_sorting_value = result[labels_sorting_field]
+        now_results_by_metric.setdefault(metric_name, []).append(
+            (metric_label_values[0], label_sorting_value, result))
+
+    # Remove now result entries for label values outside the
+    # `top num_unique_labels` values.
+    for metric_name in now_results_by_metric:
+        now_results_by_metric[metric_name].sort(key=lambda x: x[1],
+                                                reverse=True)
+        max_num_labels = metric_to_max_num_labels[metric_name][0]
+        # TODO(alexanderforsyth): combine the non-top label values into an
+        # 'Other' label value instead of deleting them.
+        del now_results_by_metric[metric_name][max_num_labels:]
+
+    # Finally, add top label value now results to the return dict.
+    for metric_name, label_list in now_results_by_metric.iteritems():
+        for (metric_label_value, _, result) in label_list:
+            when = 'now'
+            return_dict[(metric_name, (metric_label_value,), when)] = result
+    return return_dict
+
+
 def _get_values_from_bigquery(config, start_time_t,
                               time_interval_seconds=60):
     """Return a list of (metric-name, metric-labels, values) triples."""
@@ -254,6 +329,7 @@ def _get_values_from_bigquery(config, start_time_t,
     #    u'num': 10.0,
     #    u'when': u'now',
     #    u'num_requests': 69441,
+    #    u'num_requests_by_field: 1001
     #    u'metricName': u'logs.status'}
 
     # Key each result by its resolved metric name.
@@ -262,7 +338,8 @@ def _get_values_from_bigquery(config, start_time_t,
         config_entry = next(c for c in config
                             if c['metricName'] == result['metricName'])
         label_values = []
-        for label in config_entry.get('labels', []):
+        label_names = config_entry.get('labels', [])
+        for label in label_names:
             selector = _LABELS[label]
             # bq_io can turn labels like '8' into an int; we want them
             # to be strings so we turn them back.
@@ -275,6 +352,10 @@ def _get_values_from_bigquery(config, start_time_t,
         key = (config_entry['metricName'], tuple(label_values), result['when'])
         assert key not in result, "%s is not a unique key!" % key
         results_by_metric_and_when[key] = result
+
+    results_by_metric_and_when = (
+        _maybe_filter_out_infrequent_label_values(
+            config, results_by_metric_and_when))
 
     retval = []
     for config_entry in config:
@@ -328,7 +409,8 @@ def _get_values_from_bigquery(config, start_time_t,
                 continue
 
             # Get the labels to be a dict of label-name->label-value
-            metric_labels = dict(zip(config_entry.get('labels', []),
+            label_names = config_entry.get('labels', [])
+            metric_labels = dict(zip(label_names,
                                      metric_label_values))
             retval.append((metric_name, metric_labels, value))
 
