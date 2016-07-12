@@ -188,5 +188,14 @@
         "query": "SUM(LENGTH(log_messages))",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": false
+    },
+    {
+        "metricName": "logs.latency.week_over_week",
+        "labels": ["route"],
+        "num_unique_labels": 20,
+        "unique_labels_sorting_field": "num_requests_by_field",
+        "query": "AVG(latency)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
     }
 ]

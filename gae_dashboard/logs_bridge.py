@@ -45,6 +45,7 @@ _QUERY_FIELDS = {
     'status': 'status',
     'ip': 'ip',
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
+    'latency': 'latency'
 }
 
 # This maps from the possible values for the 'labels' entry in the
