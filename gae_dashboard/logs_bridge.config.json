@@ -136,7 +136,8 @@
         "labels": ["lang"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
-        "normalizeByRequests": true
+        "normalizeByRequests": true,
+        "num_unique_labels": 8
     },
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
