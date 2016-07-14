@@ -38,7 +38,6 @@
 //             'num_requests_by_field': the number of requests for the given
 //             lable value (e.g. num requests for browser=Chrome)
 //        The default value is 'num_requests_by_field' if this is not specified
-//         
 //
 //   frequency (optional): how often to run this query.  Default is
 //        'minutely'.  Other options are 'hourly', 'daily', 'weekly'.
@@ -132,15 +131,13 @@
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
     },
-// TODO(csilvers): uncomment when ka-locale is in the week-ago logs,
-// any time on or after 14 July 2016.
-//    {
-//        "metricName": "logs.distinct_ips_by_language.week_over_week",
-//        "labels": ["lang"],
-//        "query": "COUNT(DISTINCT ip)",
-//        "normalizeByDaysAgo": 7,
-//        "normalizeByRequests": true
-//    },
+    {
+        "metricName": "logs.distinct_ips_by_language.week_over_week",
+        "labels": ["lang"],
+        "query": "COUNT(DISTINCT ip)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
         "query": "SUM(log_messages CONTAINS '\"conversion\": \"problem_attempt\"')",
