@@ -31,6 +31,8 @@ minute.
 import json
 import logging
 import os
+import random
+import subprocess
 import time
 
 import bq_util
@@ -124,7 +126,18 @@ def _tables_for_time(start_time_t, delta):
     """Given a time_t, return a table that best has logs for that time.
 
     If the time is in the very recent past, we use the streaming logs,
-    with a table decorator to restrict the time.
+    with a table decorator to restrict the time.  Instead of using the
+    logs_streaming.last_hour, which is a view on logs_all_time that
+    uses the `@-3600000-` table decorator, we make our own
+    table-decorator that starts only a few minutes in the past.
+    Because it can take a while for logs to stream into this table, we
+    don't put an end-time on, though in theory it could be
+    start_time_t + delta + <some slack>.  Since we only tend to run
+    this script in the recent past, having end-time be "now" is
+    probably ok.  Note that the dates on table decorators refer to
+    when the logline was inserted into bigquery, not when the relevant
+    request either started or ended.  So it's a useful optimization
+    but not a complete substitute for a last_time check.
     """
     now = int(time.time())
     start_time_t = int(start_time_t)
@@ -150,10 +163,43 @@ def _tables_for_time(start_time_t, delta):
     return ', '.join(retval)
 
 
-def _create_subquery(config_entry, start_time_t, time_interval_seconds):
+def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
+    """Return a query that yields all rows needed for this config + time."""
+    froms = ["""(
+        SELECT 'now' as when, %s, %s
+        FROM %s
+        WHERE end_time >= %d and end_time < %d
+    )""" % (', '.join(_LABELS.itervalues()),
+            ', '.join('%s as %s' % (v, k)
+                      for (k, v) in _QUERY_FIELDS.iteritems()),
+            _tables_for_time(start_time_t, time_interval_seconds),
+            start_time_t, start_time_t + time_interval_seconds)
+    ]
+
+    all_days_agos = set(c.get('normalizeByDaysAgo') for c in config)
+    for days_ago in all_days_agos:
+        old_time_t = start_time_t - 86400 * days_ago
+        froms.append("""(
+            SELECT 'some days ago' as when, %s, %s
+            FROM %s
+            WHERE end_time >= %d and end_time < %d
+        )""" % (', '.join(_LABELS.itervalues()),
+                ', '.join('%s as %s' % (v, k)
+                          for (k, v) in _QUERY_FIELDS.iteritems()),
+                _tables_for_time(old_time_t, time_interval_seconds),
+                old_time_t, old_time_t + time_interval_seconds))
+
+    if any(c.get('normalizeByLastDeploy') for c in config):
+        raise NotImplementedError("Augment innermost-from in this case too")
+
+    return 'SELECT * from %s' % "\n,".join(froms)
+
+
+def _create_subquery(config_entry, start_time_t, time_interval_seconds,
+                     table_name):
     """Return a query that captures all loglines matching the config-entry.
 
-    We look through the streaming logs to find all requests that *ended*
+    We look through table_name to find all requests that *ended*
     between start_time_t and start_time_t + time_interval_seconds.
     ("start_time_t" is a bit of a confusing name).  We want "ended"
     because that's when a request gets written to the logs.  As an
@@ -164,47 +210,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
 
     This subquery also returns all the data needed for normalization
     by num-requests, etc.
-
-    We use a table decorator to restrict the query, making it faster
-    and cheaper.  Note that the dates on table decorators refer to
-    when the logline was inserted into bigquery, not when the relevant
-    request either started or ended.  So it's not a complete
-    substitute for the last_time check.
     """
-    # Instead of using the logs_streaming.last_hour, which is a view
-    # on logs_all_time that uses the `@-3600000-` table decorator, we
-    # make our own table-decorator that starts only a few minutes in
-    # the past.  Because it can take a while for logs to stream into
-    # this table, we don't put an end-time on, though in theory it
-    # could be start_time_t + time_interval_seconds + <some slack>.
-    # Since we only tend to run this script in the recent past, having
-    # end-time be "now" is probably ok.
-    innermost_from = """(
-        SELECT 'now' as when, %s, %s
-        FROM %s
-        WHERE end_time >= %d and end_time < %d
-    )""" % (', '.join(_LABELS.itervalues()),
-            ', '.join('%s as %s' % (v, k)
-                      for (k, v) in _QUERY_FIELDS.iteritems()),
-            _tables_for_time(start_time_t, time_interval_seconds),
-            start_time_t, start_time_t + time_interval_seconds)
-
-    if config_entry.get('normalizeByDaysAgo'):
-        days_ago = config_entry['normalizeByDaysAgo']
-        old_time_t = start_time_t - 86400 * days_ago
-        innermost_from += """, (
-            SELECT 'some days ago' as when, %s, %s
-            FROM %s
-            WHERE end_time >= %d and end_time < %d
-        )""" % (', '.join(_LABELS.itervalues()),
-                ', '.join('%s as %s' % (v, k)
-                          for (k, v) in _QUERY_FIELDS.iteritems()),
-                _tables_for_time(old_time_t, time_interval_seconds),
-                old_time_t, old_time_t + time_interval_seconds)
-
-    if config_entry.get('normalizeByLastDeploy'):
-        raise NotImplementedError("Augment innermost-from in this case too")
-
     label_names = config_entry.get('labels', [])
     selectors = [_LABELS[label_name] for label_name in label_names]
 
@@ -217,25 +223,48 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds):
                 % (config_entry['metricName'], config_entry['query']))
     for selector in selectors:
         subquery += ', %s' % selector
-    subquery += ' FROM %s' % innermost_from
+    subquery += ' FROM [%s]' % table_name
     subquery += ' GROUP BY %s' % ', '.join(selectors + ['when'])
     return '(%s)' % subquery
 
 
 def _run_bigquery(config, start_time_t, time_interval_seconds):
     """config is as described in logs_bridge.config.json."""
-    # TODO(csilvers): use table decorators to limit how much we read.
+    # First, create a temporary table that's just the rows from
+    # start_time_t to start_time_t + time_interval_seconds.
+    # We'll give it a random name so we can run multiple copies of
+    # this script at the same time.
+    temp_table_name = ('khan-academy:logs_streaming.logs_bridge_%d_%04d'
+                       % (start_time_t, random.randint(0, 9999)))
+    # We assume that this script will not run for longer than
+    # time_interval_seconds; if it did, it would continually be
+    # falling behind!
+    temp_table_query = _query_for_rows_in_time_range(config, start_time_t,
+                                                     time_interval_seconds)
+    # Apparently the commandline doesn't like newlines in the script.
+    # Reformat for the commandline.
+    temp_table_query = temp_table_query.replace('\n', ' ')
 
-    # Construct our ginormo query based on the config file.  In order
-    # to support different types of aggregation, each config entry
-    # because a different sub-query.
-    subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds)
+    logging.debug("Creating the temporary table for querying over")
+    subprocess.check_call(
+        ['bq', '--format=none', '--headless', '--project_id', 'khan-academy',
+         'mk', '--expiration', str(time_interval_seconds), temp_table_name],
+        stdout=open(os.devnull, 'w'))
+    subprocess.check_call(
+        ['bq', '-q', '--format=none', '--headless',
+         '--project_id', 'khanacademy.org:deductive-jet-827',
+         'query', '--destination_table', temp_table_name, temp_table_query])
+    logging.debug("Done creating temporary table %s", temp_table_name)
+
+    subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds,
+                                   temp_table_name)
                   for entry in config]
 
-    # num_requests is the total number of requests in the specified time period
-    # (either `now` or some other time). In order to get this value, we sum
-    # the total number of requests for each field (e.g. we sum the total number
-    # of requests for each browser) partioned by the time, `when`.
+    # num_requests is the total number of requests in the specified
+    # time period (either `now` or some other time). In order to get
+    # this value, we sum the total number of requests for each field
+    # (e.g. we sum the total number of requests for each browser)
+    # partioned by the time, `when`.
     query = ('SELECT *, SUM(num_requests_by_field) OVER(PARTITION BY when)'
              ' as num_requests FROM %s' % ',\n'.join(subqueries))
     logging.debug('BIGQUERY QUERY: %s' % query)
@@ -471,10 +500,14 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
             google_project_id, bigquery_values, start_time,
             time_interval_seconds, dry_run)
 
-        logging.info("Time %s: wrote %s metrics to stackdriver",
-                     start_time + time_interval_seconds, num_metrics)
         time_of_last_successful_run = start_time
-        if not dry_run:
+
+        if dry_run:
+            logging.info("Time %s: would write %s metrics to stackdriver",
+                         start_time + time_interval_seconds, num_metrics)
+        else:
+            logging.info("Time %s: wrote %s metrics to stackdriver",
+                         start_time + time_interval_seconds, num_metrics)
             _write_time_t_of_latest_successful_run(time_of_last_successful_run)
 
 
@@ -501,9 +534,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # default for WARNING, -v for INFO, -vv for DEBUG.
+    logs_format = '[%(asctime)s %(levelname)s] %(message)s'
     if args.verbose >= 2:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(format=logs_format, level=logging.DEBUG)
     elif args.verbose == 1 or args.dry_run:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(format=logs_format, level=logging.INFO)
 
     main(args.config, args.project_id, args.window_seconds, args.dry_run)

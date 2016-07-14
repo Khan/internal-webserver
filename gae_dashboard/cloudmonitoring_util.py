@@ -95,7 +95,7 @@ def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
     # This will put the data into timeseries_data but not actually send it.
     try:
         for (metric_name, metric_labels, value, time_t) in data:
-            logging.info("Sending %s (%s) %s %s",
+            logging.info("Collecting to send to stackdriver: %s (%s) %s %s",
                          metric_name, metric_labels, value, time_t)
             alert.send_to_stackdriver(metric_name, value,
                                       metric_labels=metric_labels,
@@ -105,10 +105,12 @@ def send_timeseries_to_cloudmonitoring(google_project_id, data, dry_run=False):
         alert.send_datapoints_to_stackdriver = old_send_datapoints
 
     # Now we do the actual send.
-    logging.debug("Sending to stackdriver: %s", timeseries_data)
     if timeseries_data and not dry_run:
+        logging.debug("Sending to stackdriver: %s", timeseries_data)
         alert.send_datapoints_to_stackdriver(timeseries_data,
                                              project=google_project_id,
                                              ignore_errors=False)
+    elif timeseries_data and dry_run:
+        logging.debug("Would send to stackdriver: %s", timeseries_data)
 
     return len(timeseries_data)
