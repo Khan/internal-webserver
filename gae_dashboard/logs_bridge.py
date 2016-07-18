@@ -234,8 +234,9 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     # start_time_t to start_time_t + time_interval_seconds.
     # We'll give it a random name so we can run multiple copies of
     # this script at the same time.
-    temp_table_name = ('khan-academy:logs_streaming.logs_bridge_%d_%04d'
-                       % (start_time_t, random.randint(0, 9999)))
+    temp_table_name = (
+        'khan-academy:logs_streaming_tmp_analysis.logs_bridge_%d_%04d'
+        % (start_time_t, random.randint(0, 9999)))
     # We assume that this script will not run for longer than
     # time_interval_seconds; if it did, it would continually be
     # falling behind!
