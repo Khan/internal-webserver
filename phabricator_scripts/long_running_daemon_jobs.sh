@@ -40,6 +40,9 @@ for daemon_pid in $daemon_pids; do
     # more than 3600 seconds.
     for task_pid in $task_pids; do
         elapsed_time=`ps --no-header --pid="$task_pid" -o etimes | xargs`
+        echo "$elapsed_time" | grep -q '^[0-9]*$' || {
+            echo "Unexpected format for elapsed_time: >>>$elapsed_time<<<"
+        }
         if [ -n "$elapsed_time" -a "$elapsed_time" -gt 3600 ]; then
             bad_pids="$bad_pids $task_pid"
         fi
