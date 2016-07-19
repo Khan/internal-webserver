@@ -18,7 +18,12 @@ following ways:
 5) Can disaggregate on arbitrary logs fields like elog_browser.
 6) Can have the metric-value be extracted from the logs, rather than
    always being 1 (to extract timing information, for example).
-7) Uses our logs format, complete with elog_* fields, rather than the
+7) Can only send the top N results to Stackdriver for the most popular label
+   names (e.g. when there are many label names such as for url routes, and
+   you only want the top 20 by most requests). Note that this can include the
+   top N labels from time 'now' and the top N labels from time 'some days ago'
+   for a possible maximum of 2N label results.
+8) Uses our logs format, complete with elog_* fields, rather than the
    GAE format with protoPayload and the like.
 
 This script uses a configuration file to describe what how to extract
@@ -325,7 +330,7 @@ def _maybe_filter_out_infrequent_label_values(config,
             results_by_metric_and_when.iteritems():
         (max_num_labels, labels_sorting_field) = (
             metric_to_max_num_labels[metric_name])
-        if (max_num_labels is None):
+        if max_num_labels is None:
             return_dict[(metric_name, metric_label_values, when)] = result
             continue
 
@@ -357,13 +362,9 @@ def _maybe_filter_out_infrequent_label_values(config,
         max_num_labels = metric_to_max_num_labels[metric_name][0]
 
         # Get the top label values, unioning over now and some days ago.
-        top_now_label_values = set(
-            [metric_label_value for (metric_label_value, _, _)
-             in now_label_list[:max_num_labels]])
-        top_then_label_values = set(
-            [metric_label_value for (metric_label_value, _, _)
-             in then_label_list[:max_num_labels]])
-        top_label_values = top_now_label_values.union(top_then_label_values)
+        top_label_values = {v for (v, _, _) in
+                            now_label_list[:max_num_labels] +
+                            then_label_list[:max_num_labels]}
 
         # Finally, add top label value results to the return dict
         # TODO(alexanderforsyth): combine the non-top label values into an
