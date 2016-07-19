@@ -286,11 +286,10 @@ def _maybe_filter_out_infrequent_label_values(config,
 
     Return `results_by_metric_and_when` with the following modifications.
     For each config entry, if `num_unique_labels` is not specified, do nothing.
-    Otherwise, keep the top `num_unique_labels` label values for each label,
-    for each entry where when = 'now'. Return all metric results for
-    when != 'now' so that we can decide what to do with these later (e.g. you
-    can just ignore all metrics returned that have a when != 'now' but no
-    when = 'now').
+    Otherwise, keep the union of the top `num_unique_labels` label values for
+    each label, for each entry where when = 'now' and where when = 'some days
+    ago'. I.e. keep any result with label_value in the top `num_unique_labels`
+    at either time 'now' or at time 'some_days_ago'.
     TODO(alexanderforsyth): This function should eventually aggregate the
     remaining label values into an "Other" category. It does not do so because
     of difficulty calculating the query value of the "Other" label value with
@@ -311,18 +310,22 @@ def _maybe_filter_out_infrequent_label_values(config,
     # Modified results_by_metric_and_when that this function returns.
     return_dict = {}
 
-    # Map metric_name -> [(metric_label_value, label_sorting_value, result)...]
+    # Map metric_name -> label_list where time is 'now' and label_list is
+    # formatted like: [(metric_label_value, label_sorting_value, result)...]
     now_results_by_metric = {}
 
-    # Add all metric results directly to the return_dict if when != 'now' or if
-    # the metric should not have infrequent label values removed according to
-    # the config. Otherwise, build up the now_results_by_metric dict in order
-    # to determine the top label values for each metric.
+    # Map same as above, but where time is 'some days ago'
+    then_results_by_metric = {}
+
+    # Add all metric results directly to the return_dict if the metric should
+    # not have infrequent label values removed according to the config.
+    # Otherwise, build up the [time]_results_by_metric dicts in
+    # order to determine the top label values for each metric.
     for (metric_name, metric_label_values, when), result in \
             results_by_metric_and_when.iteritems():
         (max_num_labels, labels_sorting_field) = (
             metric_to_max_num_labels[metric_name])
-        if (max_num_labels is None or when != 'now'):
+        if (max_num_labels is None):
             return_dict[(metric_name, metric_label_values, when)] = result
             continue
 
@@ -332,24 +335,51 @@ def _maybe_filter_out_infrequent_label_values(config,
                                       'when there is more than one label name '
                                       'for a single config entry.')
         label_sorting_value = result[labels_sorting_field]
-        now_results_by_metric.setdefault(metric_name, []).append(
+
+        # Decide which [time]_results_by_metric dict to add results to.
+        if when == 'now':
+            results_by_metric_dict = now_results_by_metric
+        else:
+            results_by_metric_dict = then_results_by_metric
+        results_by_metric_dict.setdefault(metric_name, []).append(
             (metric_label_values[0], label_sorting_value, result))
 
-    # Remove now result entries for label values outside the
-    # `top num_unique_labels` values.
-    for metric_name in now_results_by_metric:
-        now_results_by_metric[metric_name].sort(key=lambda x: x[1],
-                                                reverse=True)
-        max_num_labels = metric_to_max_num_labels[metric_name][0]
-        # TODO(alexanderforsyth): combine the non-top label values into an
-        # 'Other' label value instead of deleting them.
-        del now_results_by_metric[metric_name][max_num_labels:]
+    # Determine the top `num_unique_labels` values for both  when='now' and
+    # when='some days ago'. Then add the top result entries to the return dict.
+    for metric_name, now_label_list in now_results_by_metric.iteritems():
+        # Sort now label_list by the sorting value set in the prior for loop.
+        now_label_list.sort(key=lambda x: x[1], reverse=True)
 
-    # Finally, add top label value now results to the return dict.
-    for metric_name, label_list in now_results_by_metric.iteritems():
-        for (metric_label_value, _, result) in label_list:
-            when = 'now'
-            return_dict[(metric_name, (metric_label_value,), when)] = result
+        # Do the same sorting for the 'then' label list.
+        then_label_list = then_results_by_metric.get(metric_name, [])
+        then_label_list.sort(key=lambda x: x[1], reverse=True)
+
+        max_num_labels = metric_to_max_num_labels[metric_name][0]
+
+        # Get the top label values, unioning over now and some days ago.
+        top_now_label_values = set(
+            [metric_label_value for (metric_label_value, _, _)
+             in now_label_list[:max_num_labels]])
+        top_then_label_values = set(
+            [metric_label_value for (metric_label_value, _, _)
+             in then_label_list[:max_num_labels]])
+        top_label_values = top_now_label_values.union(top_then_label_values)
+
+        # Finally, add top label value results to the return dict
+        # TODO(alexanderforsyth): combine the non-top label values into an
+        # 'Other' label value instead of just not returning them.
+        for (metric_label_value, _, result) in now_label_list:
+            if metric_label_value in top_label_values:
+                when = 'now'
+                return_dict[
+                    (metric_name, (metric_label_value,), when)] = result
+
+        for (metric_label_value, _, result) in then_label_list:
+            if metric_label_value in top_label_values:
+                when = 'some days ago'
+                return_dict[
+                    (metric_name, (metric_label_value,), when)] = result
+
     return return_dict
 
 
