@@ -149,6 +149,7 @@ def query_bigquery(sql_query, retries=2):
             break
         except subprocess.CalledProcessError as why:
             print "-- Running query failed with retcode %d --" % why.returncode
+            error_msg = why.output
         finally:
             if job_name:
                 try:        # Cancel the job if it's still running
