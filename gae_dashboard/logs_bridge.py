@@ -37,7 +37,6 @@ import json
 import logging
 import os
 import random
-import subprocess
 import time
 
 import bq_util
@@ -252,17 +251,14 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     temp_table_query = temp_table_query.replace('\n', ' ')
 
     logging.debug("Creating the temporary table for querying over")
-    subprocess.check_call(
-        ['bq', '--format=none', '--headless', '--project_id', 'khan-academy',
-         'mk',
-         '--expiration', str(time_interval_seconds), temp_table_name],
-        stdout=open(os.devnull, 'w'))
-    subprocess.check_call(
-        ['bq', '-q', '--format=none', '--headless',
-         '--project_id', 'khanacademy.org:deductive-jet-827',
-         'query',
-         '--allow_large_results', '--destination_table', temp_table_name,
-         temp_table_query])
+    bq_util.call_bq(['mk', '--expiration', str(time_interval_seconds),
+                     temp_table_name],
+                    project='khan-academy',
+                    return_output=False,
+                    stdout=open(os.devnull, 'w'))
+    bq_util.call_bq(['query', '--destination_table', temp_table_name,
+                     '--allow_large_results', temp_table_query],
+                    return_output=False)
     logging.debug("Done creating temporary table %s", temp_table_name)
 
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds,

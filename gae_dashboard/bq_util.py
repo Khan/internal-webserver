@@ -17,6 +17,25 @@ class BQException(Exception):
     pass
 
 
+def call_bq(subcommand_list, project='khanacademy.org:deductive-jet-827',
+            return_output=True, **kwargs):
+    """subcommand_list is, e.g. ['query', '--allow_large_results', ...]."""
+    _BQ = ['bq', '-q', '--headless', '--project_id', project]
+    try:
+        if return_output:
+            output = subprocess.check_output(_BQ + ['--format=json'] +
+                                             subcommand_list,
+                                             **kwargs)
+            return json.loads(output)
+        else:
+            subprocess.check_call(_BQ + ['--format=none'] + subcommand_list,
+                                  **kwargs)
+            return
+    except subprocess.CalledProcessError as e:
+        print 'BQ call failed with this output: %s' % e.output
+        raise
+
+
 def _get_data_filename(report, yyyymmdd):
     """Gets the filename in which old data might be stored.
 
@@ -116,35 +135,31 @@ def query_bigquery(sql_query, retries=2):
     # not very good at anyway), we just get a bunch of rows.  We probably only
     # want to display the first 100 or so, but the rest may be useful to save.
 
-    data = None
+    table = None
     job_name = None
     error_msg = None
-
-    _BQ = ['bq', '-q', '--format=json', '--headless',
-           '--project_id', 'khanacademy.org:deductive-jet-827']
 
     for i in range(1 + retries):
         try:
             # We specify the job-name (randomly) so we can cancel it.
             job_name = 'bq_util_%s' % random.randint(0, sys.maxint)
-            data = subprocess.check_output(
-                _BQ + ['--job_id', job_name, 'query', '--max_rows=10000',
-                       sql_query])
+            table = call_bq(['--job_id', job_name,
+                             'query', '--max_rows=10000', sql_query])
             job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
             print "-- Running query failed with retcode %d --" % why.returncode
-            error_msg = why.output
-            print error_msg
         finally:
-            if job_name:    # Cancel the job if it's still running
-                subprocess.call(_BQ + ['--nosync', 'cancel', job_name])
+            if job_name:
+                try:        # Cancel the job if it's still running
+                    call_bq(['--nosync', 'cancel', job_name])
+                except subprocess.CalledProcessError:
+                    print "That's ok, it just means the job canceled itself."
+                    pass    # probably means the job finished already
 
-    if data is None:
+    if table is None:
         raise BQException("-- Query failed after %d retries: %s --"
                           % (retries, error_msg))
-
-    table = json.loads(data)
 
     for row in table:
         for key in row:
