@@ -152,7 +152,8 @@ def query_bigquery(sql_query, retries=2):
         finally:
             if job_name:
                 try:        # Cancel the job if it's still running
-                    call_bq(['--nosync', 'cancel', job_name])
+                    call_bq(['--nosync', 'cancel', job_name],
+                            return_output=False)
                 except subprocess.CalledProcessError:
                     print "That's ok, it just means the job canceled itself."
                     pass    # probably means the job finished already
