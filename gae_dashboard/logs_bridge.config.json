@@ -195,5 +195,16 @@
         "query": "AVG(latency)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
+    },
+    {
+        "metricName": "logs.cronjobs.failures",
+        // TODO(csilvers): better to use 'url'
+        "labels": ["route"],
+        // We are interested in cronjobs where all the jobs run in the
+        // last X minutes were failures.  This captures both: frequent
+        // (minutely) cronjobs that are failing a lot, and infrequent
+        // (daily) cronjobs that fail even once.  The right alert for
+        // this is when the value is >= 1.0.
+        "query": "SUM(task_queue_name == '__cron' and status >= 300) / SUM(task_queue_name == '__cron')"
     }
 ]

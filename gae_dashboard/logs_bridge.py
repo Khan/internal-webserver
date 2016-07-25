@@ -51,7 +51,8 @@ _QUERY_FIELDS = {
     'status': 'status',
     'ip': 'ip',
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
-    'latency': 'latency'
+    'latency': 'latency',
+    'task_queue_name': 'task_queue_name',
 }
 
 # This maps from the possible values for the 'labels' entry in the
@@ -64,7 +65,7 @@ _LABELS = {
     'KA_APP': 'elog_KA_APP',
     'os': 'elog_os',
     'lang': 'elog_ka_locale',
-    'route': 'elog_url_route'
+    'route': 'elog_url_route',
 }
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
@@ -180,7 +181,7 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
             start_time_t, start_time_t + time_interval_seconds)
     ]
 
-    all_days_agos = set(c.get('normalizeByDaysAgo') for c in config)
+    all_days_agos = set(c.get('normalizeByDaysAgo') for c in config) - {None}
     for days_ago in all_days_agos:
         old_time_t = start_time_t - 86400 * days_ago
         froms.append("""(
@@ -229,6 +230,7 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
         subquery += ', %s' % selector
     subquery += ' FROM [%s]' % table_name
     subquery += ' GROUP BY %s' % ', '.join(selectors + ['when'])
+    subquery += ' HAVING num is not null'
     return '(%s)' % subquery
 
 
