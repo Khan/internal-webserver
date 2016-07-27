@@ -383,8 +383,7 @@ def _maybe_filter_out_infrequent_label_values(config,
     return return_dict
 
 
-def _get_values_from_bigquery(config, start_time_t,
-                              time_interval_seconds=60):
+def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
     """Return a list of (metric-name, metric-labels, values) triples."""
     bigquery_results = _run_bigquery(config, start_time_t,
                                      time_interval_seconds)
@@ -526,7 +525,8 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
                           if _should_run_query(e, start_time,
                                                time_of_last_successful_run)]
 
-        bigquery_values = _get_values_from_bigquery(current_config, start_time)
+        bigquery_values = _get_values_from_bigquery(current_config, start_time,
+                                                    time_interval_seconds)
 
         # TODO(csilvers): compute ALL facet-totals for counting-stats.
 
