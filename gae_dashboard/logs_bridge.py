@@ -252,7 +252,8 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     # Reformat for the commandline.
     temp_table_query = temp_table_query.replace('\n', ' ')
 
-    logging.debug("Creating the temporary table for querying over")
+    logging.debug("Creating the temporary table for querying over by running "
+                  + temp_table_query)
     bq_util.call_bq(['mk', '--expiration', str(time_interval_seconds),
                      temp_table_name],
                     project='khan-academy',
