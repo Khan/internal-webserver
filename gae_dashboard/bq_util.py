@@ -26,7 +26,13 @@ def call_bq(subcommand_list, project='khanacademy.org:deductive-jet-827',
             output = subprocess.check_output(_BQ + ['--format=json'] +
                                              subcommand_list,
                                              **kwargs)
-            return json.loads(output)
+            if not output:    # apparently 'bq query' does this when 0 results
+                return None
+            try:
+                return json.loads(output)
+            except ValueError as e:
+                print 'Unexpected output from BQ call: %s' % output
+                raise
         else:
             subprocess.check_call(_BQ + ['--format=none'] + subcommand_list,
                                   **kwargs)
@@ -143,8 +149,10 @@ def query_bigquery(sql_query, retries=2):
         try:
             # We specify the job-name (randomly) so we can cancel it.
             job_name = 'bq_util_%s' % random.randint(0, sys.maxint)
+            # call_bq can return None when there are no results for
+            # the query.  We map that to [].
             table = call_bq(['--job_id', job_name,
-                             'query', '--max_rows=10000', sql_query])
+                             'query', '--max_rows=10000', sql_query]) or []
             job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
