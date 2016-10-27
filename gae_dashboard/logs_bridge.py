@@ -68,6 +68,12 @@ _LABELS = {
     'route': 'elog_url_route',
 }
 
+_APPS = {
+    'webapp': ['default', 'i18n', 'multithreaded', 'frontend-highmem'],
+    'non-user-facing': ['vm', 'highmem', 'batch'],
+    'react-render': ['react-render'],
+}
+
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
 
 
@@ -169,7 +175,17 @@ def _tables_for_time(start_time_t, delta):
 
 
 def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
-    """Return a query that yields all rows needed for this config + time."""
+    """Return a query that yields all rows needed for this config + time.
+
+    We look through table_name to find all requests that *ended*
+    between start_time_t and start_time_t + time_interval_seconds.
+    ("start_time_t" is a bit of a confusing name).  We want "ended"
+    because that's when a request gets written to the logs.  As an
+    example, if a request took 10 minutes to run, if we were filtering
+    on start_time we'd miss it unless we happened to be running this
+    script on data 10 minutes in the past.  Usually we run it on data
+    1 minute in the past, so we'd miss it.
+    """
     froms = ["""(
         SELECT 'now' as when, %s, %s
         FROM %s
@@ -200,24 +216,16 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
     return 'SELECT * from %s' % "\n,".join(froms)
 
 
-def _create_subquery(config_entry, start_time_t, time_interval_seconds,
-                     table_name):
+def _create_subquery(config_entry, table_name):
     """Return a query that captures all loglines matching the config-entry.
 
-    We look through table_name to find all requests that *ended*
-    between start_time_t and start_time_t + time_interval_seconds.
-    ("start_time_t" is a bit of a confusing name).  We want "ended"
-    because that's when a request gets written to the logs.  As an
-    example, if a request took 10 minutes to run, if we were filtering
-    on start_time we'd miss it unless we happened to be running this
-    script on data 10 minutes in the past.  Usually we run it on data
-    1 minute in the past, so we'd miss it.
-
-    This subquery also returns all the data needed for normalization
+    This subquery returns all the data needed for normalization
     by num-requests, etc.
     """
     label_names = config_entry.get('labels', [])
     selectors = [_LABELS[label_name] for label_name in label_names]
+    apps = config_entry.get('apps', [])
+    module_ids = set().union(*[_APPS.get(a) for a in apps])
 
     # num_requests_by_field is the total number of requests broken down by
     # field. E.g. if this metric is broken down by browser,
@@ -229,6 +237,11 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
     for selector in selectors:
         subquery += ', %s' % selector
     subquery += ' FROM [%s]' % table_name
+
+    if module_ids:
+        subquery += (' WHERE module_id IN (%s)' %
+                     ", ".join(["'%s'" % m for m in module_ids]))
+
     subquery += ' GROUP BY %s' % ', '.join(selectors + ['when'])
     subquery += ' HAVING num is not null'
     return '(%s)' % subquery
@@ -264,9 +277,7 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
                     return_output=False)
     logging.debug("Done creating temporary table %s", temp_table_name)
 
-    subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds,
-                                   temp_table_name)
-                  for entry in config]
+    subqueries = [_create_subquery(entry, temp_table_name) for entry in config]
 
     # num_requests is the total number of requests in the specified
     # time period (either `now` or some other time). In order to get

@@ -63,6 +63,10 @@
 //        the prior set-default (before this one), and store the ratio of
 //        the two.  If the value for the previous deploy was 0, we do not
 //        store a data point.  Default is false.
+//
+//   apps (optional): if present, only examine request logs for modules that
+//        correspond to the app in question. See valid apps (and the modules)
+//        they correspond in the _APPS var in logs_bridge.py
 [
     {
         "metricName": "logs.status.400.week_over_week",
