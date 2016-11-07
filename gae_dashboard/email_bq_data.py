@@ -395,13 +395,15 @@ ORDER BY instance_hours DESC
     # Let's just send the top most expensive routes, not all of them.
     _send_email({heading: data[:50]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+                subject=subject,
+                dry_run=dry_run)
 
     # We'll also send the most-most expensive ones to stackdriver.
     _send_table_to_stackdriver(data[:20],
                                'webapp.routes.instance_hours.week_over_week',
                                'url_route', metric_label_col='url_route',
-                               data_col='last 2 weeks (per request)')
+                               data_col='last 2 weeks (per request)',
+                               dry_run=dry_run)
 
 
 def email_rpcs(date, dry_run=False):
@@ -480,13 +482,15 @@ ORDER BY tcost.rpc_cost DESC;
     # Let's just send the top most expensive routes, not all of them.
     _send_email({heading: data[:75]}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+                subject=subject,
+                dry_run=dry_run)
 
     # We'll also send the most-most expensive ones to stackdriver.
     _send_table_to_stackdriver(data[:20],
                                'webapp.routes.rpc_cost.week_over_week',
                                'url_route', metric_label_col='url_route',
-                               data_col='last 2 weeks (%s/req)' % micropennies)
+                               data_col='last 2 weeks (%s/req)' % micropennies,
+                               dry_run=dry_run)
 
     # As of 1 Feb 2016, the most expensive RPC route is about $300 a
     # day.  More than $750 a day and we should be very suspcious.
@@ -496,7 +500,8 @@ ORDER BY tcost.rpc_cost DESC;
         _send_email({heading: data[:75]}, None,
                     to=['infrastructure@khanacademy.org'],
                     subject=('WARNING: some very expensive RPC calls on %s!'
-                             % _pretty_date(yyyymmdd)))
+                             % _pretty_date(yyyymmdd)),
+                    dry_run=dry_run)
 
 
 def email_out_of_memory_errors(date, dry_run=False):
@@ -590,7 +595,8 @@ ORDER BY count_ DESC
 
     _send_email(email_content, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+                subject=subject,
+                dry_run=dry_run)
 
 
 def email_memory_increases(date, window_length=20, min_increase_in_mb=1,
@@ -719,7 +725,8 @@ ORDER BY added_total DESC
     subject = "Memory Increases by Route"
     _send_email(by_module, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+                subject=subject,
+                dry_run=dry_run)
 
 
 def email_client_api_usage(date, dry_run=False):
@@ -758,7 +765,8 @@ ORDER BY client DESC, build DESC, request_count DESC;
     heading = 'API usage by client for %s' % _pretty_date(yyyymmdd)
     _send_email({heading: data}, None,
                 to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject)
+                subject=subject,
+                dry_run=dry_run)
 
 
 def main():
