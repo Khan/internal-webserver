@@ -115,7 +115,8 @@ e
     return png
 
 
-def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
+def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
+                dry_run=False):
     """Send an email with the given table and graph.
 
     Arguments:
@@ -128,6 +129,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
        cc: an optional list of email addresses
        subject: subject of the email
        preamble: text to put before the table and graph.
+       dry_run: if True, say what we would email but don't actually email it.
     """
     body = []
     if preamble:
@@ -194,13 +196,18 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None):
     msg['To'] = ', '.join(to)
     if cc:
         msg['Cc'] = ', '.join(cc)
-    s = smtplib.SMTP('localhost')
-    s.sendmail('toby-admin+bq-cron@khanacademy.org', to, msg.as_string())
-    s.quit()
+    if dry_run:
+        print "WOULD EMAIL:"
+        print msg.as_string()
+        print "--------------------------------------------------"
+    else:
+        s = smtplib.SMTP('localhost')
+        s.sendmail('toby-admin+bq-cron@khanacademy.org', to, msg.as_string())
+        s.quit()
 
 
 def _send_table_to_stackdriver(table, metric_name, metric_label_name,
-                               metric_label_col, data_col):
+                               metric_label_col, data_col, dry_run=False):
     """Send week-over-week data to stackdriver.
 
     For tables that have sparklines, we take the ratio of the most
@@ -226,6 +233,8 @@ def _send_table_to_stackdriver(table, metric_name, metric_label_name,
        data_col: the column of the table that holds the sparkline
            historical data for this row, e.g. "last 2 weeks (per request)".
            This should be a string that matches one of the HEADING_X fields.
+       dry_run: if True, say what we would send to stackdriver but don't
+           actually send it.
     """
     # Stackdriver doesn't let you send a time more than an hour in the
     # past, so we just set the time to be the start of the current
@@ -255,8 +264,13 @@ def _send_table_to_stackdriver(table, metric_name, metric_label_name,
                                   num,
                                   time_t))
 
-    cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
-        _GOOGLE_PROJECT_ID, stackdriver_input)
+    if dry_run:
+        print "WOULD SEND TO STACKDRIVER:"
+        print stackdriver_input
+        print "------------------------------------------------"
+    else:
+        cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
+            _GOOGLE_PROJECT_ID, stackdriver_input)
 
 
 def _embed_images_to_mime(html, images):
@@ -335,7 +349,7 @@ _MODULE_CPU_COUNT = {
     }
 
 
-def email_instance_hours(date):
+def email_instance_hours(date, dry_run=False):
     """Email instance hours report for the given datetime.date object."""
     yyyymmdd = date.strftime("%Y%m%d")
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
@@ -390,7 +404,7 @@ ORDER BY instance_hours DESC
                                data_col='last 2 weeks (per request)')
 
 
-def email_rpcs(date):
+def email_rpcs(date, dry_run=False):
     """Email RPCs-per-route report for the given datetime.date object.
 
     Also email a more urgent message if one of the RPCs is too expensive.
@@ -485,7 +499,7 @@ ORDER BY tcost.rpc_cost DESC;
                              % _pretty_date(yyyymmdd)))
 
 
-def email_out_of_memory_errors(date):
+def email_out_of_memory_errors(date, dry_run=False):
     # This sends two emails, for two different ways of seeing the data.
     # But we'll have them share the same subject so they thread together.
     yyyymmdd = date.strftime("%Y%m%d")
@@ -579,7 +593,8 @@ ORDER BY count_ DESC
                 subject=subject)
 
 
-def email_memory_increases(date, window_length=20, min_increase_in_mb=1):
+def email_memory_increases(date, window_length=20, min_increase_in_mb=1,
+                           dry_run=False):
     """Emails the increases in memory caused by particular routes.
 
     It attempts to compute the amount of memory ignoring memory which is
@@ -707,7 +722,7 @@ ORDER BY added_total DESC
                 subject=subject)
 
 
-def email_client_api_usage(date):
+def email_client_api_usage(date, dry_run=False):
     """Emails a report of API usage, segmented by client and build version."""
     yyyymmdd = date.strftime("%Y%m%d")
 
@@ -758,28 +773,30 @@ def main():
                         help='The function name of a specific report to run.  '
                              'Available reports: %s' % ', '.join(reports),
                         choices=reports)
+    parser.add_argument('--dry-run', '-n', action='store_true',
+                        help="Say what we would do but don't actually do it.")
     args = parser.parse_args()
     date = datetime.datetime.strptime(args.date, "%Y%m%d")
 
     if args.report:
         report_method = globals()[args.report]
         print 'Emailing %s info' % args.report
-        report_method(date)
+        report_method(date, dry_run=args.dry_run)
     else:
         print 'Emailing instance hour info'
-        email_instance_hours(date)
+        email_instance_hours(date, dry_run=args.dry_run)
 
         print 'Emailing rpc stats info'
-        email_rpcs(date)
+        email_rpcs(date, dry_run=args.dry_run)
 
         print 'Emailing out-of-memory info'
-        email_out_of_memory_errors(date)
+        email_out_of_memory_errors(date, dry_run=args.dry_run)
 
         print 'Emailing memory profiling info'
-        email_memory_increases(date)
+        email_memory_increases(date, dry_run=args.dry_run)
 
         print 'Emailing client API usage info'
-        email_client_api_usage(date)
+        email_client_api_usage(date, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
