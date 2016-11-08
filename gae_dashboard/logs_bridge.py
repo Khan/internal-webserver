@@ -37,6 +37,7 @@ import json
 import logging
 import os
 import random
+import re
 import time
 
 import bq_util
@@ -56,17 +57,21 @@ _QUERY_FIELDS = {
 }
 
 # This maps from the possible values for the 'labels' entry in the
-# config file, to the bigquery field that represents it.
+# config file, to the bigquery field(s) that represents it.  Each
+# bigquery field should be in angle-brackets.  The labels can have
+# other text which will be copied verbatim.
 # For us, labels always have type 'string'.
 _LABELS = {
-    'module_id': 'module_id',
-    'browser': 'elog_browser',
-    'device': 'elog_device_type',
-    'KA_APP': 'elog_KA_APP',
-    'os': 'elog_os',
-    'lang': 'elog_ka_locale',
-    'route': 'elog_url_route',
+    'module_id': '<module_id>',
+    'browser': '<elog_browser>',
+    'device': '<elog_device_type>',
+    'KA_APP': '<elog_KA_APP>',
+    'os': '<elog_os>',
+    'lang': '<elog_ka_locale>',
+    'route': '<module_id>:<elog_url_route>',
 }
+
+_LABEL_RE = re.compile(r'<([^>]*)>')   # matches the text inside '<...>'
 
 _LAST_RECORD_DB = os.path.expanduser('~/logs_bridge_time.db')
 
@@ -89,6 +94,14 @@ def _time_t_of_latest_successful_run():
 def _write_time_t_of_latest_successful_run(time_t):
     with open(_LAST_RECORD_DB, 'w') as f:
         print >>f, time_t
+
+
+def _bigquery_fields_for_labels(labels=_LABELS.keys()):
+    """All bigquery fields references in _LABELS.values(), comma-separated."""
+    retval = set()
+    for label in labels:
+        retval.update(_LABEL_RE.findall(_LABELS[label]))
+    return ', '.join(sorted(retval))
 
 
 def _load_config(config_name):
@@ -174,7 +187,7 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
         SELECT 'now' as when, %s, %s
         FROM %s
         WHERE end_time >= %d and end_time < %d
-    )""" % (', '.join(_LABELS.itervalues()),
+    )""" % (_bigquery_fields_for_labels(),
             ', '.join('%s as %s' % (v, k)
                       for (k, v) in _QUERY_FIELDS.iteritems()),
             _tables_for_time(start_time_t, time_interval_seconds),
@@ -188,7 +201,7 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
             SELECT 'some days ago' as when, %s, %s
             FROM %s
             WHERE end_time >= %d and end_time < %d
-        )""" % (', '.join(_LABELS.itervalues()),
+        )""" % (_bigquery_fields_for_labels(),
                 ', '.join('%s as %s' % (v, k)
                           for (k, v) in _QUERY_FIELDS.iteritems()),
                 _tables_for_time(old_time_t, time_interval_seconds),
@@ -217,19 +230,23 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
     by num-requests, etc.
     """
     label_names = config_entry.get('labels', [])
-    selectors = [_LABELS[label_name] for label_name in label_names]
+
+    group_by = _bigquery_fields_for_labels(label_names)
+    if group_by:
+        group_by = group_by + ', when'
+    else:
+        group_by = 'when'
 
     # num_requests_by_field is the total number of requests broken down by
     # field. E.g. if this metric is broken down by browser,
     # num_requests_by_field would be for a particular browser such as the
     # total number of requests for Chrome.
-    subquery = ("SELECT '%s' as metricName, when, COUNT(*) as "
-                "num_requests_by_field, FLOAT(%s) as num"
-                % (config_entry['metricName'], config_entry['query']))
-    for selector in selectors:
-        subquery += ', %s' % selector
+    subquery = ("SELECT '%s' as metricName, COUNT(*) as "
+                "num_requests_by_field, FLOAT(%s) as num, %s"
+                % (config_entry['metricName'], config_entry['query'],
+                   group_by))
     subquery += ' FROM [%s]' % table_name
-    subquery += ' GROUP BY %s' % ', '.join(selectors + ['when'])
+    subquery += ' GROUP BY %s' % group_by
     subquery += ' HAVING num is not null'
     return '(%s)' % subquery
 
@@ -398,19 +415,26 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
     # Key each result by its resolved metric name.
     results_by_metric_and_when = {}
     for result in bigquery_results:
+        def field_to_value(field):
+            # A special case: bigquery doesn't store module-id for
+            # default.  "(None)" is how bq_io translates `None`.
+            value = result[field]
+            if field == 'module_id' and value == '(None)':
+                return 'default'
+            # bq_io can turn labels like '8' into an int; we want them
+            # to be strings so we turn them back.
+            return str(value)
+
         config_entry = next(c for c in config
                             if c['metricName'] == result['metricName'])
         label_values = []
         label_names = config_entry.get('labels', [])
         for label in label_names:
-            selector = _LABELS[label]
-            # bq_io can turn labels like '8' into an int; we want them
-            # to be strings so we turn them back.
-            label_value = str(result[selector])
-            # A special case: bigquery doesn't store module-id for default.
-            # "(None)" is how bq_io translates `None`.
-            if label == 'module_id' and label_value == '(None)':
-                label_value = 'default'
+            label_value_template = _LABELS[label]
+            # Now we want to replace each `<field>` in the template
+            # with its value.
+            label_value = _LABEL_RE.sub(lambda m: field_to_value(m.group(1)),
+                                        label_value_template)
             label_values.append(label_value)
         key = (config_entry['metricName'], tuple(label_values), result['when'])
         assert key not in result, "%s is not a unique key!" % key
