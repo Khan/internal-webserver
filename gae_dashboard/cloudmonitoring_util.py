@@ -14,11 +14,6 @@ import re
 import socket
 import time
 
-import apiclient.discovery
-import apiclient.errors
-import httplib2
-import oauth2client.client
-
 import alertlib
 
 
@@ -39,6 +34,8 @@ def from_rfc3339(iso_string):
 
 def _call_with_retries(fn, num_retries=9):
     """Run fn (a network command) up to 9 times for non-fatal errors."""
+    import apiclient.errors
+    import oauth2client.client
     for i in xrange(num_retries + 1):     # the last time, we re-raise
         try:
             return fn()
@@ -59,6 +56,10 @@ def _call_with_retries(fn, num_retries=9):
 
 
 def get_cloud_service(service_name, version_number):
+    import apiclient.discovery
+    import httplib2
+    import oauth2client.client
+
     # Load the private key that we need to get data from Cloud compute.
     # This will (properly) raise an exception if this file
     # isn't installed (it's acquired from the Cloud Platform Console).
