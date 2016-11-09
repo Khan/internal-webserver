@@ -102,7 +102,7 @@
     {
         "metricName": "logs.distinct_ips_by_browser.week_over_week",
         "labels": ["browser"],
-        "num_unique_labels": 8,
+        "num_unique_labels": 9,
         "unique_labels_sorting_field": "num",
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,

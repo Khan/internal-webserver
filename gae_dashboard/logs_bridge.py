@@ -311,6 +311,7 @@ def _maybe_filter_out_infrequent_label_values(config,
     each label, for each entry where when = 'now' and where when = 'some days
     ago'. I.e. keep any result with label_value in the top `num_unique_labels`
     at either time 'now' or at time 'some_days_ago'.
+
     TODO(alexanderforsyth): This function should eventually aggregate the
     remaining label values into an "Other" category. It does not do so because
     of difficulty calculating the query value of the "Other" label value with
@@ -319,6 +320,16 @@ def _maybe_filter_out_infrequent_label_values(config,
     in descending order according to `unique_labels_sorting_field` (which
     currently supports either `num` or `num_requests_by_field` with the latter
     as default if it is not specified).
+
+    TODO(csilvers): make the list of top labels more stable.  Here is
+    what can happen: suppose num_unique_labels is 5, and two different
+    labels A and B flip-flop being the 5th most popular, with a value
+    of around 100 for each.  Sometimes A wins and we send data for it,
+    something near 100.  Sometimes it doesn't win and we send no data,
+    which stackdriver treats as 0.  Stackdriver does some averaging to
+    get 25, and boom it seems like A is way below expectations!  The
+    solution is to always stick with A, at least within a single
+    stackdriver-averaging interval (whatever those may be).
     """
     metric_to_max_num_labels = {
         config_entry['metricName']:
