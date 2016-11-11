@@ -301,41 +301,44 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
     return r
 
 
-def _maybe_filter_out_infrequent_label_values(config,
-                                              results_by_metric_and_when):
-    """Filter out infrequent label values if config specifies a label limit.
+def _maybe_filter_out_label_values(config, results_by_metric_and_when):
+    """Filter out label values if the config specifies such a filter.
 
-    Return `results_by_metric_and_when` with the following modifications.
-    For each config entry, if `num_unique_labels` is not specified, do nothing.
-    Otherwise, keep the union of the top `num_unique_labels` label values for
-    each label, for each entry where when = 'now' and where when = 'some days
-    ago'. I.e. keep any result with label_value in the top `num_unique_labels`
-    at either time 'now' or at time 'some_days_ago'.
+    Return `results_by_metric_and_when` with the following
+    modifications.  For each config entry, if `labelValues` is not
+    specified, do nothing.  Otherwise, if `labelValues` is a list,
+    keep only the label values that are in `labelValues`.
 
-    TODO(alexanderforsyth): This function should eventually aggregate the
-    remaining label values into an "Other" category. It does not do so because
-    of difficulty calculating the query value of the "Other" label value with
-    the current implementation and assumptions as mentioned in the config file.
-    When determining the top metric label values, the label values are sorted
-    in descending order according to `unique_labels_sorting_field` (which
-    currently supports either `num` or `num_requests_by_field` with the latter
-    as default if it is not specified).
+    If `labelValues` is "TOP_VALUES(x)", where x is a number, then
+    take the x label-values with the highest metric-value where when =
+    'now', and the x label-values with the highest metric-value where
+    when = 'some days ago', and merge them together.
 
-    TODO(csilvers): make the list of top labels more stable.  Here is
-    what can happen: suppose num_unique_labels is 5, and two different
+    If `labelValues` is "MOST_POPULAR(x)", where x is a number, then
+    take the x label-values that occurred in the most requests where
+    when = 'now', and again where when = 'some days ago', and merge.
+
+    **WARNING**: when using TOP_VALUES or MOST_POPULAR, the results
+    can be unreliable for label-values near the cut-off.  Here is what
+    can happen: suppose we have "MOST_POPULAR(5)", and two different
     labels A and B flip-flop being the 5th most popular, with a value
     of around 100 for each.  Sometimes A wins and we send data for it,
     something near 100.  Sometimes it doesn't win and we send no data,
     which stackdriver treats as 0.  Stackdriver does some averaging to
-    get 25, and boom it seems like A is way below expectations!  The
-    solution is to always stick with A, at least within a single
-    stackdriver-averaging interval (whatever those may be).
+    get 25, and boom it seems like A is way below expectations!
+
+    TODO(alexanderforsyth): This function should eventually aggregate
+    the remaining label values into an "Other" category. It does not
+    do so because of difficulty calculating the query value of the
+    "Other" label value with the current implementation and
+    assumptions as mentioned in the config file.  When determining the
+    top metric label values, the label values are sorted in descending
+    order according to `unique_labels_sorting_field` (which currently
+    supports either `num` or `num_requests_by_field` with the latter
+    as default if it is not specified).
     """
-    metric_to_max_num_labels = {
-        config_entry['metricName']:
-            (config_entry.get('num_unique_labels', None),
-             config_entry.get('unique_labels_sorting_field',
-                              'num_requests_by_field'))
+    metric_to_label_values_to_keep = {
+        config_entry['metricName']: config_entry.get('labelValues', None)
         for config_entry in config
     }
 
@@ -343,10 +346,11 @@ def _maybe_filter_out_infrequent_label_values(config,
     return_dict = {}
 
     # Map metric_name -> label_list where time is 'now' and label_list is
-    # formatted like: [(metric_label_value, label_sorting_value, result)...]
+    # formatted like: [(label_sorting_value, metric_label_value, result)...]
+    # This is used for MOST_POPULAR() and TOP_VALUES().
     now_results_by_metric = {}
 
-    # Map same as above, but where time is 'some days ago'
+    # Map same as above, but where time is 'some days ago'.
     then_results_by_metric = {}
 
     # Add all metric results directly to the return_dict if the metric should
@@ -355,58 +359,72 @@ def _maybe_filter_out_infrequent_label_values(config,
     # order to determine the top label values for each metric.
     for (metric_name, metric_label_values, when), result in \
             results_by_metric_and_when.iteritems():
-        (max_num_labels, labels_sorting_field) = (
-            metric_to_max_num_labels[metric_name])
-        if max_num_labels is None:
+        label_values_to_keep = metric_to_label_values_to_keep[metric_name]
+
+        # Easy case: no filtering going on!
+        if label_values_to_keep is None:
             return_dict[(metric_name, metric_label_values, when)] = result
-            continue
 
-        if len(metric_label_values) != 1:
-            raise NotImplementedError('Aggregation of label values into an '
-                                      '`Other` value is not yet supported '
-                                      'when there is more than one label name '
-                                      'for a single config entry.')
-        label_sorting_value = result[labels_sorting_field]
+        # Pretty-easy case: they explicitly say what values to keep.
+        elif isinstance(label_values_to_keep, list):
+            if list(metric_label_values) in label_values_to_keep:
+                return_dict[(metric_name, metric_label_values, when)] = result
+            # A special-case: when there's only one label to list
+            # values for, label_values_to_keep can be a list of
+            # strings, rather than a list of 1-tuples.
+            elif (len(metric_label_values) == 1 and
+                    metric_label_values[0] in label_values_to_keep):
+                return_dict[(metric_name, metric_label_values, when)] = result
 
-        # Decide which [time]_results_by_metric dict to add results to.
-        if when == 'now':
-            results_by_metric_dict = now_results_by_metric
+        # Harder case: we have to keep the N most popular.  For now we
+        # just collect popularity data, and will aggregate it later.
+        elif label_values_to_keep.startswith('MOST_POPULAR('):
+            d = (result['num_requests_by_field'], metric_label_values, result)
+            if when == 'now':
+                now_results_by_metric.setdefault(metric_name, []).append(d)
+            else:
+                then_results_by_metric.setdefault(metric_name, []).append(d)
+
+        # Equally hard case: keep the N with the largest values.
+        elif label_values_to_keep.startswith('TOP_VALUES('):
+            d = (result['num'], metric_label_values, result)
+            if when == 'now':
+                now_results_by_metric.setdefault(metric_name, []).append(d)
+            else:
+                then_results_by_metric.setdefault(metric_name, []).append(d)
+
         else:
-            results_by_metric_dict = then_results_by_metric
-        results_by_metric_dict.setdefault(metric_name, []).append(
-            (metric_label_values[0], label_sorting_value, result))
+            raise ValueError("Unexpected value for labelValues: %s"
+                             % label_values_to_keep)
 
-    # Determine the top `num_unique_labels` values for both  when='now' and
-    # when='some days ago'. Then add the top result entries to the return dict.
-    for metric_name, now_label_list in now_results_by_metric.iteritems():
-        # Sort now label_list by the sorting value set in the prior for loop.
-        now_label_list.sort(key=lambda x: x[1], reverse=True)
-
-        # Do the same sorting for the 'then' label list.
+    # Now for the TOP_VALUES and MOST_POPULAR cases, we need to look
+    # through the aggregated data to pick the top ones.
+    for (metric_name, now_label_list) in now_results_by_metric.items():
+        # Sort both the 'now' and 'then' lists.
         then_label_list = then_results_by_metric.get(metric_name, [])
-        then_label_list.sort(key=lambda x: x[1], reverse=True)
+        now_label_list.sort(reverse=True)
+        then_label_list.sort(reverse=True)
 
-        max_num_labels = metric_to_max_num_labels[metric_name][0]
+        # The labelNames field is either MOST_POPULAR(#) or TOP_VALUES(#).
+        # In either case, we can extract out the number easily enough.
+        label_values_to_keep = metric_to_label_values_to_keep[metric_name]
+        count = int(re.findall(r'\d+', label_values_to_keep)[0])
 
         # Get the top label values, unioning over now and some days ago.
-        top_label_values = {v for (v, _, _) in
-                            now_label_list[:max_num_labels] +
-                            then_label_list[:max_num_labels]}
+        top_label_values = {v for (_, v, _) in (now_label_list[:count] +
+                                                then_label_list[:count])}
 
-        # Finally, add top label value results to the return dict
+        # Finally, add top label value results to the return dict.
         # TODO(alexanderforsyth): combine the non-top label values into an
         # 'Other' label value instead of just not returning them.
-        for (metric_label_value, _, result) in now_label_list:
-            if metric_label_value in top_label_values:
-                when = 'now'
-                return_dict[
-                    (metric_name, (metric_label_value,), when)] = result
+        for (_, label_value, result) in now_label_list:
+            if label_value in top_label_values:
+                return_dict[(metric_name, label_value, 'now')] = result
 
-        for (metric_label_value, _, result) in then_label_list:
-            if metric_label_value in top_label_values:
-                when = 'some days ago'
-                return_dict[
-                    (metric_name, (metric_label_value,), when)] = result
+        for (_, label_value, result) in then_label_list:
+            if label_value in top_label_values:
+                return_dict[(metric_name, label_value, 'some days ago')] = (
+                    result)
 
     return return_dict
 
@@ -452,8 +470,7 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
         results_by_metric_and_when[key] = result
 
     results_by_metric_and_when = (
-        _maybe_filter_out_infrequent_label_values(
-            config, results_by_metric_and_when))
+        _maybe_filter_out_label_values(config, results_by_metric_and_when))
 
     retval = []
     for config_entry in config:

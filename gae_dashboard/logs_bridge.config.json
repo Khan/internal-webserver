@@ -19,25 +19,23 @@
 //        you'd have lines for 'en'+'chrome', 'es'+'safari', etc.
 //        The list of allowable labels is in logs_bridge.py:_LABELS.
 //
-//   num_unique_labels (optional): the maximum number of unique label values
-//        to send to Stackdriver. The label values will be ordered descending
-//        by 'unique_labels_sorting_field', and the top num_unique_labels
-//        label_values will be sent to Stackdriver.
-//        TODO(alexanderforsyth): The correct behavior here would probably be
-//        to do something like the 'all' aggregation in csilvers' TODO, but for
-//        an 'Other' label_value encompassing all of the currently ignored
-//        label_values. This has the same issue as 'all' aggregation where the
-//        desired effect for counts is different from that for averages; for
-//        example, counts should be summed while averages should be averaged,
-//        and weighted by the number of requests.
-//
-//   unique_labels_sorting_field (optional): As described above, this field is
-//        used to sort the label values in order to decide which ones to
-//        keep. Current supported values include:
-//             'num': the value returned by the query specified in the entry
-//             'num_requests_by_field': the number of requests for the given
-//             lable value (e.g. num requests for browser=Chrome)
-//        The default value is 'num_requests_by_field' if this is not specified
+//   labelValues (optional): a list of values for that label that we
+//        send to stackdriver.  If omitted, all values are used.
+//        For instance, if `labels` was `['browser']`, labelValues
+//        could be `['IE', 'Chrome', 'Chrome mobile', 'Firefox']`.
+//        If multiple lables are used, `labelValues` should be a list
+//        of pairs: `[('IE', 'iPhone'), ('Safari', 'Desktop')]` for
+//        labels=`['browser', 'device']`.  There are also two
+//        special strings you can specify in lieu of a list:
+//        * "TOP_VALUES(x)": take the x label-values whose metric-value
+//          is the highest for this time interval.  So if we were
+//          testing average latency by route, it would be the x
+//          routes with the highest average latency in the last
+//          time-interval.
+//        * "MOST_POPULAR(x)": take the x label-values which garnered
+//          the most requests.  So if we were tseting average latency
+//          by route, it would be the x routes that received the most
+//          traffic in the last time-interval.
 //
 //   frequency (optional): how often to run this query.  Default is
 //        'minutely'.  Other options are 'hourly', 'daily', 'weekly'.
@@ -102,8 +100,7 @@
     {
         "metricName": "logs.distinct_ips_by_browser.week_over_week",
         "labels": ["browser"],
-        "num_unique_labels": 9,
-        "unique_labels_sorting_field": "num",
+        "labelValues": "TOP_VALUES(9)",
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
@@ -125,8 +122,7 @@
     {
         "metricName": "logs.distinct_ips_by_os.week_over_week",
         "labels": ["os"],
-        "num_unique_labels": 10,
-        "unique_labels_sorting_field": "num",
+        "labelValues": "TOP_VALUES(10)",
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
@@ -137,7 +133,7 @@
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true,
-        "num_unique_labels": 8
+        "labelValues": "MOST_POPULAR(8)"
     },
     {
         "metricName": "logs.conversions.problem_attempt.week_over_week",
@@ -190,8 +186,7 @@
     {
         "metricName": "logs.latency.week_over_week",
         "labels": ["route"],
-        "num_unique_labels": 20,
-        "unique_labels_sorting_field": "num_requests_by_field",
+        "labelValues": "MOST_POPULAR(20)",
         "query": "AVG(latency)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
