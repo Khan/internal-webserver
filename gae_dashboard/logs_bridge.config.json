@@ -100,7 +100,8 @@
     {
         "metricName": "logs.distinct_ips_by_browser.week_over_week",
         "labels": ["browser"],
-        "labelValues": "TOP_VALUES(9)",
+        "labelValues": ["IE", "Mobile Safari", "Chrome", "Edge",
+                        "Firefox", "Chrome Mobile", "Safari"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
@@ -122,7 +123,9 @@
     {
         "metricName": "logs.distinct_ips_by_os.week_over_week",
         "labels": ["os"],
-        "labelValues": "TOP_VALUES(10)",
+        "labelValues": ["Android", "Chrome OS", "Linux", "Ubuntu",
+                        "Mac OS X", "iOS",
+                        "Windows", "Windows Phone"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
