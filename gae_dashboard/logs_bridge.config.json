@@ -116,6 +116,7 @@
     {
         "metricName": "logs.distinct_ips_by_ka_app.week_over_week",
         "labels": ["KA_APP"],
+        "labelValues": ["true", "false"],
         "query": "COUNT(DISTINCT ip)",
         "normalizeByDaysAgo": 7,
         "normalizeByRequests": true
