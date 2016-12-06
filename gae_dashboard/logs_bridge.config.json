@@ -122,6 +122,14 @@
         "normalizeByRequests": true
     },
     {
+        "metricName": "logs.mobile_usage_by_route.week_over_week",
+        "labels": ["route"],
+        "labelValues": "MOST_POPULAR(20)",
+        "query": "COUNT(elog_KA_APP = true)",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true
+    },
+    {
         "metricName": "logs.distinct_ips_by_os.week_over_week",
         "labels": ["os"],
         "labelValues": ["Android", "Chrome OS", "Linux", "Ubuntu",
