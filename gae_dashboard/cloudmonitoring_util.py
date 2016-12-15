@@ -55,10 +55,13 @@ def _call_with_retries(fn, num_retries=9):
         time.sleep(0.5)     # wait a bit before the next request
 
 
-def get_cloud_service(service_name, version_number):
+def get_cloud_service(service_name, version_number, scope=None):
     import apiclient.discovery
     import httplib2
     import oauth2client.client
+
+    scope = 'https://www.googleapis.com/auth/%s' % (
+        scope if scope is not None else service_name)
 
     # Load the private key that we need to get data from Cloud compute.
     # This will (properly) raise an exception if this file
@@ -69,7 +72,7 @@ def get_cloud_service(service_name, version_number):
     def get_service():
         credentials = oauth2client.client.SignedJwtAssertionCredentials(
             json_key['client_email'], json_key['private_key'],
-            'https://www.googleapis.com/auth/%s' % service_name)
+            scope)
         http = credentials.authorize(httplib2.Http())
         return apiclient.discovery.build(serviceName=service_name,
                                          version=version_number, http=http)
