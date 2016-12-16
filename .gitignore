@@ -1,4 +1,5 @@
 */secrets.py
+gae_dashboard/s3_secrets.py
 *.pyc
 gae_dashboard/webroot/perf_chart_data*.json
 .idea

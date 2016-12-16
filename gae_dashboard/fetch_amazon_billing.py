@@ -16,7 +16,7 @@ import time
 import boto.s3.connection
 
 import graphite_util
-import secrets
+import s3_secrets
 
 
 class S3FileNotFound(Exception):
@@ -40,8 +40,8 @@ def get_csv_contents_from_s3(month=None, year=None):
 
     # TODO(nabil[2016-12-23]): generate s3 key, use it below and in secrets.py
     conn = boto.s3.connection.S3Connection(
-        secrets.youtube_export_s3_access_key,
-        secrets.youtube_export_s3_secret_key)
+        s3_secrets.youtube_export_s3_access_key,
+        s3_secrets.youtube_export_s3_secret_key)
     billing_bucket = conn.get_bucket('ka-aws-billing-reports')
     value = billing_bucket.get_key(csv_key)
 
