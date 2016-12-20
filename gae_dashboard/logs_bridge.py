@@ -278,6 +278,7 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
                     stdout=open(os.devnull, 'w'))
     bq_util.call_bq(['query', '--destination_table', temp_table_name,
                      '--allow_large_results', temp_table_query],
+                    project='khanacademy.org:deductive-jet-827',
                     return_output=False)
     logging.debug("Done creating temporary table %s", temp_table_name)
 

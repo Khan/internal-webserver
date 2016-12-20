@@ -17,8 +17,7 @@ class BQException(Exception):
     pass
 
 
-def call_bq(subcommand_list, project='khanacademy.org:deductive-jet-827',
-            return_output=True, **kwargs):
+def call_bq(subcommand_list, project, return_output=True, **kwargs):
     """subcommand_list is, e.g. ['query', '--allow_large_results', ...]."""
     _BQ = ['bq', '-q', '--headless', '--project_id', project]
     try:
@@ -124,7 +123,8 @@ def process_past_data(report, end_date, history_length, keyfn):
     return historical_data
 
 
-def query_bigquery(sql_query, retries=2):
+def query_bigquery(sql_query, retries=2,
+                   project='khanacademy.org:deductive-jet-827'):
     """Use the 'bq' tool to run a query, and return the results as
     a json list (each row is a dict).
 
@@ -152,7 +152,8 @@ def query_bigquery(sql_query, retries=2):
             # call_bq can return None when there are no results for
             # the query.  We map that to [].
             table = call_bq(['--job_id', job_name,
-                             'query', '--max_rows=10000', sql_query]) or []
+                             'query', '--max_rows=10000', sql_query],
+                            project=project) or []
             job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
@@ -162,7 +163,7 @@ def query_bigquery(sql_query, retries=2):
             if job_name:
                 try:        # Cancel the job if it's still running
                     call_bq(['--nosync', 'cancel', job_name],
-                            return_output=False)
+                            project=project, return_output=False)
                 except subprocess.CalledProcessError:
                     print "That's ok, it just means the job canceled itself."
                     pass    # probably means the job finished already
