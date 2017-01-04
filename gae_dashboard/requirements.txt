@@ -7,3 +7,5 @@ google-api-python-client==1.2
 lxml==3.3.3
 pytz==2014.9
 boto==2.42.0
+selenium==2.53.6
+requests==2.12.4
