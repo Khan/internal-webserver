@@ -25,7 +25,7 @@ bad_pids=""
 
 # First, find the pid of the task that spawns the phabricator daemons.
 # The '[]' trick avoids having the grep match itself in the ps output.
-daemon_runner_pid=`ps -o pid,command x | grep "phd[-]daemon" | awk '{print $1}'`
+daemon_runner_pid=`ps -o pid,command x | grep "phd[-]daemon$" | awk '{print $1}'`
 [ -n "$daemon_runner_pid" ]
 
 # Now, find its children, which are the actual daemons.
