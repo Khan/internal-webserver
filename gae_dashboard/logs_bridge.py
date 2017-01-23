@@ -38,6 +38,7 @@ import logging
 import os
 import random
 import re
+import sys
 import time
 
 import bq_util
@@ -104,7 +105,7 @@ def _bigquery_fields_for_labels(labels=_LABELS.keys()):
     return ', '.join(sorted(retval))
 
 
-def _load_config(config_name):
+def load_config(config_name):
     """If config_name is a relative path, it's relative to this dir."""
     if not os.path.isabs(config_name):
         config_name = os.path.join(os.path.dirname(__file__), config_name)
@@ -251,7 +252,8 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
     return '(%s)' % subquery
 
 
-def _run_bigquery(config, start_time_t, time_interval_seconds):
+def _run_bigquery(config, start_time_t, time_interval_seconds,
+        time_table_expiration):
     """config is as described in logs_bridge.config.json."""
     # First, create a temporary table that's just the rows from
     # start_time_t to start_time_t + time_interval_seconds.
@@ -271,7 +273,7 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
 
     logging.debug("Creating the temporary table for querying over by running "
                   + temp_table_query)
-    bq_util.call_bq(['mk', '--expiration', str(time_interval_seconds),
+    bq_util.call_bq(['mk', '--expiration', str(time_table_expiration),
                      temp_table_name],
                     project='khan-academy',
                     return_output=False,
@@ -280,7 +282,11 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
                      '--allow_large_results', temp_table_query],
                     project='khanacademy.org:deductive-jet-827',
                     return_output=False)
-    logging.debug("Done creating temporary table %s", temp_table_name)
+
+    logging.info("Step 1: Created temp table with all loglines. "
+            "View it on bigquery:")
+    logging.info("  https://bigquery.cloud.google.com/table/%s?tab=preview"
+            % (temp_table_name))
 
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds,
                                    temp_table_name)
@@ -295,8 +301,10 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
              ' as num_requests FROM %s' % ',\n'.join(subqueries))
     logging.debug('BIGQUERY QUERY: %s' % query)
 
-    logging.info("Sending query to bigquery")
-    r = bq_util.query_bigquery(query)
+    job_name = 'logs_bridge_query_%s' % random.randint(0, sys.maxint)
+    r = bq_util.query_bigquery(query, job_name=job_name)
+    logging.info('Step 2: Counting # of logs that match metric:')
+    logging.info('  https://bigquery.cloud.google.com/results/khanacademy.org:deductive-jet-827:%s' % job_name)
     logging.debug('BIGQUERY RESULTS: %s' % r)
 
     return r
@@ -430,10 +438,12 @@ def _maybe_filter_out_label_values(config, results_by_metric_and_when):
     return return_dict
 
 
-def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
+def get_values_from_bigquery(config, start_time_t, time_interval_seconds,
+        time_table_expiration):
     """Return a list of (metric-name, metric-labels, values) triples."""
     bigquery_results = _run_bigquery(config, start_time_t,
-                                     time_interval_seconds)
+                                     time_interval_seconds,
+                                     time_table_expiration)
     # A single result looks like:
     #   {u'module_id': u'multithreaded',
     #    u'num': 10.0,
@@ -535,7 +545,7 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
 
 def _send_to_stackdriver(google_project_id, bigquery_values,
                          start_time_t, time_interval_seconds, dry_run):
-    """bigquery_values is a list of triples via _get_values_from_bigquery."""
+    """bigquery_values is a list of triples via get_values_from_bigquery."""
     # send_to_cloudmonitoring wants data in a particular format, including
     # the timestamp.  We give all these datapoints the timestamp at the
     # *end* of our time-range: start_time_t + time_interval_seconds
@@ -550,7 +560,7 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
 
 
 def main(config_filename, google_project_id, time_interval_seconds, dry_run):
-    config = _load_config(config_filename)
+    config = load_config(config_filename)
 
     # We'll collect data minute-by-minute until we've collected data
     # from the time range (two-minutes-ago, one-minute-ago).
@@ -578,7 +588,8 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
                           if _should_run_query(e, start_time,
                                                time_of_last_successful_run)]
 
-        bigquery_values = _get_values_from_bigquery(current_config, start_time,
+        bigquery_values = get_values_from_bigquery(current_config, start_time,
+                                                    time_interval_seconds,
                                                     time_interval_seconds)
 
         # TODO(csilvers): compute ALL facet-totals for counting-stats.

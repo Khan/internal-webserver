@@ -123,7 +123,7 @@ def process_past_data(report, end_date, history_length, keyfn):
     return historical_data
 
 
-def query_bigquery(sql_query, retries=2,
+def query_bigquery(sql_query, retries=2, job_name=None,
                    project='khanacademy.org:deductive-jet-827'):
     """Use the 'bq' tool to run a query, and return the results as
     a json list (each row is a dict).
@@ -142,13 +142,14 @@ def query_bigquery(sql_query, retries=2,
     # want to display the first 100 or so, but the rest may be useful to save.
 
     table = None
-    job_name = None
     error_msg = None
 
     for i in range(1 + retries):
         try:
-            # We specify the job-name (randomly) so we can cancel it.
-            job_name = 'bq_util_%s' % random.randint(0, sys.maxint)
+            if not job_name:
+                # We specify the job-name (randomly) so we can cancel it.
+                job_name = 'bq_util_%s' % random.randint(0, sys.maxint)
+
             # call_bq can return None when there are no results for
             # the query.  We map that to [].
             table = call_bq(['--job_id', job_name,
