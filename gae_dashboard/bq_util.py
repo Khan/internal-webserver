@@ -134,6 +134,11 @@ def query_bigquery(sql_query, retries=2, job_name=None,
     retry the query a few times.
 
     This requires 'pip install bigquery' be run on this machine.
+
+    If you'd like to view the results of this query in the bigquery web UI, you
+    may wish to pass a unique string as the `job_name` param. Note that if the
+    first attempt at this query fails, we'll overwrite the job_name with a
+    randomly generated one.
     """
     # We could probably do 'import bq' and call out directly, but
     # I couldn't figure out an easy way to do this.  Ah well.
@@ -168,6 +173,9 @@ def query_bigquery(sql_query, retries=2, job_name=None,
                 except subprocess.CalledProcessError:
                     print "That's ok, it just means the job canceled itself."
                     pass    # probably means the job finished already
+
+            # Clear out job_name so it will be regenerated if this query failed
+            job_name = None
 
     if table is None:
         raise BQException("-- Query failed after %d retries: %s --"
