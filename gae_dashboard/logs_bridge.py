@@ -57,6 +57,13 @@ _QUERY_FIELDS = {
     'task_queue_name': 'task_queue_name',
 }
 
+# Fields included in the temporary table for debugging purposes, but not
+# meant to be used in metrics queries.
+_DEBUG_FIELDS = {
+    'end_time_timestamp': 'end_time_timestamp',
+    'start_time_timestamp': 'start_time_timestamp',
+}
+
 # This maps from the possible values for the 'labels' entry in the
 # config file, to the bigquery field(s) that represents it.  Each
 # bigquery field should be in angle-brackets.  The labels can have
@@ -167,19 +174,23 @@ def _tables_for_time(start_time_t, delta):
 
     # Otherwise, if it's within the last week and a bit, use the hourly
     # table(s).  (We only keep that table around for a week + 2 hours.)
-    if now - start_time_t <= 86400 * 7 + 3600 * 2:
-        retval = []
+    if now - start_time_t <= 86400 * 7 + 3600:
+        tables = set()
         for time_t in xrange(start_time_t, start_time_t + delta, 3600):
-            retval.append(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
-                                        time.gmtime(time_t)))
-        return ', '.join(retval)
+            tables.add(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
+                                     time.gmtime(time_t)))
+        tables.add(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
+                                 time.gmtime(start_time_t + delta)))
+        return ', '.join(sorted(tables))
 
     # Otherwise just use the appropriate daily logs table(s).
-    retval = []
+    tables = set()
     for time_t in xrange(start_time_t, start_time_t + delta, 86400):
-        retval.append(time.strftime('[logs.requestlogs_%Y%m%d]',
-                                    time.gmtime(time_t)))
-    return ', '.join(retval)
+        tables.add(time.strftime('[logs.requestlogs_%Y%m%d]',
+                                 time.gmtime(time_t)))
+    tables.add(time.strftime('[logs.requestlogs_%Y%m%d]',
+                             time.gmtime(start_time_t + delta)))
+    return ', '.join(sorted(tables))
 
 
 def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
@@ -190,7 +201,8 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
         WHERE end_time >= %d and end_time < %d
     )""" % (_bigquery_fields_for_labels(),
             ', '.join('%s as %s' % (v, k)
-                      for (k, v) in _QUERY_FIELDS.iteritems()),
+                      for (k, v) in (_QUERY_FIELDS.items() +
+                                     _DEBUG_FIELDS.items())),
             _tables_for_time(start_time_t, time_interval_seconds),
             start_time_t, start_time_t + time_interval_seconds)
     ]
@@ -204,7 +216,8 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
             WHERE end_time >= %d and end_time < %d
         )""" % (_bigquery_fields_for_labels(),
                 ', '.join('%s as %s' % (v, k)
-                          for (k, v) in _QUERY_FIELDS.iteritems()),
+                          for (k, v) in (_QUERY_FIELDS.items() +
+                                         _DEBUG_FIELDS.items())),
                 _tables_for_time(old_time_t, time_interval_seconds),
                 old_time_t, old_time_t + time_interval_seconds))
 
@@ -620,7 +633,7 @@ if __name__ == '__main__':
                               'with the Cloud Monitoring API enabled '
                               '[default: %(default)s]'))
     # In general we run this script minute-ly, over a minute of data.
-    parser.add_argument('--window-seconds', default=60, type=int,
+    parser.add_argument('--window-seconds', default=300, type=int,
                         help=('window of time to read from the logs. '
                               'This should not be longer than the frequency '
                               'this script is run [default: %(default)s]'))
