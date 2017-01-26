@@ -260,6 +260,8 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
                 % (config_entry['metricName'], config_entry['query'],
                    group_by))
     subquery += ' FROM [%s]' % table_name
+    if config_entry.get('ignore4xx5xx'):
+        subquery += '  WHERE status IS NOT NULL and status < 400'
     subquery += ' GROUP BY %s' % group_by
     subquery += ' HAVING num is not null'
     return '(%s)' % subquery
