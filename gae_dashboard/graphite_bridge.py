@@ -134,6 +134,27 @@ def _default_metrics():
             name='bingo.video_started.week_over_week',
             timeshift='7d'),
 
+        # AWS monthly billing data.
+        Metric(
+            'aws.billing.dashboard.AmazonRoute53',
+            name='aws.route53.monthly_cost_so_far'),
+        Metric(
+            'aws.billing.dashboard.AmazonEC2',
+            name='aws.ec2.monthly_cost_so_far'),
+        Metric(
+            'aws.billing.dashboard.AWSDataTransfer',
+            name='aws.data_transfer.monthly_cost_so_far'),
+        Metric(
+            'aws.billing.dashboard.AmazonCloudSearch',
+            name='aws.cloud_search.monthly_cost_so_far'),
+        Metric(
+            'aws.billing.dashboard.AmazonS3',
+            name='aws.s3.monthly_cost_so_far'),
+
+        # Bigquery daily cost data.
+        Metric(
+            'sumSeries(gcp.*.usage.bigquery.daily_query_cost_so_far_usd)',
+            name='bigquery.usage.daily_cost_so_far'),
         ]
     return metrics
 

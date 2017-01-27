@@ -38,6 +38,7 @@ import logging
 import os
 import random
 import re
+import sys
 import time
 
 import bq_util
@@ -54,6 +55,13 @@ _QUERY_FIELDS = {
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
+}
+
+# Fields included in the temporary table for debugging purposes, but not
+# meant to be used in metrics queries.
+_DEBUG_FIELDS = {
+    'end_time_timestamp': 'end_time_timestamp',
+    'start_time_timestamp': 'start_time_timestamp',
 }
 
 # This maps from the possible values for the 'labels' entry in the
@@ -104,7 +112,7 @@ def _bigquery_fields_for_labels(labels=_LABELS.keys()):
     return ', '.join(sorted(retval))
 
 
-def _load_config(config_name):
+def load_config(config_name):
     """If config_name is a relative path, it's relative to this dir."""
     if not os.path.isabs(config_name):
         config_name = os.path.join(os.path.dirname(__file__), config_name)
@@ -166,19 +174,23 @@ def _tables_for_time(start_time_t, delta):
 
     # Otherwise, if it's within the last week and a bit, use the hourly
     # table(s).  (We only keep that table around for a week + 2 hours.)
-    if now - start_time_t <= 86400 * 7 + 3600 * 2:
-        retval = []
+    if now - start_time_t <= 86400 * 7 + 3600:
+        tables = set()
         for time_t in xrange(start_time_t, start_time_t + delta, 3600):
-            retval.append(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
-                                        time.gmtime(time_t)))
-        return ', '.join(retval)
+            tables.add(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
+                                     time.gmtime(time_t)))
+        tables.add(time.strftime('[logs_hourly.requestlogs_%Y%m%d_%H]',
+                                 time.gmtime(start_time_t + delta)))
+        return ', '.join(sorted(tables))
 
     # Otherwise just use the appropriate daily logs table(s).
-    retval = []
+    tables = set()
     for time_t in xrange(start_time_t, start_time_t + delta, 86400):
-        retval.append(time.strftime('[logs.requestlogs_%Y%m%d]',
-                                    time.gmtime(time_t)))
-    return ', '.join(retval)
+        tables.add(time.strftime('[logs.requestlogs_%Y%m%d]',
+                                 time.gmtime(time_t)))
+    tables.add(time.strftime('[logs.requestlogs_%Y%m%d]',
+                             time.gmtime(start_time_t + delta)))
+    return ', '.join(sorted(tables))
 
 
 def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
@@ -189,7 +201,8 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
         WHERE end_time >= %d and end_time < %d
     )""" % (_bigquery_fields_for_labels(),
             ', '.join('%s as %s' % (v, k)
-                      for (k, v) in _QUERY_FIELDS.iteritems()),
+                      for (k, v) in (_QUERY_FIELDS.items() +
+                                     _DEBUG_FIELDS.items())),
             _tables_for_time(start_time_t, time_interval_seconds),
             start_time_t, start_time_t + time_interval_seconds)
     ]
@@ -203,7 +216,8 @@ def _query_for_rows_in_time_range(config, start_time_t, time_interval_seconds):
             WHERE end_time >= %d and end_time < %d
         )""" % (_bigquery_fields_for_labels(),
                 ', '.join('%s as %s' % (v, k)
-                          for (k, v) in _QUERY_FIELDS.iteritems()),
+                          for (k, v) in (_QUERY_FIELDS.items() +
+                                         _DEBUG_FIELDS.items())),
                 _tables_for_time(old_time_t, time_interval_seconds),
                 old_time_t, old_time_t + time_interval_seconds))
 
@@ -246,12 +260,15 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
                 % (config_entry['metricName'], config_entry['query'],
                    group_by))
     subquery += ' FROM [%s]' % table_name
+    if config_entry.get('ignore4xx5xx'):
+        subquery += '  WHERE status IS NOT NULL and status < 400'
     subquery += ' GROUP BY %s' % group_by
     subquery += ' HAVING num is not null'
     return '(%s)' % subquery
 
 
-def _run_bigquery(config, start_time_t, time_interval_seconds):
+def _run_bigquery(config, start_time_t, time_interval_seconds,
+        time_table_expiration):
     """config is as described in logs_bridge.config.json."""
     # First, create a temporary table that's just the rows from
     # start_time_t to start_time_t + time_interval_seconds.
@@ -271,7 +288,7 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
 
     logging.debug("Creating the temporary table for querying over by running "
                   + temp_table_query)
-    bq_util.call_bq(['mk', '--expiration', str(time_interval_seconds),
+    bq_util.call_bq(['mk', '--expiration', str(time_table_expiration),
                      temp_table_name],
                     project='khan-academy',
                     return_output=False,
@@ -280,7 +297,11 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
                      '--allow_large_results', temp_table_query],
                     project='khanacademy.org:deductive-jet-827',
                     return_output=False)
-    logging.debug("Done creating temporary table %s", temp_table_name)
+
+    logging.info("Step 1: Created temp table with all loglines. "
+            "View it on bigquery:")
+    logging.info("  https://bigquery.cloud.google.com/table/%s?tab=preview"
+            % (temp_table_name))
 
     subqueries = [_create_subquery(entry, start_time_t, time_interval_seconds,
                                    temp_table_name)
@@ -295,8 +316,10 @@ def _run_bigquery(config, start_time_t, time_interval_seconds):
              ' as num_requests FROM %s' % ',\n'.join(subqueries))
     logging.debug('BIGQUERY QUERY: %s' % query)
 
-    logging.info("Sending query to bigquery")
-    r = bq_util.query_bigquery(query)
+    job_name = 'logs_bridge_query_%s' % random.randint(0, sys.maxint)
+    r = bq_util.query_bigquery(query, job_name=job_name)
+    logging.info('Step 2: Counting # of logs that match metric:')
+    logging.info('  https://bigquery.cloud.google.com/results/khanacademy.org:deductive-jet-827:%s' % job_name)
     logging.debug('BIGQUERY RESULTS: %s' % r)
 
     return r
@@ -430,10 +453,12 @@ def _maybe_filter_out_label_values(config, results_by_metric_and_when):
     return return_dict
 
 
-def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
+def get_values_from_bigquery(config, start_time_t, time_interval_seconds,
+        time_table_expiration):
     """Return a list of (metric-name, metric-labels, values) triples."""
     bigquery_results = _run_bigquery(config, start_time_t,
-                                     time_interval_seconds)
+                                     time_interval_seconds,
+                                     time_table_expiration)
     # A single result looks like:
     #   {u'module_id': u'multithreaded',
     #    u'num': 10.0,
@@ -535,7 +560,7 @@ def _get_values_from_bigquery(config, start_time_t, time_interval_seconds):
 
 def _send_to_stackdriver(google_project_id, bigquery_values,
                          start_time_t, time_interval_seconds, dry_run):
-    """bigquery_values is a list of triples via _get_values_from_bigquery."""
+    """bigquery_values is a list of triples via get_values_from_bigquery."""
     # send_to_cloudmonitoring wants data in a particular format, including
     # the timestamp.  We give all these datapoints the timestamp at the
     # *end* of our time-range: start_time_t + time_interval_seconds
@@ -550,7 +575,7 @@ def _send_to_stackdriver(google_project_id, bigquery_values,
 
 
 def main(config_filename, google_project_id, time_interval_seconds, dry_run):
-    config = _load_config(config_filename)
+    config = load_config(config_filename)
 
     # We'll collect data minute-by-minute until we've collected data
     # from the time range (two-minutes-ago, one-minute-ago).
@@ -578,7 +603,8 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
                           if _should_run_query(e, start_time,
                                                time_of_last_successful_run)]
 
-        bigquery_values = _get_values_from_bigquery(current_config, start_time,
+        bigquery_values = get_values_from_bigquery(current_config, start_time,
+                                                    time_interval_seconds,
                                                     time_interval_seconds)
 
         # TODO(csilvers): compute ALL facet-totals for counting-stats.
@@ -609,7 +635,7 @@ if __name__ == '__main__':
                               'with the Cloud Monitoring API enabled '
                               '[default: %(default)s]'))
     # In general we run this script minute-ly, over a minute of data.
-    parser.add_argument('--window-seconds', default=60, type=int,
+    parser.add_argument('--window-seconds', default=300, type=int,
                         help=('window of time to read from the logs. '
                               'This should not be longer than the frequency '
                               'this script is run [default: %(default)s]'))
