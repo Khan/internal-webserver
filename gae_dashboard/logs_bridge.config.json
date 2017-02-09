@@ -232,5 +232,10 @@
         // (daily) cronjobs that fail even once.  The right alert for
         // this is when the value is >= 1.0.
         "query": "SUM(task_queue_name == '__cron' and status >= 300) / SUM(task_queue_name == '__cron')"
+    },
+    {
+        "metricName": "logs.page_load_time.pct90",
+        "labels": ["country", "browser"],
+        "query": "NTH(91, QUANTILES(page_load_time, 101))"
     }
 ]

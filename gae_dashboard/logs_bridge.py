@@ -55,6 +55,8 @@ _QUERY_FIELDS = {
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
+    'page_load_time': ("REGEXP_EXTRACT(app_logs.message, "
+                       "r'stats.time.client.sufficiently_usable_ms:(\d+);')"),
 }
 
 # Fields included in the temporary table for debugging purposes, but not
@@ -72,6 +74,7 @@ _DEBUG_FIELDS = {
 _LABELS = {
     'module_id': '<module_id>',
     'browser': '<elog_browser>',
+    'country': '<elog_country>',
     'device': '<elog_device_type>',
     'KA_APP': '<elog_KA_APP>',
     'os': '<elog_os>',
