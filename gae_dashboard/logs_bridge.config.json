@@ -234,8 +234,19 @@
         "query": "SUM(task_queue_name == '__cron' and status >= 300) / SUM(task_queue_name == '__cron')"
     },
     {
-        "metricName": "logs.page_load_time.pct90",
+        "metricName": "logs.page_load_time_by_browser_and_country.pct90",
         "labels": ["country", "browser"],
+        "query": "NTH(91, QUANTILES(page_load_time, 101))"
+    },
+    {
+        "metricName": "logs.page_load_time_by_device_and_country.pct90",
+        "labels": ["country", "device"],
+        "query": "NTH(91, QUANTILES(page_load_time, 101))"
+    },
+    {
+        "metricName": "logs.page_load_time_by_handpicked_country.pct90",
+        "labels": ["country"],
+        "labelValues": ["US", "CA", "CN", "IN", "BR", "MX"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))"
     }
 ]

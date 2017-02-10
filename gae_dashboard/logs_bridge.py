@@ -56,7 +56,7 @@ _QUERY_FIELDS = {
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
     'page_load_time': ("REGEXP_EXTRACT(app_logs.message, "
-                       "r'stats.time.client.sufficiently_usable_ms:(\d+);')"),
+                       "r'stats.time.client.sufficiently_usable_ms.*:(\d+);')")
 }
 
 # Fields included in the temporary table for debugging purposes, but not
