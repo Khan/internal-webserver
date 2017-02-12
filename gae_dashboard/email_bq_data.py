@@ -496,7 +496,7 @@ ORDER BY tcost.rpc_cost DESC;
     # day.  More than $750 a day and we should be very suspcious.
     # TODO(csilvers): do this check more frequently.
     # TODO(csilvers): send to slack and/or 911 as well as emailing
-    if any(row[2] > 750 for row in data):
+    if any(row[2] > 750 for row in data[1:]):    # ignore the header line
         _send_email({heading: data[:75]}, None,
                     to=['infrastructure@khanacademy.org'],
                     subject=('WARNING: some very expensive RPC calls on %s!'
