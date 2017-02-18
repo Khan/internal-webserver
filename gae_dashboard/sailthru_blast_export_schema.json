@@ -1,0 +1,56 @@
+[{
+    "name": "blast_id",
+    "mode": "NULLABLE",
+    "type": "STRING"
+  },
+  {
+    "name": "profile_id",
+    "mode": "NULLABLE",
+    "type": "STRING"
+  },
+  {
+    "name": "email_hash",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "send_time",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "open_time",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "click_time",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "first_ten_clicks",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "purchase_time",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "device",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "kaid",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "first_ten_clicks_time",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]
