@@ -56,7 +56,9 @@ _QUERY_FIELDS = {
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
     'page_load_time': ("REGEXP_EXTRACT(app_logs.message, "
-                       "r'stats.time.client.sufficiently_usable_ms.*:(\d+);')")
+                      "r'stats.time.client.sufficiently_usable_ms.*:(\d+);')"),
+    'nav_type': ("REGEXP_EXTRACT(app_logs.message, "
+                 "r'stats.time.client.sufficiently_usable_ms.([^.]*).*;')"),
 }
 
 # Fields included in the temporary table for debugging purposes, but not
@@ -80,6 +82,7 @@ _LABELS = {
     'os': '<elog_os>',
     'lang': '<elog_ka_locale>',
     'route': '<module_id>:<elog_url_route>',
+    'nav_type': '<nav_type>',
 }
 
 _LABEL_RE = re.compile(r'<([^>]*)>')   # matches the text inside '<...>'

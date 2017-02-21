@@ -73,6 +73,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logs_format = '[%(levelname)s] %(message)s'
-    logging.basicConfig(format=logs_format, level=logging.INFO)
+    logging.basicConfig(format=logs_format, level=logging.DEBUG)
 
     main(args.config, args.metric, args.start_time, args.window_seconds)

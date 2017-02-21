@@ -248,5 +248,10 @@
         "labels": ["country"],
         "labelValues": ["US", "CA", "CN", "IN", "BR", "MX"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))"
+    },
+    {
+        "metricName": "logs.page_load_time_by_nav_type.pct90",
+        "labels": ["nav_type"],
+        "query": "NTH(91, QUANTILES(page_load_time, 101))"
     }
 ]
