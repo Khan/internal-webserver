@@ -70,9 +70,15 @@ if __name__ == '__main__':
                               'This should not be longer than the frequency '
                               'this script is run [default: %(default)s]'))
 
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+                        help='enable verbose logging')
+
     args = parser.parse_args()
 
     logs_format = '[%(levelname)s] %(message)s'
-    logging.basicConfig(format=logs_format, level=logging.INFO)
+    if args.verbose > 0:
+        logging.basicConfig(format=logs_format, level=logging.DEBUG)
+    else:
+        logging.basicConfig(format=logs_format, level=logging.INFO)
 
     main(args.config, args.metric, args.start_time, args.window_seconds)
