@@ -56,9 +56,14 @@ _QUERY_FIELDS = {
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
     'page_load_time': ("REGEXP_EXTRACT(app_logs.message, "
-                      "r'stats.time.client.sufficiently_usable_ms.*:(\d+);')"),
-    'nav_type': ("REGEXP_EXTRACT(app_logs.message, "
-                 "r'stats.time.client.sufficiently_usable_ms.([^.]*).*;')"),
+                       "r'stats.time.client.sufficiently_usable_ms"
+                       "\.[^:]+:(\d+);')"),
+    'page_load_page': ("REGEXP_EXTRACT(app_logs.message, "
+                       "r'stats.time.client.sufficiently_usable_ms"
+                       "\.[^.:]+\.(\w+):\d+;')"),
+    'page_load_nav_type': ("REGEXP_EXTRACT(app_logs.message, "
+                           "r'stats.time.client.sufficiently_usable_ms"
+                           "\.(server|client).*;')"),
 }
 
 # Fields included in the temporary table for debugging purposes, but not
@@ -82,7 +87,8 @@ _LABELS = {
     'os': '<elog_os>',
     'lang': '<elog_ka_locale>',
     'route': '<module_id>:<elog_url_route>',
-    'nav_type': '<nav_type>',
+    'page_load_page': '<page_load_page>',
+    'page_load_nav_type': '<page_load_nav_type>',
 }
 
 _LABEL_RE = re.compile(r'<([^>]*)>')   # matches the text inside '<...>'
@@ -110,10 +116,12 @@ def _write_time_t_of_latest_successful_run(time_t):
         print >>f, time_t
 
 
-def _bigquery_fields_for_labels(labels=_LABELS.keys()):
+def _bigquery_fields_for_labels(labels=_LABELS.keys(), omit_query_fields=True):
     """All bigquery fields references in _LABELS.values(), comma-separated."""
     retval = set()
     for label in labels:
+        if omit_query_fields and label in _QUERY_FIELDS:
+            continue
         retval.update(_LABEL_RE.findall(_LABELS[label]))
     return ', '.join(sorted(retval))
 
@@ -251,7 +259,8 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
     """
     label_names = config_entry.get('labels', [])
 
-    group_by = _bigquery_fields_for_labels(label_names)
+    group_by = _bigquery_fields_for_labels(
+        label_names, omit_query_fields=False)
     if group_by:
         group_by = group_by + ', when'
     else:
@@ -266,8 +275,30 @@ def _create_subquery(config_entry, start_time_t, time_interval_seconds,
                 % (config_entry['metricName'], config_entry['query'],
                    group_by))
     subquery += ' FROM [%s]' % table_name
+
+    # Add where clause, combining generic where option with ignore4xx5xx and
+    # ignoreBot.
+
+    where = False
+    if config_entry.get('where'):
+        subquery += ' WHERE %s' % config_entry['where']
+        where = True
     if config_entry.get('ignore4xx5xx'):
-        subquery += '  WHERE status IS NOT NULL and status < 400'
+        if not where:
+            subquery += ' WHERE '
+        else:
+            subquery += ' AND '
+        subquery += 'status IS NOT NULL and status < 400'
+        where = True
+    if config_entry.get('ignoreBot'):
+        if not where:
+            subquery += ' WHERE '
+        else:
+            subquery += ' AND '
+        subquery += ("elog_device_type IS NOT NULL AND "
+                     "elog_device_type != 'bot/dev'")
+        where = True
+
     subquery += ' GROUP BY %s' % group_by
     subquery += ' HAVING num is not null'
     return '(%s)' % subquery
