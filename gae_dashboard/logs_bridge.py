@@ -645,8 +645,17 @@ def main(config_filename, google_project_id, time_interval_seconds, dry_run):
         time_of_last_successful_run = start_time
 
         if dry_run:
-            logging.info("Time %s: would write %s metrics to stackdriver",
-                         start_time + time_interval_seconds, num_metrics)
+            if num_metrics > 200:
+                raise ValueError((
+                    "The Stackdriver API errors out with a 400 Bad Request "
+                    "if your request includes more than 200 metrics in the "
+                    "field `timeSeries`. You must reduce the number of "
+                    "metrics you are sending to Stackdriver to avoid failure. "
+                    "You are currently sending %s metrics." % num_metrics
+                ))
+            else:
+                logging.info("Time %s: would write %s metrics to stackdriver",
+                             start_time + time_interval_seconds, num_metrics)
         else:
             logging.info("Time %s: wrote %s metrics to stackdriver",
                          start_time + time_interval_seconds, num_metrics)
