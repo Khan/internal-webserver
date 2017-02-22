@@ -55,9 +55,9 @@ _QUERY_FIELDS = {
     'log_messages': 'GROUP_CONCAT_UNQUOTED(app_logs.message) WITHIN RECORD',
     'latency': 'latency',
     'task_queue_name': 'task_queue_name',
-    'page_load_time': ("REGEXP_EXTRACT(app_logs.message, "
+    'page_load_time': ("FLOAT(REGEXP_EXTRACT(app_logs.message, "
                        "r'stats.time.client.sufficiently_usable_ms"
-                       "\.[^:]+:(\d+);')"),
+                       "\.[^:]+:(\d+);'))/1000"),
     'page_load_page': ("REGEXP_EXTRACT(app_logs.message, "
                        "r'stats.time.client.sufficiently_usable_ms"
                        "\.[^.:]+\.(\w+):\d+;')"),

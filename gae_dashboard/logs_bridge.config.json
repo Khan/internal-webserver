@@ -247,21 +247,23 @@
         "labels": ["page_load_page"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
         "ignoreBot": true,
-        "where": "page_load_nav_type = 'server' AND elog_country = 'US'"
+        "where": "page_load_nav_type = 'server' AND elog_country = 'US' AND page_load_time < 30"
     },
     // Page load by country
     {
         "metricName": "logs.page_load_time_by_country.pct90",
         "labels": ["country"],
-        "labelValues": ["US", "CA", "CN", "IN", "BR", "MX"],
+        "labelValues": ["US", "ID", "CN", "IN", "BR", "MX"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
-        "ignoreBot": true
+        "ignoreBot": true,
+        "where": "page_load_time < 30"
     },
     // General availablity, broken out by page
     {
         "metricName": "logs.page_load_time_by_page.pct90",
         "labels": ["page_load_page"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
-        "ignoreBot": true
+        "ignoreBot": true,
+        "where": "page_load_time < 30"
     }
 ]
