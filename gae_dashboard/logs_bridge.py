@@ -57,13 +57,13 @@ _QUERY_FIELDS = {
     'task_queue_name': 'task_queue_name',
     'page_load_time': ("FLOAT(REGEXP_EXTRACT(app_logs.message, "
                        "r'stats.time.client.sufficiently_usable_ms"
-                       "\.[^:]+:(\d+);'))/1000"),
+                       "\.\w+\.\w+:(\d+);'))/1000"),
     'page_load_page': ("REGEXP_EXTRACT(app_logs.message, "
                        "r'stats.time.client.sufficiently_usable_ms"
-                       "\.[^.:]+\.(\w+):\d+;')"),
+                       "\.\w+\.(\w+):\d+;')"),
     'page_load_nav_type': ("REGEXP_EXTRACT(app_logs.message, "
                            "r'stats.time.client.sufficiently_usable_ms"
-                           "\.(server|client).*;')"),
+                           "\.(server|client).+;')"),
 }
 
 # Fields included in the temporary table for debugging purposes, but not
