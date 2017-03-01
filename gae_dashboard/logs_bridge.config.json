@@ -249,6 +249,10 @@
         "ignoreBot": true,
         "where": "page_load_nav_type = 'server' AND elog_country = 'US' AND page_load_time < 30"
     },
+    {
+        "metricName": "target.page_load_time_server_usa.pct90",
+        "query": "10"
+    },
     // Page load by country
     {
         "metricName": "logs.page_load_time_by_country.pct90",
@@ -258,6 +262,10 @@
         "ignoreBot": true,
         "where": "page_load_time < 30"
     },
+    {
+        "metricName": "target.page_load_time_by_country.pct90",
+        "query": "10"
+    },
     // General availablity, broken out by page
     {
         "metricName": "logs.page_load_time_by_page.pct90",
@@ -265,5 +273,9 @@
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
         "ignoreBot": true,
         "where": "page_load_time < 30"
+    },
+    {
+        "metricName": "target.page_load_time_by_page.pct90",
+        "query": "10"
     }
 ]
