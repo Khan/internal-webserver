@@ -260,7 +260,7 @@
         "labelValues": ["US", "ID", "CN", "IN", "BR", "MX"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
         "ignoreBot": true,
-        "where": "page_load_time < 30"
+        "where": "(page_load_nav_type = 'server' AND page_load_time < 30) OR (page_load_nav_type = 'client' and page_load_time < 20)"
     },
     {
         "metricName": "target.page_load_time_by_country.pct90",
@@ -272,7 +272,7 @@
         "labels": ["page_load_page"],
         "query": "NTH(91, QUANTILES(page_load_time, 101))",
         "ignoreBot": true,
-        "where": "page_load_time < 30"
+        "where":  "(page_load_nav_type = 'server' AND page_load_time < 30) OR (page_load_nav_type = 'client' and page_load_time < 20)"
     },
     {
         "metricName": "target.page_load_time_by_page.pct90",
