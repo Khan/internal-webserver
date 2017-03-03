@@ -250,6 +250,13 @@
         "where": "page_load_nav_type = 'server' AND elog_country = 'US' AND page_load_time < 30"
     },
     {
+        "metricName": "logs.page_load_time_server_usa.pct90.week_over_week",
+        "query": "NTH(91, QUANTILES(page_load_time, 101))",
+        "normalizeByDaysAgo": 7,
+        "ignoreBot": true,
+        "where": "page_load_nav_type = 'server' AND elog_country = 'US' AND page_load_time < 30"
+    },
+    {
         "metricName": "target.page_load_time_server_usa.pct90",
         "query": "10"
     },
@@ -275,7 +282,37 @@
         "where":  "(page_load_nav_type = 'server' AND page_load_time < 30) OR (page_load_nav_type = 'client' and page_load_time < 20)"
     },
     {
+        "metricName": "logs.page_load_time_by_page.pct90.week_over_week",
+        "labels": ["page_load_page"],
+        "normalizeByDaysAgo": 7,
+        "query": "NTH(91, QUANTILES(page_load_time, 101))",
+        "ignoreBot": true,
+        "where": "page_load_time < 30"
+    },
+    {
         "metricName": "target.page_load_time_by_page.pct90",
         "query": "10"
+    },
+    // Other week over week metrics, not broken out by page
+    {
+        "metricName": "logs.page_load_time.pct90.week_over_week",
+        "normalizeByDaysAgo": 7,
+        "query": "NTH(91, QUANTILES(page_load_time, 101))",
+        "ignoreBot": true,
+        "where": "page_load_time < 30"
+    },
+    {
+        "metricName": "logs.page_load_time_server_nav.pct90.week_over_week",
+        "normalizeByDaysAgo": 7,
+        "query": "NTH(91, QUANTILES(page_load_time, 101))",
+        "ignoreBot": true,
+        "where": "page_load_nav_type = 'server' AND page_load_time < 30"
+    },
+    {
+        "metricName": "logs.page_load_time_client_nav.pct90.week_over_week",
+        "normalizeByDaysAgo": 7,
+        "query": "NTH(91, QUANTILES(page_load_time, 101))",
+        "ignoreBot": true,
+        "where": "page_load_nav_type = 'client' and page_load_time < 20"
     }
 ]
