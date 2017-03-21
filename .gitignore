@@ -1,5 +1,7 @@
 */secrets.py
 gae_dashboard/s3_secrets.py
+gae_dashboard/pingdom_password
+gae_dashboard/pingdom_api_key
 *.pyc
 gae_dashboard/webroot/perf_chart_data*.json
 .idea
