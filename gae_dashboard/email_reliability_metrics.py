@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import bq_util
 import datetime
 import json
 import os
 import pytz
+import random
 import requests
 
 
@@ -60,3 +62,62 @@ def calculate_weekly_uptime(uptime_data):
     uptime = float(totalup) / (totalup + totaldown)
 
     return '%.2f' % (uptime * 100)
+
+
+def build_temp_table():
+    today = datetime.datetime.now(pytz.timezone('US/Pacific'))
+    weeks_dates = [(today - datetime.timedelta(days=n)).strftime("%Y%m%d")
+                   for n in range(0, 7)]
+    tables_to_filter = ["khan:logs.requestlogs_%s" % date
+                        for date in weeks_dates]
+
+    query = """\
+SELECT page_load_time, elog_country, page_load_page, page_load_nav_type
+FROM [%s]
+WHERE
+    page_load_time IS NOT NULL
+    AND elog_device_type IS NOT NULL
+    AND elog_device_type != 'bot/dev'
+    AND (
+      (page_load_nav_type = 'server' AND page_load_time < 30)
+      OR (page_load_nav_type = 'client' AND page_load_time < 20)
+    )
+    """ % ','.join(tables_to_filter)
+
+    # Modeled from logs_bridge._run_bigquery
+    # Apparently the commandline doesn't like newlines in the script.
+    # Reformat for the commandline.
+    query = query.replace('\n', ' ')
+
+    temp_table_name = (
+        'khan-academy:logs_streaming_tmp_analysis.email_reliability_%s_%04d'
+        % (today.strftime("%Y%m%d"), random.randint(0, 9999)))
+
+    bq_util.call_bq(['mk', temp_table_name],
+                    project='khan-academy',
+                    return_output=False,
+                    stdout=open(os.devnull, 'w'))
+    bq_util.call_bq(['query', '--destination_table', temp_table_name,
+                     '--allow_large_results', query],
+                    project='khanacademy.org:deductive-jet-827',
+                    return_output=False)
+
+    return temp_table_name
+
+
+def get_weekly_page_load_perf_data_from_bigquery(page_load_table_name):
+    page_load_time_by_country_query = """\
+  SELECT
+    FLOAT(NTH(91, QUANTILES(page_load_time, 101))) AS page_load_time,
+    elog_country
+  FROM
+    [%s]
+  WHERE
+    elog_country IN ('US', 'ID', 'CN', 'IN', 'BR', 'MX')
+  GROUP BY
+    elog_country
+""" % page_load_table_name
+
+    # TODO: actually build the temp table, do the query, verify results make sense
+    # then can turn this into a real diff, including writing the other two queries
+    # then work on graphing and emailing
