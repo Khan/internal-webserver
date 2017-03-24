@@ -1,12 +1,23 @@
 #!/usr/bin/env python
+"""Email weekly performance report
 
-import bq_util
+Report contains:
+- page performance from bq
+- uptime metrics from pingdom
+- degraded performance metrics form bq
+"""
+import argparse
 import datetime
+import email
 import json
 import os
+import smtplib
+import subprocess
+
+import bq_util
+import jinja2
 import pytz
 import requests
-import subprocess
 
 
 _TODAY = datetime.datetime.now(pytz.timezone('US/Pacific'))  # toby's timezone
@@ -45,13 +56,13 @@ def get_uptime_stats_from_pingdom(start_time=None, end_time=None):
 
     pingdom_username = 'it@khanacademy.org'
 
-    dir_prefix = '~/internal-webserver/gae_dashboard/'
+    dir_prefix = os.path.abspath(os.path.dirname(__file__))
 
-    with open(os.path.expanduser(dir_prefix + 'pingdom_password')) as f:
-        pingdom_password = f.read()
+    with open(os.path.join(dir_prefix, 'pingdom_password')) as f:
+        pingdom_password = f.read().strip()
 
-    with open(os.path.expanduser(dir_prefix + 'pingdom_api_key')) as f:
-        pingdom_api_key = f.read()
+    with open(os.path.join(dir_prefix, 'pingdom_api_key')) as f:
+        pingdom_api_key = f.read().strip()
 
     for page_name, checkid in page_name_to_checkid.iteritems():
         url = url_template % (checkid, start_time, end_time)
@@ -70,9 +81,7 @@ def get_uptime_stats_from_pingdom(start_time=None, end_time=None):
 def calculate_pingdom_uptime(uptime_data):
     totalup = sum([stats['totalup'] for stats in uptime_data.values()])
     totaldown = sum([stats['totaldown'] for stats in uptime_data.values()])
-
     uptime = float(totalup) / (totalup + totaldown)
-
     return '%.2f' % (uptime * 100)
 
 
@@ -234,3 +243,50 @@ def save_weekly_page_load_data_to_disk(page_load_data, start_date=None,
 
     with open(_PAGE_LOAD_DATABASE, 'w') as f:
         json.dump(contents, f)
+
+
+def html_template():
+    env = jinja2.Environment(
+        loader=jinja2.PackageLoader('__main__', ''),
+        autoescape=jinja2.select_autoescape(['html', 'xml'])
+    )
+    return env.get_template('email_reliability_metrics.html')
+
+
+def send_email(dry_run=True):
+    pingdom_stats = get_uptime_stats_from_pingdom()
+    uptime = calculate_pingdom_uptime(pingdom_stats)
+
+    template = html_template()
+    html = template.render(
+        date=_DEFAULT_END_TIME,
+        uptime=uptime)
+
+    message = email.MIMEMultipart.MIMEMultipart()
+    body = email.MIMEText.MIMEText(html, 'html')
+    message.attach(body)
+    message['subject'] = 'Weekly Reliability Metrics for {}'.format(
+        _DEFAULT_END_TIME.strftime('%b %-d %Y')
+    )
+    message['from'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
+    message['to'] = sender = 'nabil@khanacademy.org, amos@khanacademy.org'
+
+    if dry_run:
+        print message.as_string()
+    else:
+        s = smtplib.SMTP('localhost')
+        s.sendmail('toby-admin+bq-cron@khanacademy.org', sender,
+                   message.as_string())
+        s.quit()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dry-run', '-n', action='store_true',
+                        help="Don't actually send email.")
+    args = parser.parse_args()
+    send_email(args.dry_run)
+
+
+if __name__ == '__main__':
+    main()
