@@ -1,7 +1,31 @@
 <html>
-    <h1>Weekly Reliablility Metrics for {{date.strftime('%b %-d %Y')}}</h1>
+  <body>
+    <h1>Weekly reliablility metrics for {{date.strftime('%b %-d %Y')}}</h1>
+
+    <h2>Summary</h2>
+    <ul>
+      <li>Item one</li>
+      <li>Item two</li>
+      <li>Item three</li>
+    </ul>
+
+    <h2>Page performance, 90th percentile</h2>
+    <h3>By page type, only US server requests</h3>
+    <img src="cid:server.png">
+
+    <h3>By page type</h3>
+    <img src="cid:by_page.png">
+
+    <h3>By country</h3>
+    <img src="cid:by_country.png">
+
+    <h2>Degraded performance</h2>
+    <p>This week: {{'%.2f' % degraded['current']}}%</p>
+    <p>Last week: {{'%.2f' % degraded['last']}}%</p>
 
     <h2>Uptime</h2>
-    <p>{{uptime}}%</p>
+    <p>This week: {{'%.2f' % uptime['current']}}%</p>
+    <p>Last week: {{'%.2f' % uptime['last']}}%</p>
 
+  </body>
 </html>

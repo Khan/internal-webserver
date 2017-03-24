@@ -10,13 +10,16 @@ import argparse
 import collections
 import cStringIO
 import datetime
-import email
+import email.mime.image
+import email.mime.multipart
+import email.mime.text
 import json
 import os
 import smtplib
 import subprocess
 
 import bq_util
+import email_uptime
 import jinja2
 import matplotlib.pyplot as plt
 import pytz
@@ -84,7 +87,7 @@ def calculate_pingdom_uptime(uptime_data):
     totalup = sum([stats['totalup'] for stats in uptime_data.values()])
     totaldown = sum([stats['totaldown'] for stats in uptime_data.values()])
     uptime = float(totalup) / (totalup + totaldown)
-    return '%.2f' % (uptime * 100)
+    return uptime * 100
 
 
 def build_page_load_temp_table(start_date=None, end_date=None):
@@ -247,6 +250,20 @@ def save_weekly_page_load_data_to_disk(page_load_data, start_date=None,
         json.dump(contents, f)
 
 
+def ensure_weekly_page_load_data():
+    """Make sure that we have today's page load data stored."""
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        data = json.load(f)
+    start_date = _DEFAULT_START_TIME.strftime('%Y%m%d')
+    for record in data:
+        if record['start_date'] == start_date:
+            return
+
+    table_name = build_page_load_temp_table()
+    stats = get_weekly_page_load_data_from_bigquery(table_name)
+    save_weekly_page_load_data_to_disk(stats)
+
+
 def build_graphs_from_page_load_database():
     """Returns a dict of titles to PNGs of page load perf data in string form.
 
@@ -273,9 +290,9 @@ def build_graphs_from_page_load_database():
 
     title_to_image = {}
 
-    for graph_data, title in ((by_page_data, 'By page'),
-                              (by_country_data, 'By country'),
-                              (server_usa_data, 'US server navigation')):
+    for graph_data, title in ((by_page_data, 'by_page'),
+                              (by_country_data, 'by_country'),
+                              (server_usa_data, 'server_usa')):
         # Convert a list of dicts to a dict of lists. We weakly expect the
         # dicts to have the same keys; the graphs might look kind of weird if
         # this assumption is violated, which would happen if we alter the data
@@ -309,6 +326,33 @@ def build_graphs_from_page_load_database():
     return title_to_image
 
 
+# TODO(amos): Persist this data and turn it into a graph.
+def degraded_data():
+    return {
+        'current': email_uptime.average_uptime_for_period(
+            _DEFAULT_START_TIME, _DEFAULT_END_TIME,
+            email_uptime.DEFAULT_SEC_PER_CHUNK,
+            email_uptime.DEFAULT_DOWN_THRESHOLD,
+        ),
+        'last': email_uptime.average_uptime_for_period(
+            _DEFAULT_START_TIME - datetime.timedelta(days=7),
+            _DEFAULT_END_TIME - datetime.timedelta(days=7),
+            email_uptime.DEFAULT_SEC_PER_CHUNK,
+            email_uptime.DEFAULT_DOWN_THRESHOLD,
+        ),
+    }
+
+
+# TODO(amos): Persist this data and turn it into a graph.
+def uptime_data():
+    return {
+        'current': calculate_pingdom_uptime(get_uptime_stats_from_pingdom()),
+        'last': calculate_pingdom_uptime(get_uptime_stats_from_pingdom(
+            _DEFAULT_START_TIME - datetime.timedelta(days=7),
+            _DEFAULT_END_TIME - datetime.timedelta(days=7))),
+    }
+
+
 def html_template():
     env = jinja2.Environment(
         loader=jinja2.PackageLoader('__main__', ''),
@@ -318,28 +362,33 @@ def html_template():
 
 
 def send_email(dry_run=True):
-    pingdom_stats = get_uptime_stats_from_pingdom()
-    uptime = calculate_pingdom_uptime(pingdom_stats)
-
+    uptime = uptime_data()
+    degraded = degraded_data()
     template = html_template()
     html = template.render(
         date=_DEFAULT_END_TIME,
+        degraded=degraded,
         uptime=uptime)
 
-    message = email.MIMEMultipart.MIMEMultipart()
-    body = email.MIMEText.MIMEText(html, 'html')
+    message = email.mime.multipart.MIMEMultipart()
+    body = email.mime.text.MIMEText(html, 'html')
     message.attach(body)
+    for name, data in build_graphs_from_page_load_database().items():
+        fname = name + '.png'
+        mime = email.mime.image.MIMEImage(data)
+        mime.add_header('Content-ID', fname)
+        message.attach(mime)
+
     message['subject'] = 'Weekly Reliability Metrics for {}'.format(
-        _DEFAULT_END_TIME.strftime('%b %-d %Y')
-    )
+        _DEFAULT_END_TIME.strftime('%b %-d %Y'))
     message['from'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
-    message['to'] = sender = 'nabil@khanacademy.org, amos@khanacademy.org'
+    message['to'] = recipients = 'nabil@khanacademy.org, amos@khanacademy.org'
 
     if dry_run:
         print message.as_string()
     else:
         s = smtplib.SMTP('localhost')
-        s.sendmail('toby-admin+bq-cron@khanacademy.org', sender,
+        s.sendmail('toby-admin+bq-cron@khanacademy.org', recipients,
                    message.as_string())
         s.quit()
 
@@ -349,6 +398,8 @@ def main():
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Don't actually send email.")
     args = parser.parse_args()
+
+    ensure_weekly_page_load_data()
     send_email(args.dry_run)
 
 
