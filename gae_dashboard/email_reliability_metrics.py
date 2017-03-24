@@ -7,6 +7,8 @@ Report contains:
 - degraded performance metrics form bq
 """
 import argparse
+import collections
+import cStringIO
 import datetime
 import email
 import json
@@ -16,9 +18,9 @@ import subprocess
 
 import bq_util
 import jinja2
+import matplotlib.pyplot as plt
 import pytz
 import requests
-
 
 _TODAY = datetime.datetime.now(pytz.timezone('US/Pacific'))  # toby's timezone
 _DEFAULT_START_TIME = _TODAY - datetime.timedelta(days=8)
@@ -243,6 +245,68 @@ def save_weekly_page_load_data_to_disk(page_load_data, start_date=None,
 
     with open(_PAGE_LOAD_DATABASE, 'w') as f:
         json.dump(contents, f)
+
+
+def build_graphs_from_page_load_database():
+    """Returns a dict of titles to PNGs of page load perf data in string form.
+
+    The images are drawn by matplotlib using the data in _PAGE_LOAD_DATABASE.
+    """
+
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        all_page_load_data = json.load(f)
+
+    dates = []
+    by_page_data = []
+    by_country_data = []
+    server_usa_data = []
+
+    for weekly_data in all_page_load_data:
+        dates.append(datetime.datetime.strptime(weekly_data["end_date"],
+                                                "%Y%m%d"))
+        by_page_data.append(dict([(d["page_load_page"], d["page_load_time"])
+                                  for d in weekly_data["by_page"]]))
+        by_country_data.append(dict([(d["elog_country"], d["page_load_time"])
+                                     for d in weekly_data["by_country"]]))
+        server_usa_data.append(dict([(d["page_load_page"], d["page_load_time"])
+                                     for d in weekly_data["by_page"]]))
+
+    title_to_image = {}
+
+    for graph_data, title in ((by_page_data, 'By page'),
+                              (by_country_data, 'By country'),
+                              (server_usa_data, 'US server navigation')):
+        # Convert a list of dicts to a dict of lists. We weakly expect the
+        # dicts to have the same keys; the graphs might look kind of weird if
+        # this assumption is violated, which would happen if we alter the data
+        # we collect.
+        # TODO(nabil): figure out what to do in that case.
+        # It's not clear the people reading the report would want to look at
+        # graphs including the old data if requirements change in that way, so
+        # never fixing this and using a new database file each time we change
+        # the pages we measure/countries we care about might be a good option.
+        key_to_times = collections.defaultdict(list)
+        for weekly_data in graph_data:
+            for key, page_load_time in weekly_data.iteritems():
+                key_to_times[key].append(page_load_time)
+
+        plt.figure()  # clear implicit state
+
+        for key, page_load_times in key_to_times.iteritems():
+            plt.plot(dates, page_load_times, label=key)
+
+        plt.xticks(dates, [date.strftime('%b %-d %Y') for date in dates])
+        plt.title(title + ': 90th percentile')
+        plt.legend()
+        plt.xlabel('data for week ending on this date')
+        plt.ylabel('seconds until page is usable')
+
+        img_data = cStringIO.StringIO()
+        plt.savefig(img_data, format='png')
+        img_data.seek(0)
+        title_to_image[title] = img_data.read()
+
+    return title_to_image
 
 
 def html_template():
