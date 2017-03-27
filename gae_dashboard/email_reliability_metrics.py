@@ -211,20 +211,30 @@ GROUP BY
     page_load_page
 """ % page_load_table_name
 
-    results = {
-        'by_country': bq_util.query_bigquery(by_country_query),
-        'by_page': bq_util.query_bigquery(by_page_query),
-        'server_usa': bq_util.query_bigquery(server_usa_query),
+    by_page_results = bq_util.query_bigquery(by_page_query)
+    by_country_results = bq_util.query_bigquery(by_country_query)
+    server_usa_results = bq_util.query_bigquery(server_usa_query)
+
+    by_page_data = {"type": "page_load.by_page",
+                    "data": dict([(d["page_load_page"], d["page_load_time"])
+                                  for d in by_page_results]),
+    }
+    by_country_data = {"type": "page_load.by_country",
+                       "data": dict([(d["elog_country"], d["page_load_time"])
+                                     for d in by_country_results]),
+    }
+    server_usa_data = {"type": "page_load.server_usa",
+                       "data": dict([(d["page_load_page"], d["page_load_time"])
+                                     for d in server_usa_results]),
     }
 
-    return results
+    return [by_page_data, by_country_data, server_usa_data]
 
 
-def save_weekly_page_load_data_to_disk(page_load_data, start_date=None,
-                                       end_date=None):
-    """Given a dictionary of page_load_data, write it to a file as JSON.
+def save_weekly_data_to_disk(metrics, start_date=None, end_date=None):
+    """Given an iterable of metrics, write them to a file as JSON.
 
-    In addition to the page_load_data itself, we record the start_date and
+    In addition to the metrics themselves, we record the start_date and
     end_date associated with the data.
 
     start_date and end_date are expected to be datetime objects if given.
@@ -235,33 +245,54 @@ def save_weekly_page_load_data_to_disk(page_load_data, start_date=None,
     start_date = (start_date or _DEFAULT_START_TIME).strftime("%Y%m%d")
     end_date = (end_date or _DEFAULT_END_TIME).strftime("%Y%m%d")
 
-    page_load_data["start_date"] = start_date
-    page_load_data["end_date"] = end_date
+    weekly_data = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "metrics": metrics,
+    }
 
-    if os.path.isfile(_PAGE_LOAD_DATABASE):
-        with open(_PAGE_LOAD_DATABASE, 'r') as f:
-            contents = json.load(f)
-    else:
-        contents = []
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        contents = json.load(f)
 
-    contents.append(page_load_data)
+    contents.append(weekly_data)
 
     with open(_PAGE_LOAD_DATABASE, 'w') as f:
         json.dump(contents, f)
 
 
-def ensure_weekly_page_load_data():
-    """Make sure that we have today's page load data stored."""
-    with open(_PAGE_LOAD_DATABASE, 'r') as f:
-        data = json.load(f)
+def ensure_weekly_data():
+    """Ensure we have today's data stored: page load, uptime, degraded service.
+    """
+    if os.path.isfile(_PAGE_LOAD_DATABASE):
+        with open(_PAGE_LOAD_DATABASE, 'r') as f:
+            data = json.load(f)
+    else:
+        with open(_PAGE_LOAD_DATABASE, 'w') as f:
+            json.dump([], f)
+        data = []
+
     start_date = _DEFAULT_START_TIME.strftime('%Y%m%d')
     for record in data:
         if record['start_date'] == start_date:
             return
 
     table_name = build_page_load_temp_table()
-    stats = get_weekly_page_load_data_from_bigquery(table_name)
-    save_weekly_page_load_data_to_disk(stats)
+    metrics = get_weekly_page_load_data_from_bigquery(table_name)
+
+    uptime_metric = {
+        "type": "uptime",
+        "data": calculate_pingdom_uptime(get_uptime_stats_from_pingdom())
+    }
+
+    degraded_metric = {
+        "type": "degraded",
+        "data": degraded_data(),
+    }
+
+    metrics.append(uptime_metric)
+    metrics.append(degraded_metric)
+
+    save_weekly_data_to_disk(metrics)
 
 
 def build_graphs_from_page_load_database():
@@ -270,41 +301,48 @@ def build_graphs_from_page_load_database():
     The images are drawn by matplotlib using the data in _PAGE_LOAD_DATABASE.
     """
 
-    with open(_PAGE_LOAD_DATABASE, 'r') as f:
-        all_page_load_data = json.load(f)
+    # TODO(nabil|amos): graph pingdom uptime and service degradation data.
+    # Also, create a chart comparing this week's performance to some baseline.
 
-    dates = []
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        all_data = json.load(f)
+
     by_page_data = []
     by_country_data = []
     server_usa_data = []
 
-    for weekly_data in all_page_load_data:
-        dates.append(datetime.datetime.strptime(weekly_data["end_date"],
-                                                "%Y%m%d"))
-        by_page_data.append(dict([(d["page_load_page"], d["page_load_time"])
-                                  for d in weekly_data["by_page"]]))
-        by_country_data.append(dict([(d["elog_country"], d["page_load_time"])
-                                     for d in weekly_data["by_country"]]))
-        server_usa_data.append(dict([(d["page_load_page"], d["page_load_time"])
-                                     for d in weekly_data["by_page"]]))
+    for weekly_data in all_data:
+        date = datetime.datetime.strptime(weekly_data["end_date"], "%Y%m%d")
+        for metric in weekly_data["metrics"]:
+            metric["date"] = date
+            if metric["type"] == "page_load.by_page":
+                by_page_data.append(metric)
+            elif metric["type"] == "page_load.by_country":
+                by_country_data.append(metric)
+            elif metric["type"] == "page_load.server_usa":
+                server_usa_data.append(metric)
 
     title_to_image = {}
 
-    for graph_data, title in ((by_page_data, 'by_page'),
-                              (by_country_data, 'by_country'),
-                              (server_usa_data, 'server_usa')):
-        # Convert a list of dicts to a dict of lists. We weakly expect the
-        # dicts to have the same keys; the graphs might look kind of weird if
-        # this assumption is violated, which would happen if we alter the data
-        # we collect.
-        # TODO(nabil): figure out what to do in that case.
-        # It's not clear the people reading the report would want to look at
-        # graphs including the old data if requirements change in that way, so
-        # never fixing this and using a new database file each time we change
-        # the pages we measure/countries we care about might be a good option.
+    for graph_data in (by_page_data, by_country_data, server_usa_data):
         key_to_times = collections.defaultdict(list)
+        dates = []
+
+        # TODO(nabil): limit the number of weeks we graph.
         for weekly_data in graph_data:
-            for key, page_load_time in weekly_data.iteritems():
+            title = weekly_data["type"]
+            dates.append(weekly_data["date"])
+
+            # Convert a list of dicts to a dict of lists. We weakly expect the
+            # dicts to have the same keys; the graphs might look kind of weird
+            # if this assumption is violated, which would happen if we alter
+            # the data we collect.
+            # TODO(nabil): figure out what to do in that case.
+            # It's not clear the people reading the report will want to look at
+            # graphs including the old data if requirements change in that way,
+            # so never fixing this and using a new database file each time we
+            # change pages/countries we measure or care about might make sense.
+            for key, page_load_time in weekly_data["data"].iteritems():
                 key_to_times[key].append(page_load_time)
 
         plt.figure()  # clear implicit state
@@ -326,31 +364,12 @@ def build_graphs_from_page_load_database():
     return title_to_image
 
 
-# TODO(amos): Persist this data and turn it into a graph.
 def degraded_data():
-    return {
-        'current': email_uptime.average_uptime_for_period(
-            _DEFAULT_START_TIME, _DEFAULT_END_TIME,
-            email_uptime.DEFAULT_SEC_PER_CHUNK,
-            email_uptime.DEFAULT_DOWN_THRESHOLD,
-        ),
-        'last': email_uptime.average_uptime_for_period(
-            _DEFAULT_START_TIME - datetime.timedelta(days=7),
-            _DEFAULT_END_TIME - datetime.timedelta(days=7),
-            email_uptime.DEFAULT_SEC_PER_CHUNK,
-            email_uptime.DEFAULT_DOWN_THRESHOLD,
-        ),
-    }
-
-
-# TODO(amos): Persist this data and turn it into a graph.
-def uptime_data():
-    return {
-        'current': calculate_pingdom_uptime(get_uptime_stats_from_pingdom()),
-        'last': calculate_pingdom_uptime(get_uptime_stats_from_pingdom(
-            _DEFAULT_START_TIME - datetime.timedelta(days=7),
-            _DEFAULT_END_TIME - datetime.timedelta(days=7))),
-    }
+    return email_uptime.average_uptime_for_period(
+        _DEFAULT_START_TIME, _DEFAULT_END_TIME,
+        email_uptime.DEFAULT_SEC_PER_CHUNK,
+        email_uptime.DEFAULT_DOWN_THRESHOLD,
+    )
 
 
 def html_template():
@@ -361,14 +380,37 @@ def html_template():
     return env.get_template('email_reliability_metrics.html')
 
 
-def send_email(dry_run=True):
-    uptime = uptime_data()
-    degraded = degraded_data()
+def send_email(dry_run=False):
+    start_date = _DEFAULT_START_TIME.strftime("%Y%m%d")
+    one_week_ago = (_DEFAULT_START_TIME - datetime.timedelta(days=7)
+    ).strftime("%Y%m%d")
+
+    pingdom_data = collections.defaultdict(lambda: None)
+    degraded_data = collections.defaultdict(lambda: None)
+
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        all_data = json.load(f)
+
+    def find_data_for_type(metrics, type_):
+        for m in metrics:
+            if m['type'] == type_:
+                return m['data']
+
+    for record in all_data:
+        metrics = record['metrics']
+        if record['start_date'] == start_date:
+            pingdom_data['current'] = find_data_for_type(metrics, 'uptime')
+            degraded_data['current'] = find_data_for_type(metrics, 'degraded')
+        elif record['start_date'] == one_week_ago:
+            pingdom_data['last'] = find_data_for_type(metrics, 'uptime')
+            degraded_data['last'] = find_data_for_type(metrics, 'degraded')
+
     template = html_template()
     html = template.render(
         date=_DEFAULT_END_TIME,
-        degraded=degraded,
-        uptime=uptime)
+        degraded=degraded_data,
+        uptime=pingdom_data,
+        default_message="Data unavailable")
 
     message = email.mime.multipart.MIMEMultipart()
     body = email.mime.text.MIMEText(html, 'html')
@@ -394,13 +436,14 @@ def send_email(dry_run=True):
 
 
 def main():
+    # TODO(nabil): allow passing non-default dates; affects logic in send_email
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Don't actually send email.")
     args = parser.parse_args()
 
-    ensure_weekly_page_load_data()
-    send_email(args.dry_run)
+    ensure_weekly_data()
+    send_email(dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
