@@ -412,19 +412,21 @@ def send_email(dry_run=False):
         uptime=pingdom_data,
         default_message="Data unavailable")
 
-    message = email.mime.multipart.MIMEMultipart()
+    message = email.mime.multipart.MIMEMultipart('related')
     body = email.mime.text.MIMEText(html, 'html')
     message.attach(body)
     for name, data in build_graphs_from_page_load_database().items():
         fname = name + '.png'
         mime = email.mime.image.MIMEImage(data)
-        mime.add_header('Content-ID', fname)
+        mime.add_header('Content-ID', '<%s>' % name)
+        mime.add_header('Content-Disposition', 'inline; filename="%s"' % fname)
         message.attach(mime)
 
     message['subject'] = 'Weekly Reliability Metrics for {}'.format(
         _DEFAULT_END_TIME.strftime('%b %-d %Y'))
     message['from'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
-    message['to'] = recipients = 'nabil@khanacademy.org, amos@khanacademy.org'
+    recipients = ('nabil@khanacademy.org', 'amos@khanacademy.org')
+    message['to'] = ', '.join(recipients)
 
     if dry_run:
         print message.as_string()
