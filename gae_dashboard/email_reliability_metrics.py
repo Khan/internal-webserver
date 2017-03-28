@@ -260,8 +260,12 @@ def save_weekly_data_to_disk(metrics, start_date=None, end_date=None):
         json.dump(contents, f)
 
 
-def ensure_weekly_data():
-    """Ensure we have today's data stored: page load, uptime, degraded service.
+def ensure_weekly_data(start_time=None, end_time=None):
+    """Ensure we have data from start_time to end_time stored.
+
+    We store data for page load performance, uptime, and degraded service.
+    If given, start_time and end_time are expected to be datetime objects.
+    They default to eight days ago and yesterday, respectively.
     """
     if os.path.isfile(_PAGE_LOAD_DATABASE):
         with open(_PAGE_LOAD_DATABASE, 'r') as f:
@@ -271,31 +275,35 @@ def ensure_weekly_data():
             json.dump([], f)
         data = []
 
-    start_date = _DEFAULT_START_TIME.strftime('%Y%m%d')
+    start_time = start_time or _DEFAULT_START_TIME
+    end_time = end_time or _DEFAULT_END_TIME
+
     for record in data:
-        if record['start_date'] == start_date:
+        if record['start_date'] == start_time.strftime('%Y%m%d'):
             return
 
-    table_name = build_page_load_temp_table()
+    table_name = build_page_load_temp_table(start_date=start_time,
+                                            end_date=end_time)
     metrics = get_weekly_page_load_data_from_bigquery(table_name)
 
     uptime_metric = {
         "type": "uptime",
-        "data": calculate_pingdom_uptime(get_uptime_stats_from_pingdom())
+        "data": calculate_pingdom_uptime(get_uptime_stats_from_pingdom(
+            start_time=start_time, end_time=end_time))
     }
 
     degraded_metric = {
         "type": "degraded",
-        "data": degraded_data(),
+        "data": degraded_data(start_time=start_time, end_time=end_time),
     }
 
     metrics.append(uptime_metric)
     metrics.append(degraded_metric)
 
-    save_weekly_data_to_disk(metrics)
+    save_weekly_data_to_disk(metrics, start_date=start_time, end_date=end_time)
 
 
-def build_graphs_from_page_load_database():
+def build_graphs_from_page_load_database(save_graphs=False):
     """Returns a dict of titles to PNGs of page load perf data in string form.
 
     The images are drawn by matplotlib using the data in _PAGE_LOAD_DATABASE.
@@ -358,15 +366,18 @@ def build_graphs_from_page_load_database():
 
         img_data = cStringIO.StringIO()
         plt.savefig(img_data, format='png')
+        if save_graphs:
+            plt.savefig(os.path.expanduser('~/' + title + '.png'))
         img_data.seek(0)
         title_to_image[title] = img_data.read()
 
     return title_to_image
 
 
-def degraded_data():
+def degraded_data(start_time=None, end_time=None):
     return email_uptime.average_uptime_for_period(
-        _DEFAULT_START_TIME, _DEFAULT_END_TIME,
+        start_time or _DEFAULT_START_TIME,
+        end_time or _DEFAULT_END_TIME,
         email_uptime.DEFAULT_SEC_PER_CHUNK,
         email_uptime.DEFAULT_DOWN_THRESHOLD,
     )
@@ -380,10 +391,11 @@ def html_template():
     return env.get_template('email_reliability_metrics.html')
 
 
-def send_email(dry_run=False):
-    start_date = _DEFAULT_START_TIME.strftime("%Y%m%d")
-    one_week_ago = (_DEFAULT_START_TIME - datetime.timedelta(days=7)
-    ).strftime("%Y%m%d")
+def send_email(start_time=None, end_time=None, dry_run=False,
+               save_graphs=False):
+    start_time = start_time or _DEFAULT_START_TIME
+    end_time = end_time or _DEFAULT_END_TIME
+    one_week_ago = start_time - datetime.timedelta(days=7)
 
     pingdom_data = collections.defaultdict(lambda: None)
     degraded_data = collections.defaultdict(lambda: None)
@@ -398,16 +410,16 @@ def send_email(dry_run=False):
 
     for record in all_data:
         metrics = record['metrics']
-        if record['start_date'] == start_date:
+        if record['start_date'] == start_time.strftime("%Y%m%d"):
             pingdom_data['current'] = find_data_for_type(metrics, 'uptime')
             degraded_data['current'] = find_data_for_type(metrics, 'degraded')
-        elif record['start_date'] == one_week_ago:
+        elif record['start_date'] == one_week_ago.strftime("%Y%m%d"):
             pingdom_data['last'] = find_data_for_type(metrics, 'uptime')
             degraded_data['last'] = find_data_for_type(metrics, 'degraded')
 
     template = html_template()
     html = template.render(
-        date=_DEFAULT_END_TIME,
+        date=end_time,
         degraded=degraded_data,
         uptime=pingdom_data,
         default_message="Data unavailable")
@@ -415,7 +427,8 @@ def send_email(dry_run=False):
     message = email.mime.multipart.MIMEMultipart('related')
     body = email.mime.text.MIMEText(html, 'html')
     message.attach(body)
-    for name, data in build_graphs_from_page_load_database().items():
+    for name, data in build_graphs_from_page_load_database(
+            save_graphs=save_graphs).items():
         fname = name + '.png'
         mime = email.mime.image.MIMEImage(data)
         mime.add_header('Content-ID', '<%s>' % name)
@@ -423,7 +436,7 @@ def send_email(dry_run=False):
         message.attach(mime)
 
     message['subject'] = 'Weekly Reliability Metrics for {}'.format(
-        _DEFAULT_END_TIME.strftime('%b %-d %Y'))
+        end_time.strftime('%b %-d %Y'))
     message['from'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
     recipients = ('nabil@khanacademy.org', 'amos@khanacademy.org')
     message['to'] = ', '.join(recipients)
@@ -438,14 +451,34 @@ def send_email(dry_run=False):
 
 
 def main():
-    # TODO(nabil): allow passing non-default dates; affects logic in send_email
+    def valid_unix_time(unix_time):
+        try:
+            return datetime.datetime.fromtimestamp(int(unix_time),
+                                                   pytz.timezone('US/Pacific'))
+        except ValueError:
+            raise argparse.ArgumentTypeError("Not a unix time: %s" % unix_time)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Don't actually send email.")
+    parser.add_argument('--start-time', metavar='Unix time',
+                        default=_DEFAULT_START_TIME, type=valid_unix_time,
+                        help=('Calculate and save reliability metrics '
+                              'starting from this time. Should be given as a '
+                              'unix time. (Default: eight days ago.)'))
+    parser.add_argument('--end-time', metavar='Unix time',
+                        default=_DEFAULT_END_TIME, type=valid_unix_time,
+                        help=('Calculate and save reliability metrics ending '
+                              'at this time. Should be given as a unix time. '
+                              '(Default: one day ago.)'))
+    parser.add_argument('--save-graphs', action='store_true',
+                        help='Save generated graphs to the user\'s home dir.')
+
     args = parser.parse_args()
 
-    ensure_weekly_data()
-    send_email(dry_run=args.dry_run)
+    ensure_weekly_data(start_time=args.start_time, end_time=args.end_time)
+    send_email(start_time=args.start_time, end_time=args.end_time,
+               save_graphs=args.save_graphs, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
