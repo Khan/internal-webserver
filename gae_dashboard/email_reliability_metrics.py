@@ -303,6 +303,19 @@ def ensure_weekly_data(start_time=None, end_time=None):
     save_weekly_data_to_disk(metrics, start_date=start_time, end_date=end_time)
 
 
+def get_metric_type_for_start_date(type_, start_date):
+    """Helper method to read a particular metric from the database file."""
+
+    with open(_PAGE_LOAD_DATABASE, 'r') as f:
+        all_data = json.load(f)
+
+    for record in all_data:
+        if record['start_date'] == start_date.strftime('%Y%m%d'):
+            for metric in record['metrics']:
+                if metric['type'] == type_:
+                    return metric['data']
+
+
 def build_graphs_from_page_load_database(save_graphs=False):
     """Returns a dict of titles to PNGs of page load perf data in string form.
 
@@ -310,36 +323,36 @@ def build_graphs_from_page_load_database(save_graphs=False):
     """
 
     # TODO(nabil|amos): graph pingdom uptime and service degradation data.
-    # Also, create a chart comparing this week's performance to some baseline.
+
+    chart_data = {
+        'page_load.by_page': [],
+        'page_load.by_country': [],
+        'page_load.server_usa': [],
+    }
 
     with open(_PAGE_LOAD_DATABASE, 'r') as f:
         all_data = json.load(f)
 
-    by_page_data = []
-    by_country_data = []
-    server_usa_data = []
+    # TODO(nabil): limit the number of weeks we graph if it gets hard to read
+    date_pairs = [(datetime.datetime.strptime(d['start_date'], '%Y%m%d'),
+                   datetime.datetime.strptime(d['end_date'], '%Y%m%d'))
+                  for d in all_data]
 
-    for weekly_data in all_data:
-        date = datetime.datetime.strptime(weekly_data["end_date"], "%Y%m%d")
-        for metric in weekly_data["metrics"]:
-            metric["date"] = date
-            if metric["type"] == "page_load.by_page":
-                by_page_data.append(metric)
-            elif metric["type"] == "page_load.by_country":
-                by_country_data.append(metric)
-            elif metric["type"] == "page_load.server_usa":
-                server_usa_data.append(metric)
+    for start_date, end_date in date_pairs:
+        for type_ in chart_data:
+            chart_data[type_].append({
+                'end_date': end_date,
+                'data': get_metric_type_for_start_date(type_, start_date)
+            })
 
     title_to_image = {}
 
-    for graph_data in (by_page_data, by_country_data, server_usa_data):
+    for title, graph_data in chart_data.items():
         key_to_times = collections.defaultdict(list)
         dates = []
 
-        # TODO(nabil): limit the number of weeks we graph.
         for weekly_data in graph_data:
-            title = weekly_data["type"]
-            dates.append(weekly_data["date"])
+            dates.append(weekly_data['end_date'])
 
             # Convert a list of dicts to a dict of lists. We weakly expect the
             # dicts to have the same keys; the graphs might look kind of weird
@@ -350,7 +363,7 @@ def build_graphs_from_page_load_database(save_graphs=False):
             # graphs including the old data if requirements change in that way,
             # so never fixing this and using a new database file each time we
             # change pages/countries we measure or care about might make sense.
-            for key, page_load_time in weekly_data["data"].iteritems():
+            for key, page_load_time in weekly_data['data'].iteritems():
                 key_to_times[key].append(page_load_time)
 
         plt.figure()  # clear implicit state
@@ -358,6 +371,7 @@ def build_graphs_from_page_load_database(save_graphs=False):
         for key, page_load_times in key_to_times.iteritems():
             plt.plot(dates, page_load_times, label=key)
 
+        plt.ylim(ymin=0)
         plt.xticks(dates, [date.strftime('%b %-d %Y') for date in dates])
         plt.title(title + ': 90th percentile')
         plt.legend()
@@ -383,6 +397,64 @@ def degraded_data(start_time=None, end_time=None):
     )
 
 
+def get_change_data(start_date=None):
+    start_date = start_date or _DEFAULT_START_TIME
+
+    change_data = {
+        'page_load.by_page': [],
+        'page_load.by_country': [],
+        'page_load.server_usa': [],
+    }
+
+    # hardcoded baseline numbers for comparison each week, manually chosen as
+    # the highest value from the first four weeks of data. The intention is to
+    # gradually reduce these numbers as we improve page load performance.
+    baseline = {
+        'page_load.by_page': {
+            'scratchpad_page': 5.62,
+            'login_page': 3.923,
+            'curation_page': 6.153,
+            'signup_page': 3.992,
+            'article_page': 12.41,
+            'logged_out_homepage': 11.063,
+            'exercise_page': 10.23,
+            'logged_in_homepage': 9.728,
+            'video_page': 11.215,
+        },
+        'page_load.by_country': {
+            'CN': 11.298,
+            'US': 6.946,
+            'ID': 12.773,
+            'BR': 12.103,
+            'IN': 15.081,
+            'MX': 11.615,
+        },
+        'page_load.server_usa': {
+            'scratchpad_page': 4.66,
+            'login_page': 3.485,
+            'curation_page': 6.189,
+            'signup_page': 3.237,
+            'article_page': 10.476,
+            'logged_out_homepage': 6.143,
+            'exercise_page': 11.688,
+            'logged_in_homepage': 8.112,
+            'video_page': 13.263,
+        },
+    }
+
+    for title in change_data:
+        metric = get_metric_type_for_start_date(title, start_date)
+        for key, value in metric.items():
+            if key in baseline[title]:
+                change_data[title].append({
+                    'key': key,
+                    'baseline': baseline[title][key],
+                    'current': value,
+                })
+
+    return change_data
+
+
 def html_template():
     env = jinja2.Environment(
         loader=jinja2.PackageLoader('__main__', ''),
@@ -397,29 +469,27 @@ def send_email(start_time=None, end_time=None, dry_run=False,
     end_time = end_time or _DEFAULT_END_TIME
     one_week_ago = start_time - datetime.timedelta(days=7)
 
-    pingdom_data = collections.defaultdict(lambda: None)
-    degraded_data = collections.defaultdict(lambda: None)
+    pingdom_data = {
+        'current': get_metric_type_for_start_date('uptime', start_time),
+        'last': get_metric_type_for_start_date('uptime', one_week_ago),
+    }
+    degraded_data = {
+        'current': get_metric_type_for_start_date('degraded', start_time),
+        'last': get_metric_type_for_start_date('degraded', one_week_ago),
+    }
+    change_data = get_change_data(start_date=start_time)
 
-    with open(_PAGE_LOAD_DATABASE, 'r') as f:
-        all_data = json.load(f)
-
-    def find_data_for_type(metrics, type_):
-        for m in metrics:
-            if m['type'] == type_:
-                return m['data']
-
-    for record in all_data:
-        metrics = record['metrics']
-        if record['start_date'] == start_time.strftime("%Y%m%d"):
-            pingdom_data['current'] = find_data_for_type(metrics, 'uptime')
-            degraded_data['current'] = find_data_for_type(metrics, 'degraded')
-        elif record['start_date'] == one_week_ago.strftime("%Y%m%d"):
-            pingdom_data['last'] = find_data_for_type(metrics, 'uptime')
-            degraded_data['last'] = find_data_for_type(metrics, 'degraded')
+    id_to_display_name = {
+        'page_load.server_usa': 'By page type, only US server requests',
+        'page_load.by_page': 'By page type',
+        'page_load.by_country': 'By country',
+    }
 
     template = html_template()
     html = template.render(
+        id_to_display_name=id_to_display_name,
         date=end_time,
+        change_data=change_data,
         degraded=degraded_data,
         uptime=pingdom_data,
         default_message="Data unavailable")
