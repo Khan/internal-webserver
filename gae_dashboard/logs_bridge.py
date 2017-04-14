@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
+# pep8-disable:E127,E128
 
 """Send metrics extracted from App Engine logs to Cloud Monitoring.
 
