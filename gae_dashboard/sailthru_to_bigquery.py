@@ -150,7 +150,10 @@ def _send_blast_details_to_bq(blast_id, temp_dir, verbose):
     bq_util.call_bq(['load', '--source_format=CSV', '--skip_leading_rows=1',
                      '--replace', table_name,
                      os.path.join(temp_dir, file_name),
-                     'gae_dashboard/sailthru_blast_export_schema.json'],
+                     os.path.join(
+                         os.path.dirname(__file__),
+                         'sailthru_blast_export_schema.json')
+                     ],
                     project='khanacademy.org:deductive-jet-827',
                     return_output=False)
 
@@ -207,7 +210,10 @@ def _send_campaign_report(status, start_date, end_date, temp_dir, verbose):
     bq_util.call_bq(['load', '--source_format=NEWLINE_DELIMITED_JSON',
                      table_name,
                      os.path.join(temp_dir, file_name),
-                     'gae_dashboard/sailthru_campaign_export_schema.json'],
+                     os.path.join(
+                         os.path.dirname(__file__),
+                         'sailthru_campaign_export_schema.json')
+                     ],
                     project='khanacademy.org:deductive-jet-827',
                     return_output=False)
 
