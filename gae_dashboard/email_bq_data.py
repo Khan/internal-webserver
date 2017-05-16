@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
-# pep8-disable:E122
 
 """Email various analyses -- hard-coded into this file -- from bigquery.
 
@@ -22,6 +20,7 @@ import email.utils
 import hashlib
 import smtplib
 import subprocess
+import textwrap
 import time
 
 import bq_util
@@ -84,33 +83,36 @@ def _render_sparkline(data, width=100, height=20):
             data_lines.append("")
         else:
             data_lines.append("%s %s" % (i, datum))
-    gnuplot_script = """\
-unset border
-unset xtics
-unset ytics
-unset key
-set lmargin 0
-set rmargin 0
-set tmargin 0
-set bmargin 0
-set yrange [%(ymin)s:%(ymax)s]
-set xrange [%(xmin)s:%(xmax)s]
-set terminal pngcairo size 100,20
-plot "-" using 1:2 notitle with lines linetype rgb "black"
-%(data)s
-e
-""" % {
-    'data': '\n'.join(data_lines),
-    # The bottom of the plot looks better if it has a bit of buffer around the
-    # top and bottom data points.  We force the min to be near zero so small
-    # increases to something that started out large are viewed in context.
-    'ymax': 1.05 * max(existing_data),
-    'ymin': -0.05 * max(existing_data),
-    # To make the width per time fixed, set the min and max x value so that
-    # the plot will include space for any missing data.
-    'xmin': 1,
-    'xmax': len(data),
-}
+    gnuplot_script = textwrap.dedent(
+        """\
+        unset border
+        unset xtics
+        unset ytics
+        unset key
+        set lmargin 0
+        set rmargin 0
+        set tmargin 0
+        set bmargin 0
+        set yrange [%(ymin)s:%(ymax)s]
+        set xrange [%(xmin)s:%(xmax)s]
+        set terminal pngcairo size 100,20
+        plot "-" using 1:2 notitle with lines linetype rgb "black"
+        %(data)s
+        e
+        """
+    ) % {
+        'data': '\n'.join(data_lines),
+        # The bottom of the plot looks better if it has a bit of buffer around
+        # the top and bottom data points.  We force the min to be near zero so
+        # small increases to something that started out large are viewed in
+        # context.
+        'ymax': 1.05 * max(existing_data),
+        'ymin': -0.05 * max(existing_data),
+        # To make the width per time fixed, set the min and max x value so that
+        # the plot will include space for any missing data.
+        'xmin': 1,
+        'xmax': len(data),
+    }
     gnuplot_proc = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
     png, _ = gnuplot_proc.communicate(gnuplot_script)
