@@ -359,10 +359,21 @@ def email_instance_hours(date, dry_run=False):
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
                         for kv in _MODULE_CPU_COUNT.iteritems())
     query = """\
-SELECT COUNT(*) as count_,
+SELECT COUNT(1) as count_,
 elog_url_route as url_route,
 SUM(CASE %s ELSE 0 END) / 3600 as instance_hours
-FROM [logs.requestlogs_%s]
+FROM (
+  -- When logs get split into multiple entries, each has latency calculated
+  -- from the start of the request to the point where the log line was emitted.
+  -- This means the total latency is the maximum value that appears, not the
+  -- sum.
+  SELECT FIRST(elog_url_route) AS elog_url_route,
+         FIRST(module_id) AS module_id,
+         MAX(latency) AS latency,
+         FIRST(url_map_entry) AS url_map_entry
+  FROM [logs.requestlogs_%s]
+  GROUP BY request_id
+)
 WHERE url_map_entry != "" # omit static files
 GROUP BY url_route
 ORDER BY instance_hours DESC
@@ -444,9 +455,14 @@ SELECT t1.url_route AS url_route,
 t1.url_requests AS requests,
 %s
 FROM (
-SELECT elog_url_route AS url_route, COUNT(*) AS url_requests
-FROM [logs.requestlogs_%s]
-GROUP BY url_route) AS t1
+    SELECT elog_url_route AS url_route, COUNT(1) AS url_requests
+    FROM (
+        SELECT FIRST(elog_url_route) AS elog_url_route
+        FROM [logs.requestlogs_%s]
+        GROUP BY request_id
+    )
+    GROUP BY url_route
+) AS t1
 %s
 ORDER BY tcost.rpc_cost DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
@@ -561,11 +577,17 @@ ORDER BY count_ DESC
     email_content = {heading: data}
 
     query = """\
-SELECT COUNT(*) as count_,
+SELECT COUNT(1) AS count_,
        module_id,
-       elog_url_route as url_route
-FROM [logs.requestlogs_%s]
-WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
+       elog_url_route AS url_route
+FROM (
+    SELECT FIRST(module_id) AS module_id,
+           FIRST(elog_url_route) AS elog_url_route,
+           NEST(app_logs.message) AS message
+    FROM [logs.requestlogs_%s]
+    GROUP BY request_id
+)
+WHERE message CONTAINS 'Exceeded soft private memory limit'
 GROUP BY module_id, url_route
 ORDER BY count_ DESC
 """ % yyyymmdd
@@ -680,14 +702,22 @@ FROM (
             FROM (
                 SELECT
                     FLOAT(REGEXP_EXTRACT(
-                        app_logs.message,
+                        message,
                         "This request added (.*) MB to the heap.")) AS added,
                     FLOAT(REGEXP_EXTRACT(
-                        app_logs.message,
+                        message,
                         "Total memory now used: (.*) MB")) AS total,
                     instance_key, start_time, elog_url_route, module_id,
-                FROM [logs.requestlogs_%s]
-                WHERE app_logs.message CONTAINS 'This request added'
+                FROM (
+                    SELECT FIRST(instance_key) AS instance_key,
+                           FIRST(start_time) AS start_time,
+                           FIRST(elog_url_route) AS elog_url_route,
+                           FIRST(module_id) AS module_id,
+                           NEST(app_logs.message) AS message
+                    FROM [logs.requestlogs_%s]
+                    GROUP BY request_id
+                )
+                WHERE message CONTAINS 'This request added'
             )
         )
     )
