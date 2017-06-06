@@ -69,8 +69,8 @@ def collate_data(csv_file_contents):
         if product_code and row_cost:
             total_cost_dict[product_code] += float(row_cost)
 
-    return [("aws.billing.dashboard.%s" % product_code, (now, cost))
-            for product_code, cost in total_cost_dict.iteritems()]
+    return [("aws.billing.dashboard.%s" % _product_code, (now, cost))
+            for _product_code, cost in total_cost_dict.iteritems()]
 
 
 def main(graphite_host, month=None, year=None, verbose=False, dry_run=False):

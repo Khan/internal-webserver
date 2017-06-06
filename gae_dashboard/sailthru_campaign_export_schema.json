@@ -1,0 +1,196 @@
+[
+    {
+        "mode": "NULLABLE",
+        "name": "status",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "abtest",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "email_hour_range",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "abtest_winner_metric",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "copy_blast_id",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "copy_template",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "data_feed_url",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "pause_user",
+        "type": "STRING"
+    },
+    {
+        "fields": [
+            {
+                "fields": [
+                    {
+                        "mode": "NULLABLE",
+                        "name": "count",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "click_total",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "open_total",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "pv",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "optout",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "softbounce",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "spam",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "view",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "hardbounce",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "nobeacon_click",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "click_multiple_urls",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "beacon_noclick",
+                        "type": "INTEGER"
+                    },
+                    {
+                        "mode": "NULLABLE",
+                        "name": "beacon_click",
+                        "type": "INTEGER"
+                    }
+                ],
+                "mode": "NULLABLE",
+                "name": "total",
+                "type": "RECORD"
+            }
+        ],
+        "mode": "NULLABLE",
+        "name": "stats",
+        "type": "RECORD"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "name",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "email_count",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "schedule_time",
+        "type": "STRING"
+    },
+    {
+        "mode": "REPEATED",
+        "name": "suppress_list",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "start_time",
+        "type": "STRING"
+    },
+    {
+        "mode": "REPEATED",
+        "name": "labels",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "list",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "abtest_segment",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "modify_time",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "modify_user",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "mode",
+        "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "final_blast_id",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "sent_count",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "blast_id",
+        "type": "INTEGER"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "subject",
+        "type": "STRING"
+    }
+]

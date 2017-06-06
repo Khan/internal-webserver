@@ -10,3 +10,5 @@ boto==2.42.0
 Jinja2==2.9.5
 requests==2.13.0
 matplotlib==2.0.0
+sailthru-client==2.3.1
+

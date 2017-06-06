@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
+# pep8-disable:E128
 """Simple script to help debug alerts raised by logs_bridge.
 
 The logs_bridge.py script is optimized for calculating a bunch of different
