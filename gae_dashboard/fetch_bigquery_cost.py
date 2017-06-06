@@ -52,12 +52,11 @@ def get_bigquery_costs(date, projects=['khanacademy.org:deductive-jet-827',
      'khan': 63.15}
     """
 
-    field_name = ("protopayload_google_cloud_audit_auditlog."
-                 "servicedata_google_cloud_bigquery_logging_v1_auditdata."
-                 "jobCompletedEvent.job.jobStatistics.totalBilledBytes")
+    field_name = ("protopayload_auditlog.servicedata_v1_bigquery."
+                  "jobCompletedEvent.job.jobStatistics.totalBilledBytes")
 
     table_name = ("exported_stackdriver_bigquery_logs"
-                 ".cloudaudit_googleapis_com_data_access_%s") % date
+                  ".cloudaudit_googleapis_com_data_access_%s") % date
 
     data = {}
 
@@ -70,7 +69,8 @@ def get_bigquery_costs(date, projects=['khanacademy.org:deductive-jet-827',
     # However, there are no non-null examples, so it would be good to confirm.
     for project in projects:
         query = ("SELECT SUM(%s) / %s as daily_query_cost_so_far_usd "
-                "FROM [%s]") % (field_name, _COST_PER_BYTE_INVERSE, table_name)
+                 "FROM [%s]") % (field_name, _COST_PER_BYTE_INVERSE,
+                                 table_name)
 
         raw_data = bq_util.query_bigquery(query, project=project)
         cost = raw_data[0]['daily_query_cost_so_far_usd']
