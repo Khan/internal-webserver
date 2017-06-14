@@ -24,6 +24,7 @@ how to get their data as well, or else confirm that they do not use bigquery.
 """
 
 import datetime
+import logging
 import re
 import time
 
@@ -62,6 +63,13 @@ def get_bigquery_costs(date, projects=['khanacademy.org:deductive-jet-827',
 
     data = {}
 
+    # Sometimes when this runs, we haven't yet had a completed job for the day,
+    # and when that happens, the field we're trying to query is missing.
+    # We record those errors here.  Then at the end, if all (both) of our
+    # projects had this error, we raise an exception, under the assumption that
+    # something more serious is wrong and we need to alert.
+    field_missing_errors = {}
+
     # TODO(nabil): figure out how to deal with tiered billing.
     # See https://cloud.google.com/bigquery/pricing#high-compute
     # It seems likely that we simply multiply by this field when non-null:
@@ -74,7 +82,27 @@ def get_bigquery_costs(date, projects=['khanacademy.org:deductive-jet-827',
                  "FROM [%s]") % (field_name, _COST_PER_BYTE_INVERSE,
                                  table_name)
 
-        raw_data = bq_util.query_bigquery(query, project=project)
+        try:
+            raw_data = bq_util.query_bigquery(query, project=project)
+        except bq_util.BQException as e:
+            # This particular error is sometimes expected when we haven't had a
+            # successful query yet today (see comment above on
+            # `field_missing_errors`).
+            field_missing_message = (
+                "Field 'protopayload_auditlog.servicedata_v1_bigquery"
+                ".jobCompletedEvent.job.jobStatistics.totalBilledBytes' "
+                "not found")
+            # The error message from bigquery is hard line-wrapped
+            exception_message = e.message.replace('\n', '')
+            if field_missing_message in exception_message:
+                logging.warn('totalBilledBytes missing in %s' % project)
+                field_missing_errors[project] = exception_message
+                data[project] = 0
+                continue
+            raise
+        else:
+            field_missing_errors[project] = None
+
         cost = raw_data[0]['daily_query_cost_so_far_usd']
 
         # if we didn't find anything, send a cost of 0
@@ -92,6 +120,11 @@ def get_bigquery_costs(date, projects=['khanacademy.org:deductive-jet-827',
         project = re.sub(r'[^A-Za-z0-9_.]', '_', project)
 
         data[project] = cost
+
+    if all(field_missing_errors.values()):
+        raise RuntimeError(
+            'All projects were missing the totalBilledBytes field.  Messages: '
+            + '\n'.join(field_missing_errors.values()))
 
     return data
 
