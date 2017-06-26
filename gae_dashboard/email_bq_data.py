@@ -583,11 +583,13 @@ SELECT COUNT(1) AS count_,
 FROM (
     SELECT FIRST(module_id) AS module_id,
            FIRST(elog_url_route) AS elog_url_route,
-           NEST(app_logs.message) AS message
+           SUM(IF(
+               app_logs.message CONTAINS 'Exceeded soft private memory limit',
+               1, 0)) AS oom_message_count
     FROM [logs.requestlogs_%s]
     GROUP BY request_id
+    HAVING oom_message_count > 0
 )
-WHERE message CONTAINS 'Exceeded soft private memory limit'
 GROUP BY module_id, url_route
 ORDER BY count_ DESC
 """ % yyyymmdd
@@ -700,24 +702,24 @@ FROM (
                              ORDER BY start_time) AS num,
                 added, total, elog_url_route, module_id,
             FROM (
-                SELECT
-                    FLOAT(REGEXP_EXTRACT(
-                        message,
-                        "This request added (.*) MB to the heap.")) AS added,
-                    FLOAT(REGEXP_EXTRACT(
-                        message,
-                        "Total memory now used: (.*) MB")) AS total,
-                    instance_key, start_time, elog_url_route, module_id,
-                FROM (
-                    SELECT FIRST(instance_key) AS instance_key,
-                           FIRST(start_time) AS start_time,
-                           FIRST(elog_url_route) AS elog_url_route,
-                           FIRST(module_id) AS module_id,
-                           NEST(app_logs.message) AS message
-                    FROM [logs.requestlogs_%s]
-                    GROUP BY request_id
-                )
-                WHERE message CONTAINS 'This request added'
+                SELECT FIRST(instance_key) AS instance_key,
+                       FIRST(start_time) AS start_time,
+                       FIRST(elog_url_route) AS elog_url_route,
+                       FIRST(module_id) AS module_id,
+                       SUM(IF(
+                           app_logs.message CONTAINS 'This request added',
+                           FLOAT(REGEXP_EXTRACT(
+                               app_logs.message,
+                               "This request added (.*) MB to the heap.")),
+                           0.0)) AS added,
+                       SUM(IF(
+                           app_logs.message CONTAINS 'This request added',
+                           FLOAT(REGEXP_EXTRACT(
+                               app_logs.message,
+                               "Total memory now used: (.*) MB")),
+                           0.0)) AS total
+                FROM [logs.requestlogs_%s]
+                GROUP BY request_id
             )
         )
     )
