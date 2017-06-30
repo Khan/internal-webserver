@@ -136,6 +136,16 @@ def _default_metrics():
             name='bingo.video_started.week_over_week',
             timeshift='7d'),
 
+        # Failure rate for react-render-server.  We have to go through
+        # graphite for this because stackdriver can't do the ratios
+        # manually.  TODO(csilvers): do the failure rate per-route too.
+        Metric(
+            'divideSeries('
+            '   sumSeries(webapp.stats.react_render_server.*.failures:sum), '
+            '   sumSeries(webapp.stats.react_render_server.*.attempts:sum)'
+            ')',
+            name='react_render_server.failure_pct'),
+
         # AWS monthly billing data.
         Metric(
             'aws.billing.dashboard.AmazonRoute53',
