@@ -192,5 +192,10 @@
         "mode": "NULLABLE",
         "name": "subject",
         "type": "STRING"
-    }
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "public_url",
+        "type": "STRING"
+    },
 ]
