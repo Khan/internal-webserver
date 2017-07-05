@@ -197,5 +197,5 @@
         "mode": "NULLABLE",
         "name": "public_url",
         "type": "STRING"
-    },
+    }
 ]
