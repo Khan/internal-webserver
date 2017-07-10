@@ -15,27 +15,22 @@
   },
   {
     "name": "send_time",
-    "type": "STRING",
+    "type": "TIMESTAMP",
     "mode": "NULLABLE"
   },
   {
     "name": "open_time",
-    "type": "STRING",
+    "type": "TIMESTAMP",
     "mode": "NULLABLE"
   },
   {
     "name": "click_time",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "first_ten_clicks",
-    "type": "STRING",
+    "type": "TIMESTAMP",
     "mode": "NULLABLE"
   },
   {
     "name": "purchase_time",
-    "type": "STRING",
+    "type": "TIMESTAMP",
     "mode": "NULLABLE"
   },
   {
@@ -49,8 +44,13 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "first_ten_clicks_time",
+    "name": "first_ten_clicks",
     "type": "STRING",
-    "mode": "NULLABLE"
+    "mode": "REPEATED"
+  },
+  {
+    "name": "first_ten_clicks_time",
+    "type": "TIMESTAMP",
+    "mode": "REPEATED"
   }
 ]
