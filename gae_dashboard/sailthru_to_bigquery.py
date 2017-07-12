@@ -208,6 +208,7 @@ def _send_campaign_report(status, start_date, end_date, temp_dir, verbose):
         print ("Writing json file with %s lines to " % all_blasts_length +
                "bigquery table %s" % table_name)
     bq_util.call_bq(['load', '--source_format=NEWLINE_DELIMITED_JSON',
+                     '--schema_update_option=ALLOW_FIELD_ADDITION',
                      table_name,
                      os.path.join(temp_dir, file_name),
                      os.path.join(
