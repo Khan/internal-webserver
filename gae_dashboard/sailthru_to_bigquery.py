@@ -99,18 +99,24 @@ def _get(arg, **kwargs):
     return response
 
 
-def _get_sailthru_settings():
-    return _get('settings').get_body()
+_sailthru_timezone_utc_offset = None
 
 
 def _get_sailthru_timezone_utc_offset():
-    tz_string = _get_sailthru_settings().get('timezone')
-    # Keep in mind that this returns a different offset during DST.
-    tz_offset = datetime.datetime.now(pytz.timezone(tz_string)).strftime('%z')
-    # We have a string like -0300 or +0530, and we want a string
-    # like -03:00 or +05:30.
-    assert re.match('^[+-]\d{4}$', tz_offset)
-    return "%s:%s" % (tz_offset[0:3], tz_offset[3:5])
+    global _sailthru_timezone_utc_offset
+
+    if not _sailthru_timezone_utc_offset:
+        tz_string = _get('settings').get_body().get('timezone')
+        # Keep in mind that this returns a different offset during DST.
+        tz_offset = datetime.datetime.now(
+            pytz.timezone(tz_string)).strftime('%z')
+        # We have a string like -0300 or +0530, and we want a string
+        # like -03:00 or +05:30.
+        assert re.match('^[+-]\d{4}$', tz_offset)
+        _sailthru_timezone_utc_offset = "%s:%s" % (
+            tz_offset[0:3], tz_offset[3:5])
+
+    return _sailthru_timezone_utc_offset
 
 
 def _send_blast_details_to_bq(blast_id, temp_dir, verbose):
