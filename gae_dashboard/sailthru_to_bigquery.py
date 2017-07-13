@@ -119,13 +119,15 @@ def _get_sailthru_timezone_utc_offset():
     return _sailthru_timezone_utc_offset
 
 
-def _send_blast_details_to_bq(blast_id, temp_dir, verbose):
+def _send_blast_details_to_bq(blast_id, temp_dir, verbose, dry_run):
     """Export blast data to BigQuery.
 
     Arguments:
       blast_id: ID of the blast to fetch data for.
       temp_dir: A directory which contains temporary files.
       verbose: True if you want to show debug messages, else False.
+      dry_run: True if we should skip writing to bq, and instead log what
+               would have happened. For normal behavior, set False.
     """
 
     # Map associating blast_query response column names with separators.
@@ -237,21 +239,27 @@ def _send_blast_details_to_bq(blast_id, temp_dir, verbose):
 
     # (TODO: Update schema to port dates in TIMESTAMP format in bq)
 
-    if verbose:
-        print "Write jsonl file to bigquery"
-    bq_util.call_bq(['load',
-                     '--source_format=NEWLINE_DELIMITED_JSON',
-                     '--replace', table_name,
-                     os.path.join(temp_dir, file_name),
-                     os.path.join(
-                         os.path.dirname(__file__),
-                         'sailthru_blast_export_schema.json')
-                     ],
-                    project='khanacademy.org:deductive-jet-827',
-                    return_output=False)
+    if dry_run:
+        print ("DRY RUN: if this was for real, we would write data at path "
+               "'%s' to bq table '%s'" % (
+                   os.path.join(temp_dir, file_name), table_name))
+    else:
+        if verbose:
+            print "Write jsonl file to bigquery"
+        bq_util.call_bq(['load',
+                         '--source_format=NEWLINE_DELIMITED_JSON',
+                         '--replace', table_name,
+                         os.path.join(temp_dir, file_name),
+                         os.path.join(
+                             os.path.dirname(__file__),
+                             'sailthru_blast_export_schema.json')
+                         ],
+                        project='khanacademy.org:deductive-jet-827',
+                        return_output=False)
 
 
-def _send_campaign_report(status, start_date, end_date, temp_dir, verbose):
+def _send_campaign_report(status, start_date, end_date, temp_dir, verbose,
+                          dry_run):
     """Export data about all campaigns in a date range to Bigquery.
     This selects campaigns that started between start_date and end_date
     inclusive.
@@ -263,6 +271,7 @@ def _send_campaign_report(status, start_date, end_date, temp_dir, verbose):
       end_date: End date of blasts (format example: 'January 1 2017')
       temp_dir: A directory which contains temporary files.
       verbose: True if you want to show debug messages, else False.
+      dry_run: True if we should skip writing to bq.
 
     Returns:
       Returns a python set of the blast IDs for the blasts that were
@@ -297,19 +306,24 @@ def _send_campaign_report(status, start_date, end_date, temp_dir, verbose):
 
     table_name = "sailthru_blasts.campaigns"
 
-    if verbose:
-        print ("Writing json file with %s lines to " % all_blasts_length +
-               "bigquery table %s" % table_name)
-    bq_util.call_bq(['load', '--source_format=NEWLINE_DELIMITED_JSON',
-                     '--schema_update_option=ALLOW_FIELD_ADDITION',
-                     table_name,
-                     os.path.join(temp_dir, file_name),
-                     os.path.join(
-                         os.path.dirname(__file__),
-                         'sailthru_campaign_export_schema.json')
-                     ],
-                    project='khanacademy.org:deductive-jet-827',
-                    return_output=False)
+    if dry_run:
+        print ("DRY RUN: if this was for real, we would write data at path "
+               "'%s' to bq table '%s'" % (
+                   os.path.join(temp_dir, file_name), table_name))
+    else:
+        if verbose:
+            print ("Writing json file with %s lines to " % all_blasts_length +
+                   "bigquery table %s" % table_name)
+        bq_util.call_bq(['load', '--source_format=NEWLINE_DELIMITED_JSON',
+                         '--schema_update_option=ALLOW_FIELD_ADDITION',
+                         table_name,
+                         os.path.join(temp_dir, file_name),
+                         os.path.join(
+                             os.path.dirname(__file__),
+                             'sailthru_campaign_export_schema.json')
+                         ],
+                        project='khanacademy.org:deductive-jet-827',
+                        return_output=False)
 
     return recent_blast_ids
 
@@ -321,6 +335,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', '-v', action='store_true',
                         help="Show more information")
+    parser.add_argument('--dry-run', '-n', action='store_true',
+                        help="Do not upload data to BigQuery "
+                             "(implicitly sets --keep-temp)")
+    parser.add_argument('--keep-temp', '-k', action='store_true',
+                        help="Do not remove the temporary directory on "
+                             "success. This may be helpful for debugging.")
 
     subparsers = parser.add_subparsers(dest='subparser_name',
                                        help='sub-command help')
@@ -349,25 +369,48 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Log the path of temp directory for debugging
-    print "temp_dir is %s" % temp_dir
+    if args.dry_run:
+        # dry_run should implicitly set keep_temp as when doing dry run, the
+        # only way to inspect the data is using the temp_dir
+        args.keep_temp = True
+
+    if args.verbose:
+        # Log the path of temp directory for debugging
+        print "temp_dir is %s" % temp_dir
 
     if args.subparser_name == 'blast':
-        _send_blast_details_to_bq(args.blast_id, temp_dir, args.verbose)
+        _send_blast_details_to_bq(blast_id=args.blast_id,
+                                  temp_dir=temp_dir,
+                                  verbose=args.verbose,
+                                  dry_run=args.dry_run)
     elif args.subparser_name == 'campaigns':
-        _send_campaign_report(args.status, args.start_date, args.end_date,
-                              temp_dir, args.verbose)
+        _send_campaign_report(status=args.status,
+                              start_date=args.start_date,
+                              end_date=args.end_date,
+                              temp_dir=temp_dir,
+                              verbose=args.verbose,
+                              dry_run=args.dry_run)
     else:
         # Call the script directly to generate the all campaigns table and
         # tables for blasts fired in the past 7 days.
         # TODO: If fetching the campaigns table from 2010 until now becomes
         # too expensive, get the old data from the previous campaigns table.
         recent_blasts = _send_campaign_report(
-            "sent", "January 1 2010",
-            "{:%B %d %Y}".format(datetime.date.today()),
-            temp_dir, args.verbose)
-        for id in recent_blasts:
-            _send_blast_details_to_bq(id, temp_dir, args.verbose)
+            status="sent",
+            start_date="January 1 2010",
+            end_date="{:%B %d %Y}".format(datetime.date.today()),
+            temp_dir=temp_dir,
+            verbose=args.verbose,
+            dry_run=args.dry_run)
 
-    shutil.rmtree(temp_dir)
+        for id in recent_blasts:
+            _send_blast_details_to_bq(blast_id=id,
+                                      temp_dir=temp_dir,
+                                      verbose=args.verbose,
+                                      dry_run=args.dry_run)
+
+    if args.keep_temp:
+        print "Not removing temp_dir %s" % (temp_dir)
+    else:
+        shutil.rmtree(temp_dir)
 
