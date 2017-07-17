@@ -42,10 +42,12 @@ import contextlib
 import csv
 import datetime
 import json
+import multiprocessing.dummy
 import os
 import re
 import shutil
 import tempfile
+import threading
 import time
 import urllib
 
@@ -119,6 +121,11 @@ def _get_sailthru_timezone_utc_offset():
     return _sailthru_timezone_utc_offset
 
 
+# Toby only has one core at time of writing (July 2017), so we don't want to
+# do CPU-bound tasks in parallel.
+_CPU_LOCK = threading.Lock()
+
+
 def _send_blast_details_to_bq(blast_id, temp_dir, verbose, dry_run):
     """Export blast data to BigQuery.
 
@@ -164,17 +171,23 @@ def _send_blast_details_to_bq(blast_id, temp_dir, verbose, dry_run):
     job_id = response_1.get_body().get('job_id')
 
     if job_id is None:
-        print "job_id returned from Sailthru's job=blast_query is None"
+        print ("WARNING: For the blast_query job with blast_id = %s, "
+               "the job_id returned from Sailthru's job=blast_query is "
+               "None" % blast_id)
         return
 
     if verbose:
-        print "Calling sailthru's job for job_id = %s" % job_id
+        print ("For the blast_query job with blast_id = %s, calling "
+               "sailthru's job status API for job_id = %s" % (blast_id,
+                                                              job_id))
     response_2 = _get('job', job_id=job_id)
 
     while response_2.get_body().get('status') != "completed":
         if verbose:
-            print "Waiting for sailthru's job with job_id=%s" % job_id
-            print "Retrying in 5 seconds..."
+            print ("For the blast_query job with blast_id = %s, polled "
+                   "sailthru's job status API for job_id = %s " %
+                   (blast_id, job_id))
+            print "Will poll again in 5 seconds."
         time.sleep(5)
         response_2 = _get('job', job_id=job_id)
         if response_2.get_body().get('status') == "expired":
@@ -183,79 +196,88 @@ def _send_blast_details_to_bq(blast_id, temp_dir, verbose, dry_run):
     filename_url = response_2.get_body().get('export_url')
 
     if verbose:
-        print "Creating a jsonl file from the sailthru data"
+        print ("For the blast_query job with blast_id = %s, creating a jsonl "
+               "file from the sailthru data" % blast_id)
 
     file_name = "blast_export.jsonl"
 
-    with open(os.path.join(temp_dir, file_name), "wb") as f:
-        with contextlib.closing(urllib.urlopen(filename_url)) as csvdata:
-            #  Take the csv data from the Sailthru API and convert it to JSON.
-            #  bq can read columns in REPEATED mode from JSON files, but not
-            #  from CSVs, and we have cells that contain multiple items.
-            reader = csv.reader(csvdata, delimiter=',', quotechar='"')
+    with _CPU_LOCK:
+        with open(os.path.join(temp_dir, file_name), "wb") as f:
+            with contextlib.closing(urllib.urlopen(filename_url)) as csvdata:
+                # Take the csv data from the Sailthru API and convert it to
+                # JSON. bq can read columns in REPEATED mode from JSON files,
+                # but not from CSVs, and we have cells that contain multiple
+                # items.
+                reader = csv.reader(csvdata, delimiter=',', quotechar='"')
 
-            headers = reader.next()
+                headers = reader.next()
 
-            # Correct confusing header names.
-            headers = [
-                blast_report_header_corrections[header]
-                if header in blast_report_header_corrections else header
-                for header in headers]
+                # Correct confusing header names.
+                headers = [
+                    blast_report_header_corrections[header]
+                    if header in blast_report_header_corrections else header
+                    for header in headers]
 
-            for row_csv in reader:
-                row_object = {}
-                for idx, column_name in enumerate(headers):
-                    cell_content = row_csv[idx].strip()
-                    if cell_content == "":
-                        row_object[column_name] = None
-                    elif column_name in blast_report_list_column_seperators:
-                        sep = blast_report_list_column_seperators[column_name]
-                        row_object[column_name] = cell_content.split(sep)
-                    else:
-                        row_object[column_name] = cell_content
-
-                    #  Append timezone information to TIMESTAMP cells.
-                    if column_name in blast_report_timestamp_columns:
-                        if isinstance(row_object[column_name], str):
-                            row_object[column_name] += " %s" % tz_utc_offset
-                        elif isinstance(row_object[column_name], list):
-                            row_object[column_name] = [
-                                "%s %s" % (date, tz_utc_offset) for date in
-                                row_object[column_name]]
+                for row_csv in reader:
+                    row_object = {}
+                    for idx, column_name in enumerate(headers):
+                        cell_content = row_csv[idx].strip()
+                        if cell_content == "":
+                            row_object[column_name] = None
+                        elif (column_name in
+                                blast_report_list_column_seperators):
+                            sep = blast_report_list_column_seperators[
+                                column_name]
+                            row_object[column_name] = cell_content.split(sep)
                         else:
-                            assert(row_object[column_name] is None)
+                            row_object[column_name] = cell_content
 
-                # Append the blast ID to each row.
-                # This way we can join/union this blast table with other tables
-                # while preserving blast_ids. Otherwise, the blast_id would
-                # only be accessible from the table name.
-                row_object["blast_id"] = str(blast_id)
+                        #  Append timezone information to TIMESTAMP cells.
+                        if column_name in blast_report_timestamp_columns:
+                            if isinstance(row_object[column_name], str):
+                                row_object[column_name] += " %s" % (
+                                    tz_utc_offset)
+                            elif isinstance(row_object[column_name], list):
+                                row_object[column_name] = [
+                                    "%s %s" % (date, tz_utc_offset) for date in
+                                    row_object[column_name]]
+                            else:
+                                assert(row_object[column_name] is None)
 
-                # Write each row.
-                # In JSON mode, bq expects a JSON object on each line.
-                f.write("%s\n" % (json.dumps(row_object)))
+                    # Append the blast ID to each row.
+                    # This way we can join/union this blast table with other
+                    # tables while preserving blast_ids. Otherwise, the
+                    # blast_id would # only be accessible from the table name.
+                    row_object["blast_id"] = str(blast_id)
 
-    table_name = "sailthru_blasts.blast_%s" % str(blast_id)
+                    # Write each row.
+                    # In JSON mode, bq expects a JSON object on each line.
+                    f.write("%s\n" % (json.dumps(row_object)))
 
-    # (TODO: Update schema to port dates in TIMESTAMP format in bq)
+        table_name = "sailthru_blasts.blast_%s" % str(blast_id)
 
-    if dry_run:
-        print ("DRY RUN: if this was for real, we would write data at path "
-               "'%s' to bq table '%s'" % (
-                   os.path.join(temp_dir, file_name), table_name))
-    else:
-        if verbose:
-            print "Write jsonl file to bigquery"
-        bq_util.call_bq(['load',
-                         '--source_format=NEWLINE_DELIMITED_JSON',
-                         '--replace', table_name,
-                         os.path.join(temp_dir, file_name),
-                         os.path.join(
-                             os.path.dirname(__file__),
-                             'sailthru_blast_export_schema.json')
-                         ],
-                        project='khanacademy.org:deductive-jet-827',
-                        return_output=False)
+        # (TODO: Update schema to port dates in TIMESTAMP format in bq)
+
+        if dry_run:
+            print ("DRY RUN: if this was for real, for the blast_query job "
+                   "with blast_id = %s, we would write data at path '%s' to "
+                   "bq table '%s'" % (blast_id,
+                                      os.path.join(temp_dir, file_name),
+                                      table_name))
+        else:
+            if verbose:
+                print ("For the blast_query job with blast_id = %s, writing "
+                       "jsonl file to bigquery" % blast_id)
+            bq_util.call_bq(['load',
+                             '--source_format=NEWLINE_DELIMITED_JSON',
+                             '--replace', table_name,
+                             os.path.join(temp_dir, file_name),
+                             os.path.join(
+                                 os.path.dirname(__file__),
+                                 'sailthru_blast_export_schema.json')
+                             ],
+                            project='khanacademy.org:deductive-jet-827',
+                            return_output=False)
 
 
 def _send_campaign_report(status, start_date, end_date, temp_dir, verbose,
@@ -403,11 +425,31 @@ if __name__ == "__main__":
             verbose=args.verbose,
             dry_run=args.dry_run)
 
-        for id in recent_blasts:
-            _send_blast_details_to_bq(blast_id=id,
-                                      temp_dir=temp_dir,
-                                      verbose=args.verbose,
-                                      dry_run=args.dry_run)
+        # When attempting 15 threads, the Sailthru UI only showed 12 jobs
+        # running (the rest were "waiting"). Therefore, there's no point
+        # in running more than 12 threads. Lets only use 8 threads so we
+        # don't block other consumers.
+        #
+        # In dry_run mode, we're probably debugging and do not want to
+        # create lots of spurious jobs.
+        THREAD_COUNT = 2 if args.dry_run else 8
+
+        # We need Python to raise a KeyboardInterrupt so that ctrl+c actually
+        # stops the application, which is broken when not specifying a timeout.
+        # As a workaround, we specify a timeout. This is about 116 days, so
+        # it should not ever be hit, it's just for the workaround.
+        # See https://stackoverflow.com/a/1408476
+        TIMEOUT = 10000000  # seconds
+
+        pool = multiprocessing.dummy.Pool(THREAD_COUNT)
+        pool.map_async(lambda id:
+                       _send_blast_details_to_bq(blast_id=id,
+                                                 temp_dir=temp_dir,
+                                                 verbose=args.verbose,
+                                                 dry_run=args.dry_run),
+                       recent_blasts).get(TIMEOUT)
+        pool.close()
+        pool.join()
 
     if args.keep_temp:
         print "Not removing temp_dir %s" % (temp_dir)
