@@ -351,11 +351,9 @@ def build_graphs_from_page_load_database(save_graphs=False):
 
     for title, graph_data in chart_data.items():
         key_to_times = collections.defaultdict(list)
-        dates = []
+        dates = collections.defaultdict(list)
 
         for weekly_data in graph_data:
-            dates.append(weekly_data['end_date'])
-
             # Convert a list of dicts to a dict of lists. We weakly expect the
             # dicts to have the same keys; the graphs might look kind of weird
             # if this assumption is violated, which would happen if we alter
@@ -366,15 +364,19 @@ def build_graphs_from_page_load_database(save_graphs=False):
             # so never fixing this and using a new database file each time we
             # change pages/countries we measure or care about might make sense.
             for key, page_load_time in weekly_data['data'].iteritems():
+                dates[key].append(weekly_data['end_date'])
                 key_to_times[key].append(page_load_time)
 
         plt.figure()  # clear implicit state
 
         for key, page_load_times in key_to_times.iteritems():
-            plt.plot(dates, page_load_times, label=key)
+            plt.plot(dates[key], page_load_times, label=key)
+
+        dates = sorted(list(set(date for l in dates.values() for date in l)))
 
         plt.ylim(ymin=0)
-        plt.xticks(dates, [date.strftime('%b %-d %Y') for date in dates])
+        plt.xticks(dates, [date.strftime('%b %-d') for date in dates],
+                   rotation='vertical')
         plt.title(title + ': 90th percentile')
         plt.legend()
         plt.xlabel('data for week ending on this date')
