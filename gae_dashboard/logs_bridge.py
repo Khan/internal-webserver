@@ -167,29 +167,27 @@ def _should_run_query(config_entry, start_time_t, time_of_last_successful_run):
 def _tables_for_time(start_time_t, delta):
     """Given a time_t, return a table that best has logs for that time.
 
-    If the time is in the very recent past, we use the streaming logs,
-    with a table decorator to restrict the time.  Instead of using the
-    logs_streaming.last_hour, which is a view on logs_all_time that
-    uses the `@-3600000-` table decorator, we make our own
-    table-decorator that starts only a few minutes in the past.
-    Because it can take a while for logs to stream into this table, we
-    don't put an end-time on, though in theory it could be
-    start_time_t + delta + <some slack>.  Since we only tend to run
-    this script in the recent past, having end-time be "now" is
-    probably ok.  Note that the dates on table decorators refer to
-    when the logline was inserted into bigquery, not when the relevant
-    request either started or ended.  So it's a useful optimization
-    but not a complete substitute for a last_time check.
+    Use the last hour table for very recent data in case it hasn't made it to
+    other tables yet.
+
+    We use hourly tables for recent log entries to avoid having to use larger
+    daily tables.
+
+    Use daily tables for older data.
+
+    Note that for hourly and daily tables we may have to use multiple tables in
+    case delta spans two tables.
     """
     now = int(time.time())
     start_time_t = int(start_time_t)
-    # Give 3 hours for the hourly logs table to be written.
-    if now - start_time_t <= 3600 * 3:
-        return ('[khan-academy:logs_streaming.logs_all_time@%d-]'
-                % (start_time_t * 1000))
 
-    # Otherwise, if it's within the last week and a bit, use the hourly
-    # table(s).  (We only keep that table around for a week + 2 hours.)
+    # We give 45 minutes for the logs to make it to the hourly table, which
+    # should be plenty.
+    if now - start_time_t <= 60 * 45:
+        return ('[khanacademy.org:deductive-jet-827:logs_streaming.last_hour]')
+
+    # If it's within the last week and a bit, use the hourly table(s). (We only
+    # keep that table around for a week + 2 hours.)
     if now - start_time_t <= 86400 * 7 + 3600:
         tables = set()
         for time_t in xrange(start_time_t, start_time_t + delta, 3600):
