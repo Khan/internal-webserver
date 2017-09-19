@@ -25,6 +25,7 @@ import time
 
 import bq_util
 import cloudmonitoring_util
+import initiatives
 
 
 # Report on the previous day by default
@@ -44,6 +45,21 @@ def _is_number(s):
 
 def _pretty_date(yyyymmdd):
     return '%s-%s-%s' % (yyyymmdd[0:4], yyyymmdd[4:6], yyyymmdd[6:8])
+
+
+def _by_initiative(data, route_key='url_route'):
+    """Return a sequence of (id, data) tuples given a table.
+
+    Table rows are expected to be dicts.
+
+    Rows are assigned to initiatives based on their routes. Routes
+    are found in rows using the route_key
+    """
+    rows = collections.defaultdict(list)
+    for row in data:
+        i = initiatives.route_owner(row[route_key])
+        rows[i['id']].append(row)
+    return rows.items()
 
 
 def _convert_table_rows_to_lists(table, order):
@@ -403,18 +419,26 @@ ORDER BY instance_hours DESC
 
     _ORDER = ('%% of total', 'instance_hours', 'count_', 'per 1k requests',
               'last 2 weeks (per request)', 'url_route')
-    data = _convert_table_rows_to_lists(data, _ORDER)
 
-    subject = 'Instance Hours by Route'
+    subject = 'Instance Hours by Route - '
     heading = 'Instance hours by route for %s' % _pretty_date(yyyymmdd)
+    all_data = _convert_table_rows_to_lists(data, _ORDER)
     # Let's just send the top most expensive routes, not all of them.
-    _send_email({heading: data[:50]}, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject,
+    _send_email({heading: all_data[:50]}, None,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All',
                 dry_run=dry_run)
 
+    # Per-initiative reports
+    for initiative_id, initiative_data in _by_initiative(data):
+        table = _convert_table_rows_to_lists(initiative_data, _ORDER)
+        _send_email({heading: table[:50]}, None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
+
     # We'll also send the most-most expensive ones to stackdriver.
-    _send_table_to_stackdriver(data[:20],
+    _send_table_to_stackdriver(all_data[:20],
                                'webapp.routes.instance_hours.week_over_week',
                                'url_route', metric_label_col='url_route',
                                data_col='last 2 weeks (per request)',
@@ -495,18 +519,25 @@ ORDER BY tcost.rpc_cost DESC;
                'last 2 weeks (%s/req)' % micropennies] +
               ['rpc_%s' % f for f in rpc_fields] +
               ['%s/req' % f for f in rpc_fields])
-    data = _convert_table_rows_to_lists(data, _ORDER)
-
-    subject = 'RPC calls by route'
+    all_data = _convert_table_rows_to_lists(data, _ORDER)
+    subject = 'RPC calls by route - '
     heading = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
-    # Let's just send the top most expensive routes, not all of them.
-    _send_email({heading: data[:75]}, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject,
+    _send_email({heading: all_data[:75]}, None,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All',
                 dry_run=dry_run)
 
+    # Per-initiative reports
+    for initiative_id, initiative_data in _by_initiative(data):
+        table = _convert_table_rows_to_lists(initiative_data, _ORDER)
+        # Let's just send the top most expensive routes, not all of them.
+        _send_email({heading: table[:75]}, None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
+
     # We'll also send the most-most expensive ones to stackdriver.
-    _send_table_to_stackdriver(data[:20],
+    _send_table_to_stackdriver(all_data[:20],
                                'webapp.routes.rpc_cost.week_over_week',
                                'url_route', metric_label_col='url_route',
                                data_col='last 2 weeks (%s/req)' % micropennies,
@@ -516,8 +547,8 @@ ORDER BY tcost.rpc_cost DESC;
     # day.  More than $750 a day and we should be very suspcious.
     # TODO(csilvers): do this check more frequently.
     # TODO(csilvers): send to slack and/or 911 as well as emailing
-    if any(row[2] > 750 for row in data[1:]):    # ignore the header line
-        _send_email({heading: data[:75]}, None,
+    if any(row[2] > 750 for row in all_data[1:]):    # ignore the header line
+        _send_email({heading: all_data[:75]}, None,
                     to=['infrastructure@khanacademy.org'],
                     subject=('WARNING: some very expensive RPC calls on %s!'
                              % _pretty_date(yyyymmdd)),
@@ -528,7 +559,7 @@ def email_out_of_memory_errors(date, dry_run=False):
     # This sends two emails, for two different ways of seeing the data.
     # But we'll have them share the same subject so they thread together.
     yyyymmdd = date.strftime("%Y%m%d")
-    subject = 'OOM errors'
+    subject = 'OOM errors - '
 
     # Out-of-memory errors look like:
     #   Exceeded soft private memory limit with 260.109 MB after servicing 2406 requests total  #@Nolint
@@ -616,15 +647,22 @@ ORDER BY count_ DESC
         row['last 2 weeks'] = sparkline_data
 
     _ORDER = ['count_', 'last 2 weeks', 'module_id', 'url_route']
-    data = _convert_table_rows_to_lists(data, _ORDER)
-
     heading = 'OOM errors by route for %s' % _pretty_date(yyyymmdd)
-    email_content[heading] = data
 
+    email_content[heading] = _convert_table_rows_to_lists(data, _ORDER)
     _send_email(email_content, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All',
                 dry_run=dry_run)
+
+    # Per initiative-reports
+    for initiative_id, initiative_data in _by_initiative(data):
+        table = _convert_table_rows_to_lists(initiative_data, _ORDER)
+        email_content = {heading: table}
+        _send_email(email_content, None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
 
 
 def email_memory_increases(date, window_length=20, min_increase_in_mb=1,
@@ -735,6 +773,7 @@ ORDER BY added_total DESC
         lambda row: (row['module'], row['url_route']))
 
     by_module = collections.defaultdict(list)
+    by_initiative = collections.defaultdict(dict)
     for row in data:
         if row['added_total'] > min_increase_in_mb:
             heading = "Memory increases by route for %s module on %s" % (
@@ -756,13 +795,28 @@ ORDER BY added_total DESC
                     sparkline_data.append(None)
             row['last 2 weeks (avg)'] = sparkline_data
             del row['module']
+
+        for initiative_id, initiative_data in _by_initiative(
+                by_module[heading]):
+            heading_data = _convert_table_rows_to_lists(
+                initiative_data[:50], _ORDER)
+            by_initiative[initiative_id][heading] = heading_data
+
         by_module[heading] = _convert_table_rows_to_lists(
             by_module[heading][:50], _ORDER)
-    subject = "Memory Increases by Route"
+
+    subject = "Memory Increases by Route - "
     _send_email(by_module, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All',
                 dry_run=dry_run)
+
+    # Per-initiative reports
+    for initiative_id, initiative_data in by_initiative.items():
+        _send_email(initiative_data, None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
 
 
 def email_client_api_usage(date, dry_run=False):
@@ -794,15 +848,23 @@ ORDER BY client DESC, build DESC, request_count DESC;
     bq_util.save_daily_data(data, "client_api_usage", yyyymmdd)
 
     _ORDER = ('client', 'build', 'route', 'request_count')
+    all_data = _convert_table_rows_to_lists(data, _ORDER)
 
-    data = _convert_table_rows_to_lists(data, _ORDER)
-
-    subject = 'API usage by client'
+    subject = 'API usage by client - '
     heading = 'API usage by client for %s' % _pretty_date(yyyymmdd)
-    _send_email({heading: data}, None,
-                to=['infrastructure-blackhole@khanacademy.org'],
-                subject=subject,
+    _send_email({heading: all_data}, None,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All', 
                 dry_run=dry_run)
+
+    # Per-initiative reports
+    for initiative_id, initiative_data in _by_initiative(data,
+                                                         route_key='route'):
+        table = _convert_table_rows_to_lists(initiative_data, _ORDER)
+        _send_email({heading: table}, None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
 
 
 def main():
