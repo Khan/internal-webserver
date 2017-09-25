@@ -8,7 +8,7 @@ INFRA = {'title': 'Infrastructure',
          'email': 'infrastructure-blackhole@khanacademy.org',
          'id': 'infra'}
 CCL = {'title': 'Coaching and Coached Learning',
-       'email': 'coached-learning-blackhole@khanacademy.org',
+       'email': 'coached-perf-reports@khanacademy.org',
        'id': 'ccl'}
 IL = {'title': 'Independent Learning',
       'email': 'independent-learning-blackhole@khanacademy.org',
