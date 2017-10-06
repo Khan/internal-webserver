@@ -47,17 +47,21 @@ def _pretty_date(yyyymmdd):
     return '%s-%s-%s' % (yyyymmdd[0:4], yyyymmdd[4:6], yyyymmdd[6:8])
 
 
-def _by_initiative(data, route_key='url_route'):
+def _by_initiative(data, key='url_route', by_package=False):
     """Return a sequence of (id, data) tuples given a table.
 
     Table rows are expected to be dicts.
 
-    Rows are assigned to initiatives based on their routes. Routes
-    are found in rows using the route_key
+    Rows are assigned to initiatives based on their routes or packages. Routes
+    or packages are found in rows using the key.
     """
+    if by_package:
+        f = initiatives.package_owner
+    else:
+        f = initiatives.route_owner
     rows = collections.defaultdict(list)
     for row in data:
-        i = initiatives.route_owner(row[route_key])
+        i = f(row[key])
         rows[i['id']].append(row)
     return rows.items()
 
@@ -859,12 +863,96 @@ ORDER BY client DESC, build DESC, request_count DESC;
 
     # Per-initiative reports
     for initiative_id, initiative_data in _by_initiative(data,
-                                                         route_key='route'):
+                                                         key='route'):
         table = _convert_table_rows_to_lists(initiative_data, _ORDER)
         _send_email({heading: table}, None,
                     to=[initiatives.email(initiative_id)],
                     subject=subject + initiatives.title(initiative_id),
                     dry_run=dry_run)
+
+
+def email_rrs_stats(date, dry_run=False):
+    """Emails stats about rrs requests that are too slow or have errors.
+
+    Requests that take longer than one second are timed out and thus simply add
+    a second to the reponse, rather than speeding it up.
+    """
+    yyyymmdd = date.strftime("%Y%m%d")
+
+    latency_q = """
+SELECT
+  REPLACE(REGEXP_EXTRACT(
+    httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
+  NTH(1, QUANTILES(FLOAT(jsonPayload.latencyseconds), 11)) AS best_latency,
+  AVG(FLOAT(jsonPayload.latencyseconds)) AS average_latency,
+  count(1) as count
+FROM
+  [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
+WHERE
+  httpRequest.status == 200
+GROUP BY
+  url
+ORDER BY
+  average_latency DESC
+""".format(yyyymmdd)
+
+    error_q = """
+SELECT
+  REPLACE(REGEXP_EXTRACT(
+    httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
+  SUM(httpRequest.status == 500) AS error_count,
+  SUM(httpRequest.status == 200) AS ok_count,
+  (SUM(httpRequest.status == 500) / COUNT(1)) * 100 AS error_percent
+FROM
+  [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
+GROUP BY
+  url
+ORDER BY
+  error_percent DESC
+""".format(yyyymmdd)
+
+    latency_data = bq_util.get_daily_data('rrs_latency', yyyymmdd)
+    if latency_data is None:
+        latency_data = bq_util.query_bigquery(latency_q)
+        bq_util.save_daily_data(latency_data, 'rrs_latency', yyyymmdd)
+
+    error_data = bq_util.get_daily_data('rrs_errors', yyyymmdd)
+    if error_data is None:
+        error_data = bq_util.query_bigquery(error_q)
+        bq_util.save_daily_data(error_data, 'rrs_errors', yyyymmdd)
+
+    subject = 'React render server errors and timeouts - '
+    error_heading = 'React component errors'
+    latency_heading = 'React compontent render latency (> 1 sec = timeout)'
+    error_order = ('url', 'error_count', 'ok_count', 'error_percent')
+    latency_order = ('url', 'best_latency', 'average_latency', 'count')
+    tables = collections.defaultdict(dict)
+
+    # Put data in tables by initiative
+    for initiative_id, initiative_data in _by_initiative(
+            error_data, key='url', by_package=True):
+        tables[initiative_id][error_heading] = _convert_table_rows_to_lists(
+            initiative_data, error_order)
+    for initiative_id, initiative_data in _by_initiative(
+            latency_data, key='url', by_package=True):
+        tables[initiative_id][latency_heading] = _convert_table_rows_to_lists(
+            initiative_data, latency_order)
+
+    # Send email to initiatives
+    for initiative_id, initiative_tables in tables.items():
+        _send_email(initiative_tables, graph=None,
+                    to=[initiatives.email(initiative_id)],
+                    subject=subject + initiatives.title(initiative_id),
+                    dry_run=dry_run)
+
+    # Send all data to infra
+    tables = {}
+    tables[error_heading] = _convert_table_rows_to_lists(error_data,
+                                                         error_order)
+    tables[latency_heading] = _convert_table_rows_to_lists(latency_data,
+                                                           latency_order)
+    _send_email(tables, graph=None, to=[initiatives.email('infra')],
+                subject=subject + 'All', dry_run=dry_run)
 
 
 def main():
@@ -903,6 +991,9 @@ def main():
 
         print 'Emailing client API usage info'
         email_client_api_usage(date, dry_run=args.dry_run)
+
+        print 'Emailing react render server info'
+        email_rrs_stats(date, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':

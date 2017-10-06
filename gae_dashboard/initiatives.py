@@ -81,11 +81,44 @@ _route_owner_pats = (
     (r'/_?pipeline/', INFRA),
 )
 
+# Like route owners but for filenames in webapp. Currently used to match react
+# component jsx files.
+_package_owner_pats = (
+    (r'/test-prep', TEST_PREP),
+    (r'/sat', TEST_PREP),
+
+    (r'/assignments', CCL),
+    (r'/coach', CCL),
+    (r'/class-', CCL),
+    (r'/eduorg-', CCL),
+    (r'/learnstorm', CCL),
+    (r'/student', CCL),
+
+    (r'/editor', CP),
+    (r'/translation', CP),
+    (r'/perseus', CP),
+    (r'-editor', CP),
+
+    (r'/devadmin-package', INFRA),
+    (r'/zero-rating', INFRA),
+    (r'/content-permissions', INFRA),
+)
+
 
 def route_owner(route):
     """Return an initiative give a route (as reported by ) elog route."""
     for pat, initiative in _route_owner_pats:
         if re.search(pat, route):
+            return initiative
+
+    # If no patterns match then return IL
+    return IL
+
+
+def package_owner(package):
+    """Return an initiative given a package filename"""
+    for pat, initiative in _package_owner_pats:
+        if re.search(pat, package):
             return initiative
 
     # If no patterns match then return IL
