@@ -512,7 +512,7 @@ def send_email(start_time=None, end_time=None, dry_run=False,
     message['subject'] = 'Weekly Reliability Metrics for {}'.format(
         end_time.strftime('%b %-d %Y'))
     message['from'] = '"bq-cron-reporter" <toby-admin+bq-cron@khanacademy.org>'
-    recipients = ('nabil@khanacademy.org', 'amos@khanacademy.org')
+    recipients = ('infrastructure-blackhole@khanacademy.org', )
     message['to'] = ', '.join(recipients)
 
     if dry_run:

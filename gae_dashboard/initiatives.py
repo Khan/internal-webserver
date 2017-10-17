@@ -17,7 +17,7 @@ TEST_PREP = {'title': 'Test Preparation',
              'email': 'testprep-blackhole@khanacademy.org',
              'id': 'testprep'}
 CP = {'title': 'Content Platform',
-      'email': 'content-platform-blackhole@khanacademy.org',
+      'email': 'content-platform-analytics@khanacademy.org',
       'id': 'cp'}
 
 _INITIATIVES = (INFRA, CCL, IL, TEST_PREP, CP)
