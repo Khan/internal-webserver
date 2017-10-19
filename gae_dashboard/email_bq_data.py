@@ -883,17 +883,20 @@ def email_rrs_stats(date, dry_run=False):
 SELECT
   REPLACE(REGEXP_EXTRACT(
     httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
-  NTH(1, QUANTILES(FLOAT(jsonPayload.latencyseconds), 11)) AS best_latency,
   AVG(FLOAT(jsonPayload.latencyseconds)) AS average_latency,
-  count(1) as count
+  COUNT(1) AS count,
+  SUM(CASE
+      WHEN FLOAT(jsonPayload.latencyseconds) >= 1.0 THEN 1
+      ELSE 0 END) AS timeouts,
+  SUM(CASE
+      WHEN FLOAT(jsonPayload.latencyseconds) >= 1.0 THEN 100
+      ELSE 0 END) / count(1) as timeout_percent
 FROM
   [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
-WHERE
-  httpRequest.status == 200
 GROUP BY
   url
 ORDER BY
-  average_latency DESC
+  timeout_percent DESC
 """.format(yyyymmdd)
 
     error_q = """
@@ -901,7 +904,6 @@ SELECT
   REPLACE(REGEXP_EXTRACT(
     httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
   SUM(httpRequest.status == 500) AS error_count,
-  SUM(httpRequest.status == 200) AS ok_count,
   (SUM(httpRequest.status == 500) / COUNT(1)) * 100 AS error_percent
 FROM
   [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
@@ -924,8 +926,9 @@ ORDER BY
     subject = 'React render server errors and timeouts - '
     error_heading = 'React component errors'
     latency_heading = 'React compontent render latency (> 1 sec = timeout)'
-    error_order = ('url', 'error_count', 'ok_count', 'error_percent')
-    latency_order = ('url', 'best_latency', 'average_latency', 'count')
+    error_order = ('url', 'error_count', 'error_percent')
+    latency_order = ('url', 'average_latency', 'count', 'timeouts',
+                     'timeout_percent')
     tables = collections.defaultdict(dict)
 
     # Put data in tables by initiative
