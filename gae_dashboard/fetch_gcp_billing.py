@@ -3,7 +3,7 @@
 """Fetch Google Cloud Platform cost data from bigquery and send it to graphite.
 
 GCP cost data lives in project "khan", dataset "1_gae_billing",
-table "gcp_billing_export_00A183_1C5C74_24422A".
+table "gcp_billing_export_v1_00A183_1C5C74_24422A".
 "00A183_1C5C74_24422A" is our billing account id, common across all projects.
 
 Export was set up following this guide:
@@ -17,10 +17,11 @@ this script is expected to be run daily with an end-time of "2 days ago".
 See aws-config:toby/crontab
 
 We send the cost of the day's compute resources so far to graphite under keys
-gcp.<project>.usage.<product_name>.<resource>.daily_cost_so_far_usd
+("gcp.<project>.usage.<service_description>.<sku_description>"
+ ".daily_cost_so_far_usd")
 where <project> is e.g. 'khan', 'khan_academy', 'khan_onionproxy';
-<product_name> is e.g. 'Compute_Engine', 'CloudPubSub';
-and <resource> is e.g. 'Datastore_Storage', 'Frontend_Instances'.
+<service_description> is e.g. 'Compute_Engine', 'CloudPubSub';
+and <sku_description> is e.g. 'Datastore_Storage', 'Frontend_Instances'.
 
 Note that hyphens, spaces, and slashes are all replaced with underscores.
 This is done to make metrics searchable in graphite here:
@@ -56,20 +57,21 @@ def get_google_services_costs(start_time_t, end_time_t):
     start_time_t and end_time_t should be unix times represented as ints.
 
     Each dict in the list contains a daily_cost_so_far_usd, project_name,
-    product, and resource_type, e.g.:
+    service_description, and sku_description, e.g.:
     {u'daily_cost_so_far_usd': 7.396287000000001,
-     u'product': u'Cloud Pub/Sub',
+     u'service_description': u'Cloud Pub/Sub',
      u'project_name': u'khan-academy',
-     u'resource_type': u'Message Operations'}
+     u'sku_description': u'Message Operations'}
     """
 
     query = """\
-SELECT SUM(cost) AS daily_cost_so_far_usd, project.name, product, resource_type
-FROM [1_gae_billing.gcp_billing_export_00A183_1C5C74_24422A]
+SELECT SUM(cost) AS daily_cost_so_far_usd, project.name, service.description,
+    sku.description
+FROM [1_gae_billing.gcp_billing_export_v1_00A183_1C5C74_24422A]
 WHERE cost > 0
-AND start_time >= timestamp('%s')
-AND end_time <= timestamp('%s')
-GROUP BY project.name, product, resource_type
+AND usage_start_time >= timestamp('%s')
+AND usage_end_time <= timestamp('%s')
+GROUP BY project.name, service.description, sku.description
 """ % (start_time_t, end_time_t)
 
     return bq_util.query_bigquery(query)
@@ -79,7 +81,7 @@ def format_for_graphite(raw_data, timestamp):
     """Given a list of dicts of Google Cloud costs, return data for graphite.
 
     Returns an list of (graphite_key, (unix_time, cost)) tuples, where the
-    graphite_key contains the project name, product, and resource type.
+    graphite_key contains: project_name; service_description; sku_description.
 
     The unix_time in each tuple for graphite is given by the timestamp
     argument, expected to be an int.
@@ -88,10 +90,8 @@ def format_for_graphite(raw_data, timestamp):
     data = []
 
     for d in raw_data:
-        key = ("gcp.%s.usage.%s.%s.daily_cost_so_far_usd" %
-               (d['project_name'], d['product'], d['resource_type']))
-        # key = ("gcp.%(project_name)s.usage.%(product)s.%(resource_type)s"
-        #        ".daily_cost_so_far_usd") % d
+        key = ("gcp.%(project_name)s.usage.%(service_description)s."
+               "%(sku_description)s.daily_cost_so_far_usd") % d
         # replace characters that may interfere with searching for metrics at:
         # https://www.hostedgraphite.com/app/metrics/#
         key = re.sub(r'[^A-Za-z0-9_.]', '_', key)
