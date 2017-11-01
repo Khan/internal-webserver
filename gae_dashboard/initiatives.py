@@ -79,6 +79,7 @@ _route_owner_pats = (
     (r'/prime', INFRA),
     (r'/_ah/', INFRA),
     (r'/_?pipeline/', INFRA),
+    (r'/stats/', INFRA),
 )
 
 # Like route owners but for filenames in webapp. Currently used to match react
