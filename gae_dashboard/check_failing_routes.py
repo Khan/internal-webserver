@@ -39,7 +39,8 @@ FROM (
           AND status < 400)
         OR status IN (401,
           404,
-          405), 1, 0)) AS ok_reqs,
+          405,
+          501), 1, 0)) AS ok_reqs,
     SUM(1) AS total_reqs
   FROM
     [khanacademy.org:deductive-jet-827:logs.requestlogs_{}]
