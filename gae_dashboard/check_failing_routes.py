@@ -85,7 +85,7 @@ def check(date, dry_run=False):
                 date.strftime('%x'), '\n'.join(routes))
         return
 
-    if data:
+    if routes:
         notify(routes, date)
 
 
