@@ -4,7 +4,9 @@
 
 This script uses data from logs in BigQuery to compute our current uptime --
 see get_uptime_for_day for the details of the calculation -- and emails a
-summary of the last week's uptime to infrastructure-blackhole.  It runs on the
+summary of the last week's uptime to infrastructure-blackhole; the same data is
+included in the weekly reliability report as "non-degraded performance" which
+is really a better name for what this tries to measure anyway.  It runs on the
 7 days preceding the current UTC-day, so it should likely be run at least 2
 hours after UTC-midnight, to ensure all the logs have made it to BQ.
 """
@@ -66,6 +68,10 @@ def get_uptime_for_day(dt, sec_per_chunk, down_threshold):
       FROM [logs.requestlogs_%(yyyymmdd)s]
       WHERE
         instance_key IS NOT NULL
+        -- We only include requests to "user-facing" modules; others
+        -- don't necessarily indicate a user-visible problem.
+        AND module_id IN ('default', 'i18n', 'frontend-highmem',
+                          'multithreaded')
         -- We only include requests that actually started on the day in
         -- question.  This will exclude a few stragglers, so our data might be
         -- a little off for the last bucket of the day.
