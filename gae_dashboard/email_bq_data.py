@@ -915,6 +915,14 @@ ORDER BY
 
     latency_data = bq_util.get_daily_data('rrs_latency', yyyymmdd)
     if latency_data is None:
+        table_name = ("khan-academy:react_render_logs" +
+                      ".appengine_googleapis_com_nginx_request_{}"
+                      ).format(yyyymmdd)
+        table_exists = bq_util.does_table_exist(table_name)
+        if not table_exists:
+            print "The RRS logs were not generated. No email will be sent."
+            print "Returning..."
+            return
         latency_data = bq_util.query_bigquery(latency_q)
         bq_util.save_daily_data(latency_data, 'rrs_latency', yyyymmdd)
 

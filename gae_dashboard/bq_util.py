@@ -17,7 +17,8 @@ class BQException(Exception):
     pass
 
 
-def call_bq(subcommand_list, project, return_output=True, **kwargs):
+def call_bq(subcommand_list, project, return_output=True,
+            raise_exception=True, **kwargs):
     """subcommand_list is, e.g. ['query', '--allow_large_results', ...]."""
     _BQ = ['bq', '-q', '--headless', '--project_id', project]
     try:
@@ -37,8 +38,23 @@ def call_bq(subcommand_list, project, return_output=True, **kwargs):
                                   **kwargs)
             return
     except subprocess.CalledProcessError as e:
-        print 'BQ call failed with this output: %s' % e.output
-        raise
+        if raise_exception:
+            print 'BQ call failed with this output: %s' % e.output
+            raise
+        else:
+            # Do not raise an exception in this case.
+            return e.output
+
+
+def does_table_exist(table_name):
+    """Takes in a table name and checks if that table exists in BigQuery."""
+    result = call_bq(
+        ['show', table_name], project='khan-academy', raise_exception=False)
+
+    if "Not found: Table" in result:
+        return False
+    else:
+        return True
 
 
 def _get_data_filename(report, yyyymmdd):
