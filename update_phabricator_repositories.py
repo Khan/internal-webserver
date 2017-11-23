@@ -199,7 +199,9 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
         for uri_info in repo_info['attachments']['uris']['uris']:
             repo_url = uri_info['fields']['uri']['raw']
             repo_to_callsign_map[repo_url] = repo_info['fields']['callsign']
-            if repo_info['fields']['status'] == 'active':
+            # We only care about uri's that are tracking a github url.
+            if (repo_info['fields']['status'] == 'active' and
+                    uri_info['fields']['io']['effective'] == 'observe'):
                 tracked_phabricator_repos.add(repo_url)
 
     phabricator_repos = frozenset(repo_to_callsign_map)
