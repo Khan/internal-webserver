@@ -107,10 +107,11 @@ def _time_t_of_latest_successful_run():
         The time_t (# of seconds since the UNIX epoch in UTC) or None if
         there is no previous record.
     """
-    if os.path.exists(_LAST_RECORD_DB):
+    try:
         with open(_LAST_RECORD_DB) as f:
             return int(f.read().strip())
-    return None
+    except (IOError, OSError, ValueError, TypeError):
+        return None
 
 
 def _write_time_t_of_latest_successful_run(time_t):
