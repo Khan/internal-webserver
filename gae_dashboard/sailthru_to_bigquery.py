@@ -352,7 +352,7 @@ def _send_campaign_report(status, start_date, end_date, temp_dir, verbose,
 
 if __name__ == "__main__":
     # Create a temp directory to hold temporary files
-    temp_dir = tempfile.mkdtemp("temp_data_dir")
+    temp_dir = tempfile.mkdtemp("temp_data_dir", dir="/mnt/sailthru_tmp")
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--verbose', '-v', action='store_true',
