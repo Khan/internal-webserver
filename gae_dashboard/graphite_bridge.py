@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
-# pep8-disable:E128
 
 """Send HostedGraphite metrics to Cloud Monitoring.
 
@@ -104,19 +102,30 @@ def _default_metrics():
     """List of Metrics to export."""
 
     metrics = [
-        Metric(
-            'webapp.gae.dashboard.summary.default_module.'
-            'milliseconds_per_dynamic_request.pct50',
-            name='default_module.average_latency_ms'),
-        Metric(
-            'webapp.gae.dashboard.summary.batch_module.'
-            'milliseconds_per_dynamic_request.pct50',
-            name='batch_module.average_latency_ms'),
-        _historical_ratio_metric(
-            'webapp.gae.dashboard.summary.batch_module.'
-            'milliseconds_per_dynamic_request.pct50',
-            name='batch_module.average_latency_ms.week_over_week',
-            timeshift='7d'),
+        # These three metrics are temporarily disabled because the graphite
+        # endpoint is telling us one of them is malformed and returns no
+        # response at all for the other two, which breaks the rest of this
+        # script.
+        # It appears we're not actually getting any data into graphite for
+        # these either, so there's no additional harm in disabling them to get
+        # the rest of the script back up and running.
+        # See INFRA-435 for more information on the malformed metric
+        # investigation.
+        # TODO(colin): figure out what's going on with these, both on the
+        # querying and sending data and fix this: INFRA-440.
+        # Metric(
+        #     'webapp.gae.dashboard.summary.default_module.'
+        #     'milliseconds_per_dynamic_request.pct50',
+        #     name='default_module.average_latency_ms'),
+        # Metric(
+        #     'webapp.gae.dashboard.summary.batch_module.'
+        #     'milliseconds_per_dynamic_request.pct50',
+        #     name='batch_module.average_latency_ms'),
+        # _historical_ratio_metric(
+        #     'webapp.gae.dashboard.summary.batch_module.'
+        #     'milliseconds_per_dynamic_request.pct50',
+        #     name='batch_module.average_latency_ms.week_over_week',
+        #     timeshift='7d'),
 
         # Week-over-week change for BigBingo conversions.
         _historical_ratio_metric(
@@ -201,7 +210,7 @@ def _historical_ratio_metric(target, name, timeshift='7d'):
 
 
 def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
-                                window_seconds=300, dry_run=False):
+                                 window_seconds=300, dry_run=False):
     targets = [m.target for m in metrics]
     from_str = '-%ss' % window_seconds
     response = graphite_util.fetch(graphite_host, targets, from_str=from_str)
