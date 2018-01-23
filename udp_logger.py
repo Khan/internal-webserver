@@ -2,6 +2,7 @@
 
 """Read a UDP packet on a given port and log it to a logfile."""
 
+import datetime
 import socket
 
 
@@ -11,7 +12,8 @@ def listen_and_log(interface, port, logfile):
     sock.bind((interface, port))
     while True:
         (data, (ip, port)) = sock.recvfrom(1024)  # buffer size is 1024 bytes
-        logfile.write("%s %s\n" % (ip, data))
+        now = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        logfile.write("%s %s %s\n" % (now, ip, data))
         logfile.flush()
 
 
