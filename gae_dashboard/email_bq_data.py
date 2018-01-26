@@ -335,7 +335,7 @@ def _embed_images_to_mime(html, images):
 # There are two factors to consider here:
 # 1) Our machines use an instance_class more powerful than F1, so
 # we pay a multiple of the cost.  This is based on the chart at
-#   https://cloud.google.com/appengine/docs/python/modules/#Python_Instance_scaling_and_class
+#   https://cloud.google.com/appengine/pricing#standard_instance_pricing
 # 2) Our modules do not have perfect scheduling, so their utilization
 # is typically less than 1.  We pay for that unused time, so I spread
 # it out over each request.  On the other hand, some of our modules
@@ -363,13 +363,16 @@ SELECT module_id,
 WHERE utilization > 0.1
 GROUP BY module_id
 """
+# Utilization was last updated 2018-01-26 using log data averages from
+# 2018-01-18 to 2018-01-24.
+# Instance classes were last updated 2018-01-26.
 _MODULE_CPU_COUNT = {
-    'default': 4 / 0.555,
-    'i18n': 4 / 0.601,
-    'frontend-highmem': 4 / 0.413,
-    'batch': 2 / 3.232,
-    'highmem': 8 / 0.528,
-    'multithreaded': 4 / 2.996,
+    'default': 4 / 0.42,
+    'i18n': 6 / 0.223,
+    'frontend-highmem': 6 / 0.367,
+    'batch': 4 / 0.89,
+    'highmem': 8 / 0.157,
+    'multithreaded': 4 / 0.182,
     }
 
 
@@ -425,7 +428,8 @@ ORDER BY instance_hours DESC
               'last 2 weeks (per request)', 'url_route')
 
     subject = 'Instance Hours by Route - '
-    heading = 'Instance hours by route for %s' % _pretty_date(yyyymmdd)
+    heading = 'Cost-normalized instance hours by route for %s' % (
+        _pretty_date(yyyymmdd))
     all_data = _convert_table_rows_to_lists(data, _ORDER)
     # Let's just send the top most expensive routes, not all of them.
     _send_email({heading: all_data[:50]}, None,
