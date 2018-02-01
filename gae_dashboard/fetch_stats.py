@@ -30,7 +30,9 @@ def _time_t_of_latest_record():
     """
     if os.path.exists(_LAST_RECORD_DB):
         with open(_LAST_RECORD_DB) as f:
-            return int(f.read().strip())
+            contents = f.read().strip()
+            if contents:     # sometimes it's the empty file somehow. :-(
+                return int(contents)
     return None
 
 
