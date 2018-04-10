@@ -12,6 +12,7 @@ import optparse
 import os
 import re
 import sys
+import time
 import urllib2
 
 
@@ -35,6 +36,7 @@ def _get_with_retries(url, github_token=None, max_tries=3):
             if i == max_tries - 1:   # are not going to retry again
                 print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
                 raise
+            time.sleep(i * i)     # quadratic backoff
 
 
 def _get_full(github_path, github_token=None, max_tries=3, verbose=False):
