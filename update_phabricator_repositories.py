@@ -50,6 +50,7 @@ def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
                 raise
             if verbose:
                 print 'Error running "%s": %s.  Retrying' % (cmd, why)
+            time.sleep(i * i)     # quadratic backoff
 
 
 def _create_new_phabricator_callsign(repo_name, vcs_type, existing_callsigns):
