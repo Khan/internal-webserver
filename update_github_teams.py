@@ -97,7 +97,15 @@ def _get_team_repos(teams_info, team_name, github_token, verbose):
     return (team_name, team_id, team_repos)
 
 
-def main(dry_run, verbose):
+def main(status_file, dry_run, verbose):
+    try:
+        with open(status_file) as f:
+            all_repos_previous_run = frozenset(json.load(f)['repos'])
+    except Exception:
+        # If we can't read the old data for *any* reason, we just
+        # ignore it; it's an optimization anyway.
+        all_repos_previous_run = frozenset()
+
     # Use the token-based basic-oauth scheme described at
     #   https://developer.github.com/v3/auth/#via-oauth-tokens
     with open(os.path.expanduser('~/github.team_token')) as f:
@@ -106,7 +114,9 @@ def main(dry_run, verbose):
     # Get a list of all the repos we have.
     repo_info = _get_full('/orgs/Khan/repos',
                           github_token=github_token, verbose=verbose)
-    all_repos = set(r['full_name'] for r in repo_info)
+    all_repos = frozenset(r['full_name'] for r in repo_info)
+    if all_repos == all_repos_previous_run:
+        return    # nothing to do -- no new repos have been added
 
     # Get a list of all our teams.
     teams = _get_full('/orgs/Khan/teams',
@@ -126,10 +136,20 @@ def main(dry_run, verbose):
                     _put('/teams/%s/repos/%s' % (team_id, repo),
                          github_token=github_token, verbose=verbose)
 
+    if status_file and not dry_run:
+        with open(status_file, 'w') as f:
+            json_data = {'repos': sorted(all_repos)}
+            json.dump(json_data, f, sort_keys=True, indent=2)
+
 
 if __name__ == '__main__':
-    usage = '%prog [options] <the root-directory of all repositories>'
+    usage = '%prog [options]'
     parser = optparse.OptionParser(usage=usage)
+    parser.add_option('-f', '--status-file',
+                      help=('When set, reads the list of repos from this file,'
+                            ' and early-exits if the current list of repos'
+                            ' matches. Also updates the file to hold the'
+                            ' current list of repos'))
     parser.add_option('-v', '--verbose', action='store_true',
                       help='More verbose output')
     parser.add_option('-n', '--dry_run', action='store_true',
@@ -138,4 +158,6 @@ if __name__ == '__main__':
     if options.dry_run:
         options.verbose = True
 
-    sys.exit(main(dry_run=options.dry_run, verbose=options.verbose))
+    sys.exit(main(options.status_file,
+                  dry_run=options.dry_run,
+                  verbose=options.verbose))
