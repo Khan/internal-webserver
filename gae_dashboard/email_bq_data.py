@@ -1001,8 +1001,11 @@ def main():
         print 'Emailing out-of-memory info'
         email_out_of_memory_errors(date, dry_run=args.dry_run)
 
-        print 'Emailing memory profiling info'
-        email_memory_increases(date, dry_run=args.dry_run)
+        # Commenting this out as it's causing "query too large"
+        # errors in bigquery, and we never look at it anyway.
+        if False:
+            print 'Emailing memory profiling info'
+            email_memory_increases(date, dry_run=args.dry_run)
 
         print 'Emailing client API usage info'
         email_client_api_usage(date, dry_run=args.dry_run)
