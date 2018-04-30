@@ -211,6 +211,20 @@
         "ignore4xx5xx": true
     },
     {
+        "metricName": "logs.conversions.google_login.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"login_google_button_clicked\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true,
+        "ignore4xx5xx": true
+    },
+    {
+        "metricName": "logs.conversions.facebook_login.week_over_week",
+        "query": "SUM(log_messages CONTAINS '\"conversion\": \"login_facebook_button_clicked’\"')",
+        "normalizeByDaysAgo": 7,
+        "normalizeByRequests": true,
+        "ignore4xx5xx": true
+    },
+    {
         "metricName": "logs.line_count.week_over_week",
         "query": "COUNT(*)",
         "normalizeByDaysAgo": 7,
