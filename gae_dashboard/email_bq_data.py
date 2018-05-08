@@ -22,6 +22,7 @@ import smtplib
 import subprocess
 import textwrap
 import time
+import urllib
 
 import bq_util
 import cloudmonitoring_util
@@ -45,6 +46,11 @@ def _is_number(s):
 
 def _pretty_date(yyyymmdd):
     return '%s-%s-%s' % (yyyymmdd[0:4], yyyymmdd[4:6], yyyymmdd[6:8])
+
+
+def _unescape_data(data, key):
+    for row in data:
+        row[key] = urllib.unquote(row[key])
 
 
 def _by_initiative(data, key='url_route', by_package=False):
@@ -376,7 +382,7 @@ _MODULE_CPU_COUNT = {
     }
 
 
-def email_instance_hours(date, dry_run=False):
+def email_instance_hours(date, dry_run=False, unescape=False):
     """Email instance hours report for the given datetime.date object."""
     yyyymmdd = date.strftime("%Y%m%d")
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
@@ -402,6 +408,8 @@ GROUP BY url_route
 ORDER BY instance_hours DESC
 """ % (cost_fn, yyyymmdd)
     data = bq_util.query_bigquery(query)
+    if unescape:
+        _unescape_data(data, 'url_route')
     bq_util.save_daily_data(data, "instance_hours", yyyymmdd)
     historical_data = bq_util.process_past_data(
         "instance_hours", date, 14, lambda row: row['url_route'])
@@ -453,7 +461,7 @@ ORDER BY instance_hours DESC
                                dry_run=dry_run)
 
 
-def email_rpcs(date, dry_run=False):
+def email_rpcs(date, dry_run=False, unescape=False):
     """Email RPCs-per-route report for the given datetime.date object.
 
     Also email a more urgent message if one of the RPCs is too expensive.
@@ -499,6 +507,8 @@ FROM (
 ORDER BY tcost.rpc_cost DESC;
 """ % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
     data = bq_util.query_bigquery(query)
+    if unescape:
+        _unescape_data(data, 'url_route')
     bq_util.save_daily_data(data, "rpcs", yyyymmdd)
     historical_data = bq_util.process_past_data(
         "rpcs", date, 14, lambda row: row['url_route'])
@@ -563,7 +573,7 @@ ORDER BY tcost.rpc_cost DESC;
                     dry_run=dry_run)
 
 
-def email_out_of_memory_errors(date, dry_run=False):
+def email_out_of_memory_errors(date, dry_run=False, unescape=False):
     # This sends two emails, for two different ways of seeing the data.
     # But we'll have them share the same subject so they thread together.
     yyyymmdd = date.strftime("%Y%m%d")
@@ -633,6 +643,8 @@ GROUP BY module_id, url_route
 ORDER BY count_ DESC
 """ % yyyymmdd
     data = bq_util.query_bigquery(query)
+    if unescape:
+        _unescape_data(data, 'url_route')
     bq_util.save_daily_data(data, "out_of_memory_errors_by_route", yyyymmdd)
     historical_data = bq_util.process_past_data(
         "out_of_memory_errors_by_route", date, 14,
@@ -674,7 +686,7 @@ ORDER BY count_ DESC
 
 
 def email_memory_increases(date, window_length=20, min_increase_in_mb=1,
-                           dry_run=False):
+                           dry_run=False, unescape=False):
     """Emails the increases in memory caused by particular routes.
 
     It attempts to compute the amount of memory ignoring memory which is
@@ -827,7 +839,7 @@ ORDER BY added_total DESC
                     dry_run=dry_run)
 
 
-def email_client_api_usage(date, dry_run=False):
+def email_client_api_usage(date, dry_run=False, unescape=False):
     """Emails a report of API usage, segmented by client and build version."""
     yyyymmdd = date.strftime("%Y%m%d")
 
@@ -853,6 +865,8 @@ GROUP BY client, build, route
 ORDER BY client DESC, build DESC, request_count DESC;
 """ % {'ios_user_agent_regex': ios_user_agent_regex, 'date_format': yyyymmdd}
     data = bq_util.query_bigquery(query)
+    if unescape:
+        _unescape_data(data, 'route')
     bq_util.save_daily_data(data, "client_api_usage", yyyymmdd)
 
     _ORDER = ('client', 'build', 'route', 'request_count')
@@ -875,7 +889,7 @@ ORDER BY client DESC, build DESC, request_count DESC;
                     dry_run=dry_run)
 
 
-def email_rrs_stats(date, dry_run=False):
+def email_rrs_stats(date, dry_run=False, unescape=False):
     """Emails stats about rrs requests that are too slow or have errors.
 
     Requests that take longer than one second are timed out and thus simply add
@@ -984,22 +998,31 @@ def main():
                         choices=reports)
     parser.add_argument('--dry-run', '-n', action='store_true',
                         help="Say what we would do but don't actually do it.")
+
+    # This option should be used to recover from bad data in the request logs
+    # During May 1-3, 2018. Use this option in conjunction with --date and
+    # --dry-run to create clean stored data for the affected dates.
+    parser.add_argument('--unescape-routes', action='store_true',
+                        help='Unescape elog_url_route.')
     args = parser.parse_args()
     date = datetime.datetime.strptime(args.date, "%Y%m%d")
 
     if args.report:
         report_method = globals()[args.report]
         print 'Emailing %s info' % args.report
-        report_method(date, dry_run=args.dry_run)
+        report_method(date, dry_run=args.dry_run,
+                      unescape=args.unescape_routes)
     else:
         print 'Emailing instance hour info'
-        email_instance_hours(date, dry_run=args.dry_run)
+        email_instance_hours(date, dry_run=args.dry_run,
+                             unescape=args.unescape_routes)
 
         print 'Emailing rpc stats info'
-        email_rpcs(date, dry_run=args.dry_run)
+        email_rpcs(date, dry_run=args.dry_run, unescape=args.unescape_routes)
 
         print 'Emailing out-of-memory info'
-        email_out_of_memory_errors(date, dry_run=args.dry_run)
+        email_out_of_memory_errors(date, dry_run=args.dry_run,
+                                   unescape=args.unescape_routes)
 
         # Commenting this out as it's causing "query too large"
         # errors in bigquery, and we never look at it anyway.
@@ -1008,7 +1031,8 @@ def main():
             email_memory_increases(date, dry_run=args.dry_run)
 
         print 'Emailing client API usage info'
-        email_client_api_usage(date, dry_run=args.dry_run)
+        email_client_api_usage(date, dry_run=args.dry_run,
+                               unescape=args.unescape_routes)
 
         print 'Emailing react render server info'
         email_rrs_stats(date, dry_run=args.dry_run)
