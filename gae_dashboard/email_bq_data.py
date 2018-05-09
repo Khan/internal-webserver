@@ -395,6 +395,7 @@ FROM (
          MAX(latency) AS latency,
          FIRST(url_map_entry) AS url_map_entry
   FROM [logs.requestlogs_%s]
+  WHERE LEFT(version_id, 3) != 'znd' # ignore znds
   GROUP BY request_id
 )
 WHERE url_map_entry != "" # omit static files
@@ -491,6 +492,7 @@ FROM (
     FROM (
         SELECT FIRST(elog_url_route) AS elog_url_route
         FROM [logs.requestlogs_%s]
+        WHERE LEFT(version_id, 3) != 'znd' # ignore znds
         GROUP BY request_id
     )
     GROUP BY url_route
@@ -626,6 +628,7 @@ FROM (
                app_logs.message CONTAINS 'Exceeded soft private memory limit',
                1, 0)) AS oom_message_count
     FROM [logs.requestlogs_%s]
+    WHERE LEFT(version_id, 3) != 'znd' # ignore znds
     GROUP BY request_id
     HAVING oom_message_count > 0
 )
@@ -849,6 +852,7 @@ FROM logs.requestlogs_%(date_format)s
 WHERE REGEXP_MATCH(elog_url_route, '^api.main:/api/internal')
     AND user_agent IS NOT NULL
     AND elog_url_route IS NOT NULL
+    AND LEFT(version_id, 3) != 'znd' # ignore znds
 GROUP BY client, build, route
 ORDER BY client DESC, build DESC, request_count DESC;
 """ % {'ios_user_agent_regex': ios_user_agent_regex, 'date_format': yyyymmdd}
