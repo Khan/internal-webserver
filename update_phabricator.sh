@@ -82,13 +82,13 @@ ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/phabricator.pem" \
     git checkout master; \
     git pull; \
     git submodule update --init --recursive; \
-    PHABRICATOR_ENV=khan phabricator/bin/phd stop; \
+    sudo service phd stop; \
     sudo service nginx stop; \
     sudo service php5-fpm stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
     sudo service php5-fpm start; \
     sudo service nginx start; \
-    PHABRICATOR_ENV=khan phabricator/bin/phd start; \
+    sudo service phd start; \
    "
 
 echo "DONE!"
