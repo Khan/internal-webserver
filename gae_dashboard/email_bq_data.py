@@ -205,7 +205,10 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
                     else:
                         # The column was a regular string, and might have
                         # HTML-like characters, so escape those.
+                        # We also need to escape %'s, since all of `body`
+                        # will be subject to string-interpolation in a bit.
                         col = cgi.escape(col)
+                        col = col.replace('%', '%%')
                     body.append('<td style="%s">%s</td>' % (style, col))
                 body.append('</tr>')
             body.append('</tbody>')
@@ -1006,9 +1009,10 @@ ORDER BY
   cost_usd DESC
 """ % (yyyymmdd)
     data = bq_util.query_bigquery(query)
+    data = [row for row in data if row['firstword'] not in (None, '(None)')]
     bq_util.save_daily_data(data, "log_bytes", yyyymmdd)
     historical_data = bq_util.process_past_data(
-        "log_bytes", date, 14, lambda row: row['url_route'])
+        "log_bytes", date, 14, lambda row: row['firstword'])
 
     # Munge the table by adding a few columns.
     total_bytes = 0.0
@@ -1025,6 +1029,9 @@ ORDER BY
             else:
                 sparkline_data.append(None)
         row['last 2 weeks'] = sparkline_data
+        # While we're here, truncate the sample-logline, since it can get
+        # really long.
+        row['sample_logline'] = row['sample_logline'][:80]
 
     _ORDER = ('%% of total', 'size_mb', 'cost_usd',
               'last 2 weeks', 'firstword', 'sample_logline')
