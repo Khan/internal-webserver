@@ -866,7 +866,7 @@ ORDER BY client DESC, build DESC, request_count DESC;
     heading = 'API usage by client for %s' % _pretty_date(yyyymmdd)
     _send_email({heading: all_data}, None,
                 to=[initiatives.email('infra')],
-                subject=subject + 'All', 
+                subject=subject + 'All',
                 dry_run=dry_run)
 
     # Per-initiative reports
@@ -881,6 +881,8 @@ ORDER BY client DESC, build DESC, request_count DESC;
 
 def email_rrs_stats(date, dry_run=False):
     """Emails stats about rrs requests that are too slow or have errors.
+
+    rrs == React Render Server.
 
     Requests that take longer than one second are timed out and thus simply add
     a second to the reponse, rather than speeding it up.
@@ -974,6 +976,83 @@ ORDER BY
                 subject=subject + 'All', dry_run=dry_run)
 
 
+def email_applog_sizes(date, dry_run=False):
+    """Email app-log report for the given datetime.date object.
+
+    This report says how much we are logging (via logging.info()
+    and friends), grouped by the first word of the log message.
+    (Which usually, but not always, is a good proxy for a single
+    log-message in our app.)  Since we pay per byte logged, we
+    want to make sure we're not accidentally logging a single
+    log message a ton, which is really easy to do.
+    """
+    yyyymmdd = date.strftime("%Y%m%d")
+    query = """\
+SELECT
+  COUNT(*) AS count_,
+  REGEXP_EXTRACT(app_logs.message, r'^([a-zA-Z0-9_-]*)') AS firstword,
+  SUM(LENGTH(app_logs.message)) / 1024 / 1024 AS size_mb,
+  -- This cost comes from https://cloud.google.com/stackdriver/pricing_v2:
+  -- "Stackdriver Logging: $0.50/GB".  But it seems like app-log messages
+  -- are actually encoded *twice* in the logging data, based on our
+  -- best model of app-log sizes vs num-requests vs costs in the billing
+  -- reports, so we assume our cost is $1/GB.
+  SUM(LENGTH(app_logs.message)) / 1024 / 1024 / 1024 AS cost_usd
+FROM
+  logs.requestlogs_%s
+GROUP BY
+  firstword
+ORDER BY
+  cost_usd DESC
+""" % (yyyymmdd)
+    data = bq_util.query_bigquery(query)
+    bq_util.save_daily_data(data, "log_bytes", yyyymmdd)
+    historical_data = bq_util.process_past_data(
+        "log_bytes", date, 14, lambda row: row['url_route'])
+
+    # Munge the table by adding a few columns.
+    total_bytes = 0.0
+    for row in data:
+        total_bytes += row['size_mb']
+
+    for row in data:
+        row['%% of total'] = row['size_mb'] / total_bytes * 100
+        row['per 1k requests'] = row['size_mb'] / row['count_'] * 1000
+        sparkline_data = []
+        for old_data in historical_data:
+            old_row = old_data.get(row['firstword'])
+            if old_row:
+                sparkline_data.append(
+                    old_row['size_mb'] / old_row['count_'])
+            else:
+                sparkline_data.append(None)
+        row['last 2 weeks (per request)'] = sparkline_data
+
+    _ORDER = ('%% of total', 'size_mb', 'cost_usd', 'count_',
+              'per 1k requests', 'last 2 weeks (per request)', 'firstword')
+
+    subject = 'Log-bytes by first word of log-message - '
+    heading = 'Cost-normalized log-bytes by firstword for %s' % (
+        _pretty_date(yyyymmdd))
+    all_data = _convert_table_rows_to_lists(data, _ORDER)
+    # Let's just send the top most expensive routes, not all of them.
+    _send_email({heading: all_data[:50]}, None,
+                to=[initiatives.email('infra')],
+                subject=subject + 'All',
+                dry_run=dry_run)
+
+    # As of 1 Jun 2018, the most expensive firstword costs about
+    # $2/day.  More than $20 a day and we should be very suspicious.
+    if any(row[2] > 20 for row in all_data[1:]):    # ignore the header line
+        _send_email({heading: all_data[:75]}, None,
+                    to=['infrastructure@khanacademy.org'],
+                    subject=('WARNING: some very expensive loglines on %s!'
+                             % _pretty_date(yyyymmdd)),
+                    dry_run=dry_run)
+
+    # TODO(csilvers): also send the most-expensive firstwords to stackdriver.
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--date', metavar='YYYYMMDD',
@@ -1016,6 +1095,9 @@ def main():
 
         print 'Emailing react render server info'
         email_rrs_stats(date, dry_run=args.dry_run)
+
+        print 'Emailing app-log sizes'
+        email_applog_sizes(date, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':
