@@ -1,3 +1,6 @@
+Deprecated!  A lot of things still live here, but please add new scripts/jobs
+to internal-services, located at: https://github.com/Khan/internal-services.
+
 To install a new internal-webserver machine, see the instructions in
    git@github.com:Khan/aws-config/toby/setup.sh
 
