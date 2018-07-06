@@ -76,7 +76,7 @@ def _get_client():
             call to return before aborting the request.
     """
     return sailthru_client.SailthruClient(_SAILTHRU_KEY, _SAILTHRU_SECRET,
-                                          timeout=20, retries=2)
+                                          timeout=40, retries=2)
 
 
 class SailthruAPIException(Exception):
