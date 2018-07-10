@@ -424,7 +424,8 @@ if __name__ == "__main__":
         _send_blast_details_to_bq(blast_id=args.blast_id,
                                   temp_file=temp_file,
                                   verbose=args.verbose,
-                                  dry_run=args.dry_run)
+                                  dry_run=args.dry_run,
+                                  keep_temp=args.keep_temp)
     elif args.subparser_name == 'campaigns':
         temp_file = os.path.join(temp_dir, "campaigns_export.json")
         _send_campaign_report(status=args.status,
@@ -432,7 +433,8 @@ if __name__ == "__main__":
                               end_date=args.end_date,
                               temp_file=temp_file,
                               verbose=args.verbose,
-                              dry_run=args.dry_run)
+                              dry_run=args.dry_run,
+                              keep_temp=args.keep_temp)
     else:
         # Call the script directly to generate the all campaigns table and
         # tables for blasts fired in the past 7 days.
