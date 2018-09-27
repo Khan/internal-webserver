@@ -363,21 +363,22 @@ SELECT module_id,
     FROM logs.requestlogs_YYYYMMDD
     WHERE instance_key is not null
     GROUP BY module_id, instance_key)
--- lame heuristic to try to discard idle instances, which
+-- poor heuristic to try to discard idle instances, which
 -- we're not charged for and can go hours between requests:
 WHERE utilization > 0.1
 GROUP BY module_id
 """
-# Utilization was last updated 2018-01-26 using log data averages from
-# 2018-01-18 to 2018-01-24.
-# Instance classes were last updated 2018-01-26.
+# Utilization was last updated 2018-09-27 using log data averages from
+# 2018-09-20 to 2018-09-26.
+# Instance classes were last updated 2018-09-27.
 _MODULE_CPU_COUNT = {
-    'default': 4 / 0.42,
-    'i18n': 6 / 0.223,
-    'frontend-highmem': 6 / 0.367,
-    'batch': 4 / 0.89,
-    'highmem': 8 / 0.157,
-    'multithreaded': 4 / 0.182,
+    'default': 4 / 0.347,
+    'es': 6 / 0.296,
+    'i18n': 6 / 0.306,
+    'frontend-highmem': 6 / 0.258,
+    'batch': 4 / 0.681,
+    'highmem': 8 / 0.183,
+    'multithreaded': 6 / 0.464,
 }
 
 
