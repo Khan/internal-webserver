@@ -356,7 +356,7 @@ SELECT module_id,
     -- min(start_time): when the instance was created
     -- max(end_time): when the instance died
     -- util_weight: to give more weight to longer-lived instances
-    SELECT module_id,
+    SELECT IFNULL(module_id, 'default') AS module_id,
            sum(latency - pending_time) / (max(end_time) - min(start_time))
              as utilization,
            max(end_time) - min(start_time) as util_weight
@@ -378,7 +378,7 @@ _MODULE_CPU_COUNT = {
     'batch': 4 / 0.89,
     'highmem': 8 / 0.157,
     'multithreaded': 4 / 0.182,
-    }
+}
 
 
 def email_instance_hours(date, dry_run=False):
@@ -396,7 +396,7 @@ FROM (
   -- This means the total latency is the maximum value that appears, not the
   -- sum.
   SELECT FIRST(elog_url_route) AS elog_url_route,
-         FIRST(module_id) AS module_id,
+         FIRST(IFNULL(module_id, 'default')) AS module_id,
          MAX(latency) AS latency,
          FIRST(url_map_entry) AS url_map_entry
   FROM [logs.requestlogs_%s]
@@ -577,19 +577,19 @@ def email_out_of_memory_errors(date, dry_run=False):
     subject = 'OOM errors - '
 
     # Out-of-memory errors look like:
-    #   Exceeded soft private memory limit with 260.109 MB after servicing 2406 requests total  #@Nolint
-    # with SDK 1.9.7, they changed. Note the double-space after "after":
-    #   Exceeded soft private memory limit of 512 MB with 515 MB after  servicing 9964 requests total  #@Nolint
+    #   Exceeded soft memory limit of 2048 MB with 2078 MB after servicing 1497 requests total. Consider setting a larger instance class in app.yaml.  #@Nolint
+    # Note that older messages (before the gVisor sandboxs) started with
+    # "Exceeded soft private memory limit" instead.
     numreqs = r"REGEXP_EXTRACT(app_logs.message, r'servicing (\d+) requests')"
     query = """\
-SELECT COUNT(module_id) AS count_,
-       module_id,
+SELECT COUNT(1) AS count_,
+       IFNULL(module_id, 'default') AS module_id,
        NTH(10, QUANTILES(INTEGER(%s), 101)) as numserved_10th,
        NTH(50, QUANTILES(INTEGER(%s), 101)) as numserved_50th,
        NTH(90, QUANTILES(INTEGER(%s), 101)) as numserved_90th
 FROM [logs.requestlogs_%s]
-WHERE app_logs.message CONTAINS 'Exceeded soft private memory limit'
-      AND module_id IS NOT NULL
+WHERE app_logs.message CONTAINS 'Exceeded soft memory limit'
+  AND LEFT(version_id, 3) != 'znd' # ignore znds
 GROUP BY module_id
 ORDER BY count_ DESC
 """ % (numreqs, numreqs, numreqs, yyyymmdd)
@@ -627,10 +627,10 @@ SELECT COUNT(1) AS count_,
        module_id,
        elog_url_route AS url_route
 FROM (
-    SELECT FIRST(module_id) AS module_id,
+    SELECT FIRST(IFNULL(module_id, 'default')) AS module_id,
            FIRST(elog_url_route) AS elog_url_route,
            SUM(IF(
-               app_logs.message CONTAINS 'Exceeded soft private memory limit',
+               app_logs.message CONTAINS 'Exceeded soft memory limit',
                1, 0)) AS oom_message_count
     FROM [logs.requestlogs_%s]
     WHERE LEFT(version_id, 3) != 'znd' # ignore znds
@@ -759,7 +759,7 @@ FROM (
                 SELECT FIRST(instance_key) AS instance_key,
                        FIRST(start_time) AS start_time,
                        FIRST(elog_url_route) AS elog_url_route,
-                       FIRST(module_id) AS module_id,
+                       FIRST(IFNULL(module_id, 'default')) AS module_id,
                        SUM(IF(
                            app_logs.message CONTAINS 'This request added',
                            FLOAT(REGEXP_EXTRACT(
