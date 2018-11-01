@@ -589,7 +589,7 @@ def memcache_total_cache_size_bytes(timeseries_getter):
 
 def main(project_id, graphite_host, interval_in_seconds=300,
          verbose=False, dry_run=False):
-    start_time_t = _time_t_of_latest_record() or _NOW - 86400 * 30
+    start_time_t = _time_t_of_latest_record() or _NOW - 60 * 5
     end_time_t = _NOW
 
     last_time_t_seen = start_time_t
@@ -623,7 +623,7 @@ if __name__ == '__main__':
                         help=('The cloud-monitoring project-id to fetch '
                               'stats for (Default: %(default)s)'))
     parser.add_argument('--graphite_host',
-                        default='carbon.hostedgraphite.com:2004',
+                        default='3f78024c.carbon.hostedgraphite.com:2004',
                         help=('host:port to send stats to graphite '
                               '(using the pickle protocol). '
                               '(Default: %(default)s)'))
