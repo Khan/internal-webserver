@@ -55,17 +55,18 @@ WHERE
 """
 
 
-def notify(routes, date):
+def notify(route_data, date):
+    lines = ['`{}` ({} requests total)'.format(d['route'], d['total_reqs'])
+             for d in route_data]
     msg = 'Route{} did not return any 2xx responses on {}:\n{}'.format(
-        's' if len(routes) > 1 else '',
-        date.strftime('%x'),
-        '\n'.join(['`{}`'.format(route) for route in routes]))
+        's' if len(route_data) > 1 else '',
+        date.strftime('%x'), '\n'.join(lines))
     alert = alertlib.Alert(msg, severity=logging.ERROR)
     alert.send_to_slack(channel='#infrastructure-alerts', simple_message=True)
 
-    for route in routes:
-        initiative = initiatives.route_owner(route)
-        msg = 'No 2xx on route `{}`'.format(route)
+    for route_data in route_data:
+        initiative = initiatives.route_owner(route_data['route'])
+        msg = 'No 2xx on route `{}`'.format(route_data['route'])
         alert = alertlib.Alert(msg, summary=msg, severity=logging.ERROR)
         alert.send_to_alerta(initiative=initiative['title'],
                              resource='webapp',
@@ -76,20 +77,24 @@ def check(date, dry_run=False):
     yyyymmdd = date.strftime("%Y%m%d")
     q = QUERY.format(yyyymmdd)
     data = bq_util.query_bigquery(q)
-    routes = [row['route'] for row in data
-              if not row['route'] in ROUTES_EXPECTED_TO_FAIL]
+    route_data = [row for row in data
+                  if not row['route'] in ROUTES_EXPECTED_TO_FAIL]
 
     if dry_run:
-        if not routes:
+        if not route_data:
             print 'No routes with no 2xx requests for {}'.format(
                 date.strftime('%x'))
         else:
+            lines = [
+                '{} ({} requests total)'.format(d['route'], d['total_reqs'])
+                for d in route_data
+            ]
             print 'Routes with no 2xx requests for {}:\n{}'.format(
-                date.strftime('%x'), '\n'.join(routes))
+                date.strftime('%x'), '\n'.join(lines))
         return
 
-    if routes:
-        notify(routes, date)
+    if route_data:
+        notify(route_data, date)
 
 
 def main():
