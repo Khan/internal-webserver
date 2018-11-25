@@ -40,11 +40,11 @@ SELECT
 FROM (
   SELECT
     elog_url_route AS route,
-    SUM(IF((status >= 200 AND status < 400) OR status IN (401, 404, 405, 501),
-            1, 0)) AS ok_reqs,
-    SUM(IF(elog_device_type is NULL or elog_device_type = "bot/dev",
-           1, 0)) as bot_reqs,
-    COUNT(distinct IP) as num_ips,
+    SUM((status >= 200 AND status < 400) OR status IN (401, 404, 405, 501))
+        AS ok_reqs,
+    SUM(elog_device_type is NULL or elog_device_type = "bot/dev")
+        AS bot_reqs,
+    COUNT(distinct IP) AS num_ips,
     SUM(1) AS total_reqs
   FROM
     [khanacademy.org:deductive-jet-827:logs.requestlogs_{}]
