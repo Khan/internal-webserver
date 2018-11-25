@@ -34,19 +34,17 @@ QUERY = """\
 SELECT
   route,
   ok_reqs,
-  total_reqs,
-  bot_reqs
+  bot_reqs,
+  num_ips,
+  total_reqs
 FROM (
   SELECT
     elog_url_route AS route,
-    SUM(IF((status >= 200
-          AND status < 400)
-        OR status IN (401,
-          404,
-          405,
-          501), 1, 0)) AS ok_reqs,
-    SUM(IF(elog_device_type is NULL or elog_device_type = "bot/dev", 1, 0))
-        as bot_reqs,
+    SUM(IF((status >= 200 AND status < 400) OR status IN (401, 404, 405, 501),
+            1, 0)) AS ok_reqs,
+    SUM(IF(elog_device_type is NULL or elog_device_type = "bot/dev",
+           1, 0)) as bot_reqs,
+    COUNT(distinct IP) as num_ips,
     SUM(1) AS total_reqs
   FROM
     [khanacademy.org:deductive-jet-827:logs.requestlogs_{}]
@@ -55,16 +53,34 @@ FROM (
 WHERE
   ok_reqs = 0
   AND total_reqs > 0
+  -- We ignore errors that are just from bots
+  AND total_reqs > bot_reqs
+  -- If it's just one bad IP, it's likely just a bad client of some
+  -- sort, so we ignore it.
+  AND num_ips > 1
 """
 
 
+def _plural(s, num):
+    # Totally skeezy, but works for our purposes.
+    return s if num == 1 else s + 's'
+
+
+def _errors(route_data):
+    return [
+        '`{}` ({} {} total, {} of them bots, {} unique {})'.format(
+            d['route'],
+            d['total_reqs'], _plural('request', d['total_reqs']),
+            d['bot_reqs'],
+            d['num_ips'], _plural('IP', d['num_ips']))
+        for d in route_data
+    ]
+
+
 def notify(route_data, date):
-    lines = ['`{}` ({} requests total, {} of them bots)'.format(
-                 d['route'], d['total_reqs'], d['bot_reqs'])
-             for d in route_data]
-    msg = 'Route{} did not return any 2xx responses on {}:\n{}'.format(
-        's' if len(route_data) > 1 else '',
-        date.strftime('%x'), '\n'.join(lines))
+    msg = '{} did not return any 2xx responses on {}:\n{}'.format(
+        _plural('Route', len(route_data)),
+        date.strftime('%x'), '\n'.join(_errors(route_data)))
     alert = alertlib.Alert(msg, severity=logging.ERROR)
     alert.send_to_slack(channel='#infrastructure-alerts', simple_message=True)
 
@@ -89,13 +105,8 @@ def check(date, dry_run=False):
             print 'No routes with no 2xx requests for {}'.format(
                 date.strftime('%x'))
         else:
-            lines = [
-                '{} ({} requests total, {} of them bots)'.format(
-                    d['route'], d['total_reqs'], d['bot_reqs'])
-                for d in route_data
-            ]
             print 'Routes with no 2xx requests for {}:\n{}'.format(
-                date.strftime('%x'), '\n'.join(lines))
+                date.strftime('%x'), '\n'.join(_errors(route_data)))
         return
 
     if route_data:
