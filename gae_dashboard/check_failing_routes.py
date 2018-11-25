@@ -34,7 +34,8 @@ QUERY = """\
 SELECT
   route,
   ok_reqs,
-  total_reqs
+  total_reqs,
+  bot_reqs
 FROM (
   SELECT
     elog_url_route AS route,
@@ -44,6 +45,8 @@ FROM (
           404,
           405,
           501), 1, 0)) AS ok_reqs,
+    SUM(IF(elog_device_type is NULL or elog_device_type = "bot/dev", 1, 0))
+        as bot_reqs,
     SUM(1) AS total_reqs
   FROM
     [khanacademy.org:deductive-jet-827:logs.requestlogs_{}]
@@ -56,7 +59,8 @@ WHERE
 
 
 def notify(route_data, date):
-    lines = ['`{}` ({} requests total)'.format(d['route'], d['total_reqs'])
+    lines = ['`{}` ({} requests total, {} of them bots)'.format(
+                 d['route'], d['total_reqs'], d['bot_reqs'])
              for d in route_data]
     msg = 'Route{} did not return any 2xx responses on {}:\n{}'.format(
         's' if len(route_data) > 1 else '',
@@ -86,7 +90,8 @@ def check(date, dry_run=False):
                 date.strftime('%x'))
         else:
             lines = [
-                '{} ({} requests total)'.format(d['route'], d['total_reqs'])
+                '{} ({} requests total, {} of them bots)'.format(
+                    d['route'], d['total_reqs'], d['bot_reqs'])
                 for d in route_data
             ]
             print 'Routes with no 2xx requests for {}:\n{}'.format(
