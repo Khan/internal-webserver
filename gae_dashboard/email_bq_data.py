@@ -589,7 +589,8 @@ SELECT COUNT(1) AS count_,
        NTH(50, QUANTILES(INTEGER(%s), 101)) as numserved_50th,
        NTH(90, QUANTILES(INTEGER(%s), 101)) as numserved_90th
 FROM [logs.requestlogs_%s]
-WHERE app_logs.message CONTAINS 'Exceeded soft memory limit'
+WHERE (app_logs.message CONTAINS 'Exceeded soft memory limit'
+       OR app_logs.message CONTAINS 'OutOfMemoryError')
   AND LEFT(version_id, 3) != 'znd' # ignore znds
 GROUP BY module_id
 ORDER BY count_ DESC
@@ -631,7 +632,8 @@ FROM (
     SELECT IFNULL(FIRST(module_id), 'default') AS module_id,
            FIRST(elog_url_route) AS elog_url_route,
            SUM(IF(
-               app_logs.message CONTAINS 'Exceeded soft memory limit',
+               app_logs.message CONTAINS 'Exceeded soft memory limit'
+               OR app_logs.message CONTAINS 'OutOfMemoryError',
                1, 0)) AS oom_message_count
     FROM [logs.requestlogs_%s]
     WHERE LEFT(version_id, 3) != 'znd' # ignore znds
