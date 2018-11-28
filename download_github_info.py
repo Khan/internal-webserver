@@ -21,7 +21,7 @@ import sys
 import urllib2
 
 
-_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[^.]*)', re.I)
+_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_-]+)', re.I)
 
 
 def _parse_time(datetime_string):
@@ -46,8 +46,9 @@ def _get_with_retries(url, basic_auth=None, max_tries=3):
         except urllib2.URLError as why:
             # For HTTP rc of 4xx, retrying won't help
             if i == max_tries - 1 or getattr(why, 'code', 500) < 500:
-                if getattr(why, 'code', 500) != 404:
+                if getattr(why, 'code', 500) not in (404, 409):
                     # 404's are expected sometimes, so don't print.
+                    # Same is true for 409.
                     print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
                 raise
 
@@ -114,7 +115,13 @@ def _repos_this_repo_depends_on(repo, github_token, verbose):
     contents += _get_file_contents(repo, 'package.json', github_token, verbose)
     contents += _get_file_contents(repo, 'requirements.txt',
                                    github_token, verbose)
-    return _GITHUB_REPO.findall(contents)
+    retval = _GITHUB_REPO.findall(contents)
+
+    # A repo can't depend on itself, if it does it must be due to a comment.
+    if repo in retval:
+        retval.remove(repo)
+
+    return retval
 
 
 def _most_frequent_author(commit_info):
@@ -132,11 +139,18 @@ def _why_archive(repo_info, commit_info):
     been no commit in the last two months and there are <10 commits
     to the repo total.  (Indicating it was an abortive experiment.)
 
+    We also say yes if a repo is a fork but not used as a submodule
+    anywhere.  (For now, we assume nothing is used as a submodule;
+    we'll later fix up all the repos that actually are.)
+
     If we say yes, we return the reason why we think so.  Otherwise we
     return None.
     """
     last_push = _parse_time(repo_info['pushed_at'])
     now = datetime.datetime.now()
+
+    if repo_info['fork']:
+        return "An unused fork"
     if last_push < now - datetime.timedelta(days=365):
         return "Last-push is over a year ago"
     if last_push < now - datetime.timedelta(days=60) and len(commit_info) < 10:
@@ -158,14 +172,15 @@ def summarize_repo_info(github_token, verbose):
     print "done"
 
     # a list of all repos some other repo depends on, e.g. as a submodule
-    dependent_repos = {}
+    dependent_repo_ids = {}
     for (i, repo) in enumerate(repo_info):
         print ("Getting info for %s (%d of %d)..."
                % (repo['full_name'], i + 1, len(repo_info))),
         repo_name = repo['full_name']
+        repo_id = repo_name.lower()  # I think github urls are case-insensitive
         commit_info = _get_commit_info(repo_name, github_token, verbose)
         why_archive = _why_archive(repo, commit_info)
-        summaries[repo_name] = {
+        summaries[repo_id] = {
             'repo name': repo_name,
             'is a fork': 'yes' if repo['fork'] else 'no',
             'created': _parse_time(repo['created_at']).date(),
@@ -179,21 +194,23 @@ def summarize_repo_info(github_token, verbose):
         }
         for dependent_repo in _repos_this_repo_depends_on(
                 repo_name, github_token, verbose):
-            dependent_repos.setdefault(dependent_repo, set()).add(repo_name)
+            dependent_repo_id = dependent_repo.lower()
+            dependent_repo_ids.setdefault(dependent_repo_id, set()).add(
+                repo_name)
         print "done"
 
     # If a repo is used as a submodule for another repo, or is listed in
     # another repo's package.json, don't archive it; it's still active.
     # TODO(csilvers): maybe make sure the submodule-includer is active first?
-    for (repo_name, depending_repos) in dependent_repos.iteritems():
-        if repo_name in summaries:
-            summaries[repo_name]['archive?'] = 'no'
-            summaries[repo_name]['delete?'] = 'no'
+    for (repo_id, depending_repos) in dependent_repo_ids.iteritems():
+        if repo_id in summaries:
+            summaries[repo_id]['archive?'] = 'no'
+            summaries[repo_id]['delete?'] = 'no'
             if len(depending_repos) == 1:
-                summaries[repo_name]['comments'] = (
+                summaries[repo_id]['comments'] = (
                     '%s uses it' % list(depending_repos)[0])
             else:
-                summaries[repo_name]['comments'] = (
+                summaries[repo_id]['comments'] = (
                     '%s use it' % ' and '.join(sorted(depending_repos)))
 
     # We'll sort the repos by last_push_author for ease of reference.
