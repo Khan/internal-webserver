@@ -1,4 +1,4 @@
-#!/user/bin/env/python
+#!/usr/bin/env python
 
 """Set assignees for Sentry issues
 
