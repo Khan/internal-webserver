@@ -21,7 +21,7 @@ import sys
 import urllib2
 
 
-_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_-.]+)', re.I)
+_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_.-]+)', re.I)
 
 
 def _parse_time(datetime_string):
