@@ -53,7 +53,7 @@ def _get_with_retries(url, basic_auth=None, max_tries=3):
                 raise
 
 
-def _get_repos(github_token, verbose):
+def _get_repos(github_token, max_repos, verbose):
     """A dict holding summary info about each repo that we have."""
     # The per_page param helps us avoid github rate-limiting.  cf.
     #    http://developer.github.com/v3/#rate-limiting
@@ -61,7 +61,7 @@ def _get_repos(github_token, verbose):
     github_api_url = 'https://api.github.com/orgs/Khan/repos?per_page=100'
     github_repo_info = []
     # The results may span several pages, requiring several fetches.
-    while github_api_url:
+    while github_api_url and len(github_repo_info) < max_repos:
         if verbose:
             print 'Fetching url %s' % github_api_url
         # Use the token-based basic-oauth scheme described at
@@ -73,7 +73,7 @@ def _get_repos(github_token, verbose):
         m = re.search('<([^>]*)>; rel="next"', response.info().get('Link', ''))
         github_api_url = m and m.group(1)
 
-    return github_repo_info
+    return github_repo_info[:max_repos]
 
 
 def _get_commit_info(repo, github_token, verbose):
@@ -130,6 +130,11 @@ def _repos_this_repo_depends_on(repo, github_token, verbose):
     return retval
 
 
+def _is_uploaded_to_appengine(repo, github_token, verbose):
+    contents = _get_file_contents(repo, 'app.yaml', github_token, verbose)
+    return bool(contents)
+
+
 def _most_frequent_author(commit_info):
     """The most-seen author-email in all the commits in commit_info."""
     if not commit_info:
@@ -165,7 +170,13 @@ def _why_archive(repo_info, commit_info):
     return None
 
 
-def summarize_repo_info(github_token, verbose):
+def _set_do_not_archive(summary_dict, reason):
+    summary_dict['archive?'] = 'no'
+    summary_dict['delete?'] = 'no'
+    summary_dict['comments'] = reason
+
+
+def summarize_repo_info(github_token, max_repos, verbose):
     """Return a pair: (ordered list of csv column headers, list of dicts)."""
     header = ['repo name', 'archive?', 'delete?',
               'created', 'last push', 'is a fork',
@@ -174,7 +185,7 @@ def summarize_repo_info(github_token, verbose):
     summaries = {}
 
     print "Getting list of repos...",
-    repo_info = _get_repos(github_token, verbose)
+    repo_info = _get_repos(github_token, max_repos, verbose)
     print "done"
 
     # a list of all repos some other repo depends on, e.g. as a submodule
@@ -198,6 +209,15 @@ def summarize_repo_info(github_token, verbose):
             'delete?': 'no',
             'comments': why_archive or '',
         }
+
+        if (_is_uploaded_to_appengine(repo_name, github_token, verbose)
+                # The fork-check is just to minimize the chance of
+                # false positives; I don't think we fork any appengine
+                # app and deploy it ourselves.
+                and not repo['fork']):
+            _set_do_not_archive(summaries[repo_id],
+                                'Uploaded directly to appengine')
+
         for dependent_repo in _repos_this_repo_depends_on(
                 repo_name, github_token, verbose):
             dependent_repo_id = dependent_repo.lower()
@@ -210,14 +230,11 @@ def summarize_repo_info(github_token, verbose):
     # TODO(csilvers): maybe make sure the submodule-includer is active first?
     for (repo_id, depending_repos) in dependent_repo_ids.iteritems():
         if repo_id in summaries:
-            summaries[repo_id]['archive?'] = 'no'
-            summaries[repo_id]['delete?'] = 'no'
             if len(depending_repos) == 1:
-                summaries[repo_id]['comments'] = (
-                    '%s uses it' % list(depending_repos)[0])
+                reason = '%s uses it' % list(depending_repos)[0]
             else:
-                summaries[repo_id]['comments'] = (
-                    '%s use it' % ' and '.join(sorted(depending_repos)))
+                reason = '%s use it' % ' and '.join(sorted(depending_repos))
+            _set_do_not_archive(summaries[repo_id], reason)
 
     # We'll sort the repos by last_push_author for ease of reference.
     rows = summaries.values()
@@ -226,11 +243,11 @@ def summarize_repo_info(github_token, verbose):
     return (header, rows)
 
 
-def main(outfile, verbose=False):
+def main(outfile, max_repos=sys.maxint, verbose=False):
     with open(os.path.expanduser('~/github.repo_token')) as f:
         github_token = f.read().strip()
 
-    (header, rows) = summarize_repo_info(github_token, verbose)
+    (header, rows) = summarize_repo_info(github_token, max_repos, verbose)
 
     writer = csv.DictWriter(outfile, header)
     writer.writeheader()
@@ -242,12 +259,15 @@ if __name__ == '__main__':
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('-v', '--verbose', action='store_true',
                       help='More verbose output')
+    parser.add_option('-m', '--max-repos', type=int, default=sys.maxint,
+                      help=('If set, limit downloaded repos to this many '
+                            '(useful for testing)'))
     parser.add_option('-f', '--filename', default='github_info.csv',
                       help="Where to write the resulting CSV; '-' for stdout")
     (options, args) = parser.parse_args(sys.argv[1:])
 
     if options.filename == '-':
-        main(sys.stdout, options.verbose)
+        main(sys.stdout, options.max_repos, options.verbose)
     else:
         with open(options.filename, 'w') as f:
-            main(f, options.verbose)
+            main(f, options.max_repos, options.verbose)
