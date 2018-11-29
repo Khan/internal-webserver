@@ -21,7 +21,7 @@ import sys
 import urllib2
 
 
-_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_-]+)', re.I)
+_GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_-.]+)', re.I)
 
 
 def _parse_time(datetime_string):
@@ -115,7 +115,13 @@ def _repos_this_repo_depends_on(repo, github_token, verbose):
     contents += _get_file_contents(repo, 'package.json', github_token, verbose)
     contents += _get_file_contents(repo, 'requirements.txt',
                                    github_token, verbose)
+
+    # TODO(csilvers): also add all repos mentioned in aws-config
+
     retval = _GITHUB_REPO.findall(contents)
+
+    # Sometimes the repos have a `.git` extension.
+    retval = [r[:-len('.git')] if r.endswith('.git') else r for r in retval]
 
     # A repo can't depend on itself, if it does it must be due to a comment.
     if repo in retval:
