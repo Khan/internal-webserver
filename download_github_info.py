@@ -242,6 +242,10 @@ def summarize_repo_info(github_token, max_repos, verbose):
                 reason = '%s use it' % ' and '.join(sorted(depending_repos))
             _set_do_not_archive(summaries[repo_id], reason)
 
+    # TODO(csilvers): if a repo is a used fork but has no new commits,
+    # add that as a comment; we can change the caller to use the
+    # upstream directly.
+
     # We'll sort the repos by last_push_author for ease of reference.
     rows = summaries.values()
     rows.sort(key=lambda d: (d['last push author'], d['last push']))
