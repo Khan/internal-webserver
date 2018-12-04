@@ -7,6 +7,9 @@ repos.  We download info that is helpful for making that decision.
 The expectation is the output will be loaded into google spreadsheets
 for comments and approval, and then the archiving/deletion decision
 will be made based on the output of that process.
+
+You can run this command to actually archive a repo once you've decided to:
+   curl -iPATCH https://api.github.com/repos/Khan/<repo-name> -d '{"archived": true}' -H 'Content-type: application/json' -u "`cat ~/github.repo_token`:"
 """
 
 import base64
