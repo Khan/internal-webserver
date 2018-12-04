@@ -127,8 +127,8 @@ def _repos_this_repo_depends_on(repo, github_token, verbose):
     retval = [r[:-len('.git')] if r.endswith('.git') else r for r in retval]
 
     # A repo can't depend on itself, if it does it must be due to a comment.
-    if repo in retval:
-        retval.remove(repo)
+    # We lowercase since repos are case-insensitive.
+    retval = [r for r in retval if r.lower() != repo.lower()]
 
     return retval
 
