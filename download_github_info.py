@@ -188,6 +188,9 @@ def summarize_repo_info(github_token, max_repos, verbose):
     repo_info = _get_repos(github_token, max_repos, verbose)
     print "done"
 
+    print "Filtering out unarchived repos"
+    repo_info = [ri for ri in repo_info if not ri['archived']]
+
     # a list of all repos some other repo depends on, e.g. as a submodule
     dependent_repo_ids = {}
     for (i, repo) in enumerate(repo_info):
@@ -213,7 +216,7 @@ def summarize_repo_info(github_token, max_repos, verbose):
         if (_is_uploaded_to_appengine(repo_name, github_token, verbose)
                 # The fork-check is just to minimize the chance of
                 # false positives; I don't think we fork any appengine
-                # app and deploy it ourselves.
+                # app and then deploy it ourselves.
                 and not repo['fork']):
             _set_do_not_archive(summaries[repo_id],
                                 'Uploaded directly to appengine')
