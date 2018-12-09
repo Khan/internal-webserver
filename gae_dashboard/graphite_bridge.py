@@ -216,7 +216,7 @@ def _graphite_to_cloudmonitoring(graphite_host, google_project_id, metrics,
     response = graphite_util.fetch(graphite_host, targets, from_str=from_str)
 
     outbound = []
-    assert len(response) == len(metrics)
+    assert len(response) == len(metrics), (len(response), len(metrics))
     for metric, item in zip(metrics, response):
         datapoints = item['datapoints']
 
