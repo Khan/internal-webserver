@@ -148,10 +148,11 @@ def _default_metrics():
         # Failure rate for react-render-server.  We have to go through
         # graphite for this because stackdriver can't do the ratios
         # manually.  TODO(csilvers): do the failure rate per-route too.
+        # TODO(csilvers): also measure server errors, timeouts, etc?
         Metric(
             'divideSeries('
-            '   sumSeries(webapp.stats.react_render_server.*.failures:sum), '
-            '   sumSeries(webapp.stats.react_render_server.*.attempts:sum)'
+            '   sumSeries(webapp.*.stats.react_render_server.cache_miss:sum), '
+            '   sumSeries(webapp.*.stats.react_render_server.cache_hit:sum)'
             ')',
             name='react_render_server.failure_pct'),
 
