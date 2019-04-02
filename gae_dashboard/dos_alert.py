@@ -25,7 +25,7 @@ import bq_util
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
 # Alert if we're getting more than this many reqs per sec from a single client.
-MAX_REQS_SEC = 2
+MAX_REQS_SEC = 4
 
 # The size of the period of time to query.
 PERIOD = 5 * 60
@@ -63,6 +63,8 @@ URL: {resource}
 User agent: {user_agent}
 
 Consider blacklisting IP using appengine firewall.
+
+<{log_link}|Stackdriver logs of reqs from IP>
 """
 
 
@@ -81,7 +83,8 @@ def main():
                               project=BQ_PROJECT)
 
     for row in results:
-        msg = ALERT_TEMPLATE.format(**row)
+        log_link = 'https://console.cloud.google.com/logs/viewer?project=khan-academy&folder=&organizationId=733120332093&minLogLevel=0&expandAll=false&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fappengine.googleapis.com%252Frequest_log%22%0AprotoPayload.ip%3D%22{}%22'.format(row['ip'])
+        msg = ALERT_TEMPLATE.format(log_link=log_link, **row)
         alertlib.Alert(msg).send_to_slack('#infrastructure-sre')
 
 
