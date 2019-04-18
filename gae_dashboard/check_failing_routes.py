@@ -17,7 +17,6 @@ import alertlib
 import bq_util
 import initiatives
 
-
 # Report on the previous day by default
 _DEFAULT_DAY = datetime.datetime.utcnow() - datetime.timedelta(1)
 
@@ -26,7 +25,7 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     'main:/crash',
     '/_ah/start.*',  # Logs show this as having null status
     'api_main:/api/internal/graphql [POST]',  # Most valid graphql queries will
-                                              # include query name in route.
+    'api_main:/api/internal/graphql',         # include query name in route.
 ))
 
 
@@ -68,8 +67,9 @@ def _plural(s, num):
 
 def _errors(route_data):
     return [
-        '`{}` ({} {} total, {} of them bots, {} unique {})'.format(
+        '`{}` owned by {} ({} {} total, {} of them bots, {} unique {})'.format(
             d['route'],
+            ', '.join(d['owners']),
             d['total_reqs'], _plural('request', d['total_reqs']),
             d['bot_reqs'],
             d['num_ips'], _plural('IP', d['num_ips']))
@@ -82,15 +82,7 @@ def notify(route_data, date):
         _plural('Route', len(route_data)),
         date.strftime('%x'), '\n'.join(_errors(route_data)))
     alert = alertlib.Alert(msg, severity=logging.ERROR)
-    alert.send_to_slack(channel='#infrastructure-alerts', simple_message=True)
-
-    for route_data in route_data:
-        initiative = initiatives.route_owner(route_data['route'])
-        msg = 'No 2xx on route `{}`'.format(route_data['route'])
-        alert = alertlib.Alert(msg, summary=msg, severity=logging.ERROR)
-        alert.send_to_alerta(initiative=initiative['title'],
-                             resource='webapp',
-                             event=msg)
+    alert.send_to_slack(channel='#infrastructure-sre', simple_message=True)
 
 
 def check(date, dry_run=False):
@@ -100,6 +92,9 @@ def check(date, dry_run=False):
     route_data = [row for row in data
                   if not row['route'] in ROUTES_EXPECTED_TO_FAIL]
 
+    for row in route_data:
+        route = row['route']
+        row['owners'] = initiatives.route_owners(route)
     if dry_run:
         if not route_data:
             print 'No routes with no 2xx requests for {}'.format(
