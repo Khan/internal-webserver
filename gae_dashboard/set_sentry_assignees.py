@@ -17,22 +17,7 @@ import urlparse
 
 import requests
 
-
-# Map from Sentry team to URL path regexes. These were derived from routes in
-# webapp/main.py The goal is to do make a reasonable guess as to initiative
-# ownership; we don't seek perfection, since URL isn't 100% reliabile indicator
-# of who owns the error anyway.
-URLS = (
-    ('infrastructure', (r'/devadmin/.*', r'/admin/.*')),
-    ('test-prep', (r'/prep/.*', r'/collegeboard/.*', r'/sat.*')),
-    ('classroom', (
-        r'/coach.*', r'/parent.*', r'/teachers', r'/acceptcoach',
-        r'/joinclass')),
-    ('mpp', (
-        r'/donate/.*', r'/careers/.*', r'/contribute/.*',
-        r'/youcanlearnanything.*', r'/bncc', r'/kids.*', r'/homeschool')),
-    # LP is assigned anything not already matched.
-    ('learning-platform', (r'.*', )))
+import initiatives
 
 
 SENTRY_URL = 'https://sentry.io/api/0'
@@ -102,20 +87,11 @@ def get_issue_urls(issue_id):
             for url in urls['topValues']]
 
 
-def initiative_for_url(url):
-    "Return the initiative name that's responsible for a URL path."
-    for assignee, patterns in URLS:
-        for pattern in patterns:
-            if re.match(pattern, url):
-                return assignee
-    raise ValueError('Should never happen')
-
-
 def best_initiative(urls):
-    "Return the best initiative for an issues URLs."
+    "Return the best initiative for an issue's URLs."
     totals = collections.Counter()
     for url, count in urls:
-        initiative = initiative_for_url(url)
+        initiative = initiatives.url_owner(url)
         totals.update({initiative: count})
     return totals.most_common(1)[0][0]
 
@@ -130,8 +106,13 @@ def set_issue_assignee(issue_id, team, team_ids):
 def get_initiative_ids():
     "Fetch the initiative team ids."
     ids = {}
-    for initiative, _ in URLS:
-        data = sentry_request('/teams/khanacademyorg/{}/'.format(initiative))
+    for initiative in initiatives.TEAM_IDS:
+        try:
+            data = sentry_request('/teams/khanacademyorg/{}/'.format(
+                initiative))
+        except requests.exceptions.HTTPError:
+            # Team isn't in Sentry.
+            continue
         ids[initiative] = data['id']
     return ids
 

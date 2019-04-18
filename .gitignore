@@ -3,5 +3,6 @@ gae_dashboard/s3_secrets.py
 gae_dashboard/pingdom_password
 gae_dashboard/pingdom_api_key
 gae_dashboard/sentry_api_key
+gae_dashboard/ownership_data.json
 *.pyc
 .idea

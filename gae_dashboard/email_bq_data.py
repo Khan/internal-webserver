@@ -56,13 +56,17 @@ def _by_initiative(data, key='url_route', by_package=False):
     or packages are found in rows using the key.
     """
     if by_package:
-        f = initiatives.package_owner
+        f = initiatives.file_owner
     else:
-        f = initiatives.route_owner
+        f = initiatives.route_owners
     rows = collections.defaultdict(list)
     for row in data:
-        i = f(row[key])
-        rows[i['id']].append(row)
+        teams = f(row[key])
+        # We may get a single team or a list.
+        if type(teams) != list:
+            teams = [teams]
+        for team in teams:
+            rows[team].append(row)
     return rows.items()
 
 
@@ -440,7 +444,7 @@ ORDER BY instance_hours DESC
     all_data = _convert_table_rows_to_lists(data, _ORDER)
     # Let's just send the top most expensive routes, not all of them.
     _send_email({heading: all_data[:50]}, None,
-                to=[initiatives.email('infra')],
+                to=[initiatives.email('infrastructure')],
                 subject=subject + 'All',
                 dry_run=dry_run)
 
@@ -539,7 +543,7 @@ ORDER BY tcost.rpc_cost DESC;
     subject = 'RPC calls by route - '
     heading = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
     _send_email({heading: all_data[:75]}, None,
-                to=[initiatives.email('infra')],
+                to=[initiatives.email('infrastructure')],
                 subject=subject + 'All',
                 dry_run=dry_run)
 
@@ -675,11 +679,11 @@ ORDER BY count_ DESC
 
     email_content[heading] = _convert_table_rows_to_lists(data, _ORDER)
     _send_email(email_content, None,
-                to=[initiatives.email('infra')],
+                to=[initiatives.email('infrastructure')],
                 subject=subject + 'All',
                 dry_run=dry_run)
 
-    # Per initiative-reports
+    # Per-initiative reports
     for initiative_id, initiative_data in _by_initiative(data):
         table = _convert_table_rows_to_lists(initiative_data, _ORDER)
         email_content = {heading: table}
@@ -724,7 +728,7 @@ ORDER BY client DESC, build DESC, request_count DESC;
     subject = 'API usage by client - '
     heading = 'API usage by client for %s' % _pretty_date(yyyymmdd)
     _send_email({heading: all_data}, None,
-                to=[initiatives.email('infra')],
+                to=[initiatives.email('infrastructure')],
                 subject=subject + 'All',
                 dry_run=dry_run)
 
@@ -831,7 +835,7 @@ ORDER BY
                                                          error_order)
     tables[latency_heading] = _convert_table_rows_to_lists(latency_data,
                                                            latency_order)
-    _send_email(tables, graph=None, to=[initiatives.email('infra')],
+    _send_email(tables, graph=None, to=[initiatives.email('infrastructure')],
                 subject=subject + 'All', dry_run=dry_run)
 
 
@@ -898,7 +902,7 @@ ORDER BY
     all_data = _convert_table_rows_to_lists(data, _ORDER)
     # Let's just send the top most expensive routes, not all of them.
     _send_email({heading: all_data[:50]}, None,
-                to=[initiatives.email('infra')],
+                to=[initiatives.email('infrastructure')],
                 subject=subject + 'All',
                 dry_run=dry_run)
 
