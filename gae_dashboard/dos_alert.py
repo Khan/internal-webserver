@@ -67,12 +67,52 @@ Consider blacklisting IP using appengine firewall.
 <{log_link}|Stackdriver logs of reqs from IP>
 """
 
+SCRATCHPAD_QUERY_TEMPLATE = """\
+SELECT
+  ip,
+  ANY_VALUE(elog_user_kaid) as sample_kaid,
+  COUNT(bce.conversion) AS count
+FROM
+  `logs_hourly.requestlogs_*` kalog
+JOIN
+  kalog.bingo_conversion_events bce
+WHERE
+  bce.conversion = 'scratchpad_new_created'
+  AND start_time_timestamp >= TIMESTAMP('{START_TIMESTAMP}')
+  AND start_time_timestamp < TIMESTAMP('{END_TIMESTAMP}')
+  AND _TABLE_SUFFIX BETWEEN '{START_TABLE}' and '{END_TABLE}'
+GROUP BY
+  ip
+HAVING
+  count > {MAX_COUNT}
+ORDER BY
+  count DESC
+"""
+
+SCRATCHPAD_ALERT_INTRO_TEMPLATE = """\
+*Possible Scratchpad DoS alert*
+=======================
+Below is a list of IPs which have submitted more than {max_count} new
+scratchpads in the last 5 minutes.\n
+"""
+
+SCRATCHPAD_ALERT_ENTRY_TEMPLATE = """\
+IP: <https://db-ip.com/{ip}|{ip}>
+Count: {count}
+Sample: <https://www.khanacademy.org/profile/{sample_kaid}/projects|{sample_kaid}>
+"""
+
+# Alert if there are more than this many new scratchpads created by an IP in
+# the given period.
+MAX_SCRATCHPADS = 50
+
 
 def main():
     end = datetime.datetime.utcnow()
     start = end - datetime.timedelta(seconds=PERIOD)
     table_format = '%Y%m%d_%H'
     ts_format = '%Y-%m-%d %H:%M:%S'
+
     query = QUERY_TEMPLATE.format(
         **{'START_TABLE': start.strftime(table_format),
            'END_TABLE': end.strftime(table_format),
@@ -85,6 +125,25 @@ def main():
     for row in results:
         log_link = 'https://console.cloud.google.com/logs/viewer?project=khan-academy&folder=&organizationId=733120332093&minLogLevel=0&expandAll=false&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fappengine.googleapis.com%252Frequest_log%22%0AprotoPayload.ip%3D%22{}%22'.format(row['ip'])
         msg = ALERT_TEMPLATE.format(log_link=log_link, **row)
+        alertlib.Alert(msg).send_to_slack('#infrastructure-sre')
+
+    # Scratchpad.
+    scratchpad_query = SCRATCHPAD_QUERY_TEMPLATE.format(
+        **{'START_TABLE': start.strftime(table_format),
+           'END_TABLE': end.strftime(table_format),
+           'START_TIMESTAMP': start.strftime(ts_format),
+           'END_TIMESTAMP': end.strftime(ts_format),
+           'MAX_COUNT': MAX_SCRATCHPADS})
+
+    scratchpad_results = bq_util.call_bq(['query', '--nouse_legacy_sql',
+                                          scratchpad_query],
+                                         project=BQ_PROJECT)
+
+    if len(scratchpad_results) != 0:
+        msg = SCRATCHPAD_ALERT_INTRO_TEMPLATE.format(**{'max_count':
+                                                        MAX_SCRATCHPADS})
+        msg += '\n'.join(SCRATCHPAD_ALERT_ENTRY_TEMPLATE.format(**row)
+                         for row in scratchpad_results)
         alertlib.Alert(msg).send_to_slack('#infrastructure-sre')
 
 
