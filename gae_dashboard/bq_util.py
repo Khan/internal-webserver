@@ -1,10 +1,11 @@
 """Utilities for interacting with BigQuery."""
 
-import cPickle
 import datetime
 import json
 import os
 import random
+import six
+import six.moves.cPickle as cPickle
 import sys
 import subprocess
 
@@ -31,7 +32,7 @@ def call_bq(subcommand_list, project, return_output=True,
             try:
                 return json.loads(output)
             except ValueError as e:
-                print 'Unexpected output from BQ call: %s' % output
+                print('Unexpected output from BQ call: {}'.format(output))
                 raise
         else:
             subprocess.check_call(_BQ + ['--format=none'] + subcommand_list,
@@ -39,7 +40,7 @@ def call_bq(subcommand_list, project, return_output=True,
             return
     except subprocess.CalledProcessError as e:
         if raise_exception:
-            print 'BQ call failed with this output: %s' % e.output
+            print('BQ call failed with this output: {}'.format(e.output))
             raise
         else:
             # Do not raise an exception in this case.
@@ -103,12 +104,12 @@ def get_daily_data_from_disk_or_bq(query, report, yyyymmdd):
     """
     daily_data = get_daily_data(report, yyyymmdd)
     if not daily_data:
-        print "-- Running query for %s on %s --" % (report, yyyymmdd)
-        print query
+        print("-- Running query for {} on {} --".format(report, yyyymmdd))
+        print(query)
         daily_data = query_bigquery(query)
         save_daily_data(daily_data, report, yyyymmdd)
     else:
-        print "-- Using cached data for %s on %s --" % (report, yyyymmdd)
+        print("-- Using cached data for {} on {} --" .format(report, yyyymmdd))
 
     return daily_data
 
@@ -123,7 +124,7 @@ def process_past_data(report, end_date, history_length, keyfn):
     current one.
     """
     historical_data = []
-    for i in xrange(history_length + 1):
+    for i in range(history_length + 1):
         old_yyyymmdd = (end_date - datetime.timedelta(i)).strftime("%Y%m%d")
         old_data = get_daily_data(report, old_yyyymmdd)
         # Save it by url_route for easy lookup.
@@ -169,7 +170,7 @@ def query_bigquery(sql_query, retries=2, job_name=None,
         try:
             if not job_name:
                 # We specify the job-name (randomly) so we can cancel it.
-                job_name = 'bq_util_%s' % random.randint(0, sys.maxint)
+                job_name = 'bq_util_%s' % random.randint(0, 2**32)
 
             # call_bq can return None when there are no results for
             # the query.  We map that to [].
@@ -179,7 +180,9 @@ def query_bigquery(sql_query, retries=2, job_name=None,
             job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
-            print "-- Running query failed with retcode %d --" % why.returncode
+            print("-- Running query failed with retcode {} --".format(
+                why.returncode
+            ))
             error_msg = why.output
         finally:
             if job_name:
@@ -187,7 +190,7 @@ def query_bigquery(sql_query, retries=2, job_name=None,
                     call_bq(['--nosync', 'cancel', job_name],
                             project=project, return_output=False)
                 except subprocess.CalledProcessError:
-                    print "That's ok, it just means the job canceled itself."
+                    print("That's ok, it just means the job canceled itself.")
                     pass    # probably means the job finished already
 
             # Clear out job_name so it will be regenerated if this query failed
