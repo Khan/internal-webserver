@@ -140,7 +140,7 @@ def process_past_data(report, end_date, history_length, keyfn):
     return historical_data
 
 
-def query_bigquery(sql_query, retries=2, job_name=None,
+def query_bigquery(sql_query, gdrive=False, retries=2, job_name=None,
                    project='khanacademy.org:deductive-jet-827'):
     """Use the 'bq' tool to run a query, and return the results as
     a json list (each row is a dict).
@@ -174,8 +174,9 @@ def query_bigquery(sql_query, retries=2, job_name=None,
 
             # call_bq can return None when there are no results for
             # the query.  We map that to [].
-            table = call_bq(['--job_id', job_name,
-                             'query', '--max_rows=10000', sql_query],
+            table = call_bq(['--job_id', job_name] +
+                            (['--enable_gdrive'] if gdrive else []) +
+                            ['query', '--max_rows=10000', sql_query],
                             project=project) or []
             job_name = None     # to indicate the job has finished
             break
@@ -212,5 +213,8 @@ def query_bigquery(sql_query, retries=2, job_name=None,
                         row[key] = float(row[key])
                     except ValueError:
                         pass
+                except TypeError:
+                    # Row maybe a list
+                    pass
 
     return table
