@@ -5,16 +5,17 @@ This script does a very simplistic check for Performance and
 error regressions.
 """
 
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import defaultdict, namedtuple
 import datetime
 import statistics
-from typing import List, Dict, DefaultDict, Optional, KeysView
+from typing import List, Dict, DefaultDict, Optional, KeysView, NamedTuple
 
 import bq_util
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 MIN_COUNT_PER_DAY = 500
+DAYS_WINDOW = 7
+THRESHOLD = 3
 
 
 # from kpi-dashboard: lib/performance/page.buckets.sql
@@ -124,41 +125,65 @@ class PerformanceDataSource(DataSource):
         return self.data[page_name]
 
 
-@dataclass
-class Alert:
+class Alert(NamedTuple):
     page_name: str
     reason: str
     delta: float
+    mean: float
+    lower_bound: float
 
 
 def find_alerts(page_name: str, data: Dict[datetime.date, float],
-                threadhold=1.3) -> Optional[Alert]:
+                threadhold=THRESHOLD, window=DAYS_WINDOW) -> Optional[Alert]:
+    """Trigger alert based on variance from last week
+
+    From our research, we settled on looking at variance, with a
+    window of 7 days.
+
+    Research is documented at
+    https://docs.google.com/document/d/1c-T5KU4TaeUbJbzJeyAH0eJKb24y1M3adW6bVF1NIuc/edit#heading=h.gefi31qqd7t
+
+    This execute the pandas code similar to:
+    https://stackoverflow.com/questions/47164950/compute-rolling-z-score-in-pandas-dataframe
+
+        r = x.rolling(window=7)
+        m = r.mean().shift(1)
+        s = r.std(ddof=0).shift(1)
+        z = (x-m)/s
+    """
     # all data must present in order for alert to trigger (high detecion value)
     if [d for d in data.values() if d is None]:
         print(f"{page_name}: Skipping with insufficient data")
         return None
+
     data_array = [data[k] for k in sorted(data.keys())]
 
-    mean = statistics.mean(data_array)
-    std = statistics.stdev(data_array)
+    windowed_data = data_array[-window-1:-1]
+    last_value = data_array[-1]
+
+    mean = statistics.mean(windowed_data)
+    std = statistics.stdev(windowed_data)
 
     lower_bound = mean - (threadhold * std)
-    last_value = data_array[-1]
 
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
-    print(f"Comparing {page_name}: {mean} -> {last_value} (std: {last_zscore}, pec: {perc_change})")
+
+    print(f"Comparing {page_name}: {mean:.2f} -> {last_value:.2f} (std: {last_zscore:.2f}, pec: {perc_change:.2f}%)")
     if data_array[-1] < lower_bound:
         return Alert(
             page_name=page_name,
-            reason=f"Drop below threadhold: {mean} -> {last_value}",
-            delta=last_zscore
+            reason=f"Drop below threadhold: {mean:.2f} -> {last_value:.2f}",
+            delta=last_zscore,
+            mean=mean,
+            lower_bound=lower_bound
         )
 
 
 def main():
     end = datetime.datetime.utcnow()
-    start = end - datetime.timedelta(days=30)
+    # We need an extra day to look at the past information
+    start = end - datetime.timedelta(days=DAYS_WINDOW+1)
 
     data = PerformanceDataSource(start, end)
 
