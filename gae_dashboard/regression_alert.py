@@ -23,7 +23,8 @@ import bq_util
 #                likely to make the alert less noisy.
 
 DATA_TYPE_PERF = 'Performance'
-DATA_TYPE_ERROR = 'Error'
+DATA_TYPE_ERROR = 'Server Error'
+DATA_TYPE_CLIENT_ERROR = 'Client Error'
 
 ALERT_PARAMETER = {
     DATA_TYPE_PERF: {
@@ -34,6 +35,11 @@ ALERT_PARAMETER = {
     DATA_TYPE_ERROR: {
         "window": 7,
         "threshold": 20,
+        "min_alert_value": 100
+    },
+    DATA_TYPE_CLIENT_ERROR: {
+        "window": 7,
+        "threshold": 6,
         "min_alert_value": 100
     }
 }
@@ -86,7 +92,7 @@ FROM combined
 GROUP by page_name, date
 """
 
-# from kpi-dashboard: lib/performance/route.errors.sql
+# from kpi-dashboard: lib/team/route.errors.sql
 ERROR_QUERY = """\
 #standardSQL
 SELECT
@@ -99,6 +105,21 @@ WHERE
     AND re.date <= "{end_date}"
     AND re.is_user_facing
 ORDER BY re.date ASC
+"""
+
+# from kpi-dashboard: lib/team/sentry.file.errors.sql
+SENTRY_ERROR_QUERY = """\
+#standardSQL
+SELECT
+  `timestamp` AS date,
+  project,
+  error_count,
+  initiative_counts
+FROM `khanacademy.org:deductive-jet-827.infrastructure.sentry_errors`
+WHERE
+    `timestamp` >= "{start_date}"
+    AND `timestamp` <= "{end_date}"
+ORDER BY `timestamp` ASC
 """
 
 DB_DATE_FMT = '%Y-%m-%d'
@@ -186,6 +207,32 @@ class ErrorDataSource(DataSource):
         error_data = defaultdict(dict)
         for row in bq_data:
             error_data[row['route']][row['date']] = row['error_count']
+        self.data = error_data
+
+
+class SentryErrorDataSource(DataSource):
+    """Getting error data from the timeframe required
+    """
+
+    def __init__(self, start_date, end_date):
+        report_name = 'sentry_error_daily'
+        report_date = start_date.strftime('%Y%m%d')
+        query = SENTRY_ERROR_QUERY.format(
+            start_date=start_date.strftime(DB_DATE_FMT),
+            end_date=end_date.strftime(DB_DATE_FMT)
+        )
+        bq_data = bq_util.get_daily_data_from_disk_or_bq(
+            query, report_name, report_date
+        )
+
+        error_data = defaultdict(dict)
+        for row in bq_data:
+            project = row['project']
+            for initiatives in row['initiative_counts']:
+                for file in initiatives['files']:
+                    if file['name'] == '<Unknown>':
+                        continue
+                    error_data[file['name']][row['date']] = int(file['count'])
         self.data = error_data
 
 
@@ -282,10 +329,10 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 
 def alert_message(alert, date):
     date_str = date.strftime("%Y-%m-%d")
-    if alert.alert_type == DATA_TYPE_ERROR:
+    if alert.alert_type in {DATA_TYPE_ERROR, DATA_TYPE_CLIENT_ERROR}:
         if not alert.drop:
             return """\
-:warning: *Error alert* for {date_str}
+:warning: *{a.alert_type} alert* for {date_str}
 We noticed a rise in error for `{a.key}`.
 
 {a.reason}
@@ -323,13 +370,16 @@ def main(args):
 
     all_data = {
         DATA_TYPE_PERF: PerformanceDataSource,
-        DATA_TYPE_ERROR: ErrorDataSource
+        DATA_TYPE_ERROR: ErrorDataSource,
+        DATA_TYPE_CLIENT_ERROR: SentryErrorDataSource
     }
 
     for data_type, data_source in all_data.items():
         if args.error and data_type != DATA_TYPE_ERROR:
             continue
         if args.perf and data_type != DATA_TYPE_PERF:
+            continue
+        if args.clienterror and data_type != DATA_TYPE_CLIENT_ERROR:
             continue
 
         window = args.window if args.window \
@@ -373,5 +423,7 @@ if __name__ == '__main__':
                         help='Only run error filters')
     parser.add_argument('--perf', action='store_true',
                         help='Only run performance filters')
+    parser.add_argument('--clienterror', action='store_true',
+                        help='Only run client error filters')
     args = parser.parse_args()
     main(args)
