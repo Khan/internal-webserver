@@ -64,6 +64,22 @@ FROM combined
 GROUP by page_name, date
 """
 
+# from kpi-dashboard: lib/performance/route.errors.sql
+ERROR_QUERY = """\
+#standardSQL
+SELECT
+  re.count AS error_count,
+  re.route AS route,
+  re.date AS date
+FROM `khanacademy.org:deductive-jet-827.infrastructure.route_errors` AS re
+  ON ri.route = re.route
+WHERE
+    re.date >= "{start_date}"
+    AND re.date <= "{end_date}"
+    AND re.is_user_facing
+ORDER BY re.date ASC
+"""
+
 DB_DATE_FMT = '%Y-%m-%d'
 
 
@@ -71,9 +87,15 @@ class DataSource:
     """Data source which we get the performance/regression alerts.
     """
 
-    def filter(self, start_date, end_date):
-        """Return a supset of data specific by start/end date"""
-        raise NotImplementedError()
+    def __init__(self, start_date, end_date):
+        self.data = {}  # type: Dict[str, Dict[date, float]]
+
+    @property
+    def keys(self):
+        return self.data.keys()
+
+    def get_key_data(self, key):
+        return self.data[key]
 
 
 class PerformanceDataSource(DataSource):
@@ -116,23 +138,37 @@ class PerformanceDataSource(DataSource):
         )
         self.data = self.get_page_accceptable_percent(bq_data)
 
-    @property
-    def page_names(self):
-        return self.data.keys()
 
-    def get_page_data(self, page_name):
-        return self.data[page_name]
+class ErrorDataSource(DataSource):
+    """Getting error data from the timeframe required
+    """
+
+    def __init__(self, start_date, end_date):
+        report_name = 'error_daily'
+        report_date = start_date.strftime('%Y%m%d')
+        query = ERROR_QUERY.format(
+            start_date=start_date.strftime(DB_DATE_FMT),
+            end_date=end_date.strftime(DB_DATE_FMT)
+        )
+        bq_data = bq_util.get_daily_data_from_disk_or_bq(
+            query, report_name, report_date
+        )
+
+        error_data = defaultdict(dict)
+        for row in bq_data:
+            error_data[row['key']][row['date']] = row['error_count']
+        self.data = error_data
 
 
 Alert = namedtuple("Alert", [
     "alert_type",  # type: str
-    "page_name",  # type: str
+    "key",  # type: str
     "drop",  # type: bool
     "reason"  # type: str
 ])
 
 
-def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
+def find_alerts(key, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
@@ -151,7 +187,7 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     """
     # all data must present in order for alert to trigger (high detecion value)
     if [d for d in data.values() if d is None]:
-        print("{}: Skipping with insufficient data".format(page_name))
+        print("{}: Skipping with insufficient data".format(key))
         return None
 
     data_array = [data[k] for k in sorted(data.keys())]
@@ -162,14 +198,14 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     mean = np.mean(windowed_data)
     std = np.std(windowed_data)
     if std <= 0:
-        print("{}: Skipping with zero variance".format(page_name))
+        print("{}: Skipping with zero variance".format(key))
         return None
 
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
 
     print(
-        "Comparing {page_name}: ".format(page_name=page_name) +
+        "Comparing {key}: ".format(key=key) +
         "mean={mean:.2f} -> last_value={last_value:.2f} ".format(**locals()) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
@@ -177,7 +213,7 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
         return Alert(
             alert_type='Performance',
             drop=True,
-            page_name=page_name,
+            key=key,
             reason="""
 Performance was significantly worse compare last {window} days
 threshold.
@@ -190,7 +226,7 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
         return Alert(
             alert_type='Performance',
             drop=False,
-            page_name=page_name,
+            key=key,
             reason="""\
 Performance was significantly better compare to last {window} days threshold.
 
@@ -206,7 +242,7 @@ def alert_message(alert, date):
     if alert.drop:
         return """\
 :warning: *Performance alert* for {date_str}
-We noticed a drop in performance for `{a.page_name}`.
+We noticed a drop in performance for `{a.key}`.
 
 {a.reason}
 
@@ -215,7 +251,7 @@ Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-d
     else:
         return """\
 :white_check_mark: *Performance high-five* for {date_str}
-We noticed a better performance for `{a.page_name}`.
+We noticed a better performance for `{a.key}`.
 
 {a.reason}
 
@@ -230,13 +266,13 @@ def main(args):
 
     data = PerformanceDataSource(start, end)
 
-    for page in data.page_names:
-        alert = find_alerts(page, data.get_page_data(page),
+    for page in data.keys:
+        alert = find_alerts(page, data.get_key_data(page),
                             window=args.window, threshold=args.threshold
                             )
         if alert:
-            print("{page}: Sending alert: {alert}".format(
-                page=page, alert=alert))
+            print("{key}: Sending alert: {alert}".format(
+                key=page, alert=alert))
             alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
                 args.channel)
 
