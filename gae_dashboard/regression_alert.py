@@ -21,10 +21,26 @@ import bq_util
 # - days_window: number of days to look back at.  Generally we want this to be
 #                multiple of 7 to include weekend variance, increasing will
 #                likely to make the alert less noisy.
+
+DATA_TYPE_PERF = 'Performance'
+DATA_TYPE_ERROR = 'Error'
+
+ALERT_PARAMETER = {
+    DATA_TYPE_PERF: {
+        "window": 7,
+        "threshold": 6,
+        "min_alert_value": None
+    },
+    DATA_TYPE_ERROR: {
+        "window": 7,
+        "threshold": 20,
+        "min_alert_value": 100
+    }
+}
+
 MIN_COUNT_PER_DAY = 500
-DAYS_WINDOW = 7
-THRESHOLD = 6
-ALERT_CHANNEL = '#infra-regression'
+# ALERT_CHANNEL = '#infra-regression'
+ALERT_CHANNEL = '#boris-bot-test'
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
@@ -92,6 +108,7 @@ DB_DATE_FMT = '%Y-%m-%d'
 class DataSource:
     """Data source which we get the performance/regression alerts.
     """
+
     def __init__(self, start_date, end_date):
         self.data = {}  # type: Dict[str, Dict[date, float]]
 
@@ -181,8 +198,8 @@ Alert = namedtuple("Alert", [
 ])
 
 
-def find_alerts(page_name, data_source, threshold=THRESHOLD,
-                window=DAYS_WINDOW):
+def find_alerts(data_type, key, data_source, threshold, window,
+                min_alert_value):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
@@ -214,6 +231,11 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD,
     windowed_data = data_array[-window-1:-1]
     last_value = data_array[-1]
 
+    # filter for min alert value
+    if min_alert_value is not None:
+        if last_value <= min_alert_value:
+            return None
+
     mean = np.mean(windowed_data)
     std = np.std(windowed_data)
     if std <= 0:
@@ -234,11 +256,11 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD,
     )
     if last_zscore < -threshold:
         return Alert(
-            alert_type='Performance',
+            alert_type=data_type,
             drop=True,
             key=key,
             reason="""
-Performance was significantly worse compare last {window} days threshold.
+Metrics was significantly dropped compare last {window} days threshold.
 
 Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
@@ -246,11 +268,11 @@ Average: {readable_mean} -> Yesterday: {readable_last_value}
         )
     elif last_zscore > threshold:
         return Alert(
-            alert_type='Performance',
+            alert_type=data_type,
             drop=False,
             key=key,
             reason="""\
-Performance was significantly better compare to last {window} days threshold.
+Metrics was significantly increase compare to last {window} days threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
@@ -261,57 +283,85 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 
 def alert_message(alert, date):
     date_str = date.strftime("%Y-%m-%d")
-    if alert.drop:
-        return """\
+    if alert.alert_type == DATA_TYPE_ERROR:
+        if not alert.drop:
+            return """\
+:warning: *Error alert* for {date_str}
+We noticed a rise in error for `{a.key}`.
+
+{a.reason}
+
+Check the <https://kpi-infrastructure.appspot.com/team|kpi-dashbaord> for detail.
+            """.format(a=alert, date_str=date_str)
+        else:
+            # Do not alert on error improvement
+            return
+    elif alert.alert_type == DATA_TYPE_PERF:
+        if alert.drop:
+            return """\
 :warning: *Performance alert* for {date_str}
 We noticed a drop in performance for `{a.key}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert, date_str=date_str)
-    else:
-        return """\
+            """.format(a=alert, date_str=date_str)
+        else:
+            return """\
 :white_check_mark: *Performance high-five* for {date_str}
 We noticed a better performance for `{a.key}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert, date_str=date_str)
+            """.format(a=alert, date_str=date_str)
+    raise KeyError("Unknown data type: {}".format(alert.alert_type))
 
 
 def main(args):
     end = args.date
     # We need an extra day to look at the past information
-    start = end - datetime.timedelta(days=args.window+1)
 
-    all_data = [
-        #PerformanceDataSource(start, end),
-        ErrorDataSource(start, end)
-    ]
+    all_data = {
+        DATA_TYPE_PERF: PerformanceDataSource,
+        DATA_TYPE_ERROR: ErrorDataSource
+    }
 
-    for data in all_data:
+    for data_type, data_source in all_data.items():
+        if args.error and data_type != DATA_TYPE_ERROR:
+            continue
+        if args.perf and data_type != DATA_TYPE_PERF:
+            continue
+
+        window = args.window if args.window \
+            else ALERT_PARAMETER[data_type]['window']
+        threshold = args.threshold if args.threshold \
+            else ALERT_PARAMETER[data_type]['threshold']
+        min_alert_value = ALERT_PARAMETER[data_type]['min_alert_value']
+
+        start = end - datetime.timedelta(days=window+1)
+        data = data_source(start, end)
+
         for page in data.keys:
-            alert = find_alerts(page, data,
-                                window=args.window, threshold=args.threshold
+            alert = find_alerts(data_type, page, data,
+                                window=window, threshold=threshold,
+                                min_alert_value=min_alert_value
                                 )
             if alert:
-                print("{key}: Sending alert: {alert}".format(
-                    key=page, alert=alert))
-                alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
-                    args.channel)
+                alert_msg = alert_message(alert, args.date)
+                if alert_msg:
+                    print("{key}: Sending alert: {alert}".format(
+                        key=page, alert=alert))
+                    alertlib.Alert(alert_msg).send_to_slack(args.channel)
 
 
 if __name__ == '__main__':
     yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
     parser = argparse.ArgumentParser()
     parser.add_argument('--window', '-w', type=int, metavar='n',
-                        help="Specify window of days to use",
-                        default=DAYS_WINDOW)
+                        help="Specify window of days to use")
     parser.add_argument('--threshold', '-t', type=int, metavar='n',
-                        help="Specify variance threshold",
-                        default=THRESHOLD)
+                        help="Specify variance threshold")
     parser.add_argument('--date', '-d',
                         type=lambda s: datetime.datetime.strptime(
                             s, '%Y-%m-%d'),
@@ -320,5 +370,9 @@ if __name__ == '__main__':
     parser.add_argument('--channel', '-c',
                         default=ALERT_CHANNEL,
                         help='Which channel to send alert to')
+    parser.add_argument('--error', action='store_true',
+                        help='Only run error filters')
+    parser.add_argument('--perf', action='store_true',
+                        help='Only run performance filters')
     args = parser.parse_args()
     main(args)
