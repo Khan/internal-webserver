@@ -5,6 +5,7 @@ This script does a very simplistic check for Performance and
 error regressions.
 """
 
+import argparse
 from collections import defaultdict, namedtuple
 import datetime
 
@@ -15,7 +16,8 @@ import bq_util
 
 MIN_COUNT_PER_DAY = 500
 DAYS_WINDOW = 7
-THRESHOLD = 1
+THRESHOLD = 5
+ALERT_CHANNEL = '#infra-regression'
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
@@ -41,7 +43,8 @@ WITH
       page_name,
       date,
       speed,
-      SUM(countries.weight * weights.weight * (count / weights.sampled_at)) AS count
+      SUM(countries.weight * weights.weight * (count / weights.sampled_at))
+             AS count
     FROM
       `khanacademy.org:deductive-jet-827.infrastructure.perf_kpi_buckets`
       LEFT JOIN countries USING (country)
@@ -159,8 +162,6 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     mean = np.mean(windowed_data)
     std = np.std(windowed_data)
 
-    #lower_bound = mean - (threshold * std)
-
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
 
@@ -175,7 +176,7 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
             drop=True,
             page_name=page_name,
             reason="""
-Yesterday's performance was significantly worse compare last 7 days
+Performance was significantly worse compare last {window} days
 threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
@@ -188,8 +189,7 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
             drop=False,
             page_name=page_name,
             reason="""\
-Yesterday's performance was significantly better compare to last 7 days
-threshold.
+Performance was significantly better compare to last {window} days threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
@@ -197,42 +197,61 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
         )
 
 
-def alert_message(alert):
+def alert_message(alert, date):
+    date_str = date.strftime("%Y-%m-%d")
     if alert.drop:
         return """\
-:warning: *Performance alert*
+:warning: *Performance alert* for {date_str}
 We noticed a drop in performance for `{a.page_name}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert)
+        """.format(a=alert, date_str=date_str)
     else:
         return """\
-:white_check_mark: *Performance high-five*  We noticed a better performance for `{a.page_name}`.
+:white_check_mark: *Performance high-five* for {date_str}
+We noticed a better performance for `{a.page_name}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert)
+        """.format(a=alert, date_str=date_str)
 
 
-def main():
-    end = datetime.datetime.utcnow()
+def main(args):
+    end = args.date
     # We need an extra day to look at the past information
-    start = end - datetime.timedelta(days=DAYS_WINDOW+1)
+    start = end - datetime.timedelta(days=args.window+1)
 
     data = PerformanceDataSource(start, end)
 
     for page in data.page_names:
-        alert = find_alerts(page, data.get_page_data(page))
+        alert = find_alerts(page, data.get_page_data(page),
+                            window=args.window, threshold=args.threshold
+                            )
         if alert:
             print("{page}: Sending alert: {alert}".format(
                 page=page, alert=alert))
-            alertlib.Alert(alert_message(alert)).send_to_slack(
-                '#boris-bot-test')
-            break
+            alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
+                args.channel)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--window', '-w', type=int, metavar='n',
+                        help="Specify window of days to use",
+                        default=DAYS_WINDOW)
+    parser.add_argument('--threshold', '-t', type=int, metavar='n',
+                        help="Specify variance threshold",
+                        default=THRESHOLD)
+    parser.add_argument('--date', '-d',
+                        type=lambda s: datetime.datetime.strptime(
+                            s, '%Y-%m-%d'),
+                        default=datetime.datetime.utcnow(),
+                        help='End date of the query')
+    parser.add_argument('--channel', '-c',
+                        default=ALERT_CHANNEL,
+                        help='Which channel to send alert to')
+    args = parser.parse_args()
+    main(args)
