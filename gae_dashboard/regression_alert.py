@@ -169,44 +169,50 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
         "mean={mean:.2f} -> last_value={last_value:.2f} ".format(**locals()) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
-    if last_zscore < -THRESHOLD:
+    if last_zscore < -threshold:
         return Alert(
             alert_type='Performance',
             drop=True,
             page_name=page_name,
             reason="""
-            Yesterday's performance was {threshold} variance below last 7 days
-            threshold.
+Yesterday's performance was {threshold} variance below last 7 days
+threshold.
 
-            Average: {mean:.2f} -> Yesterday: {last_value:.2f}
-            ({perc_change:.2f}% change, variance: {last_zscore})
+Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+({perc_change:.2f}% change, variance: {last_zscore})
             """.format(**locals())
         )
-    elif last_zscore > THRESHOLD:
+    elif last_zscore > threshold:
         return Alert(
             alert_type='Performance',
             drop=False,
             page_name=page_name,
-            reason="""
-            Yesterday's performance was {threshold} variance above last 7 days
-            threshold.
+            reason="""\
+Yesterday's performance was {threshold} variance above last 7 days
+threshold.
 
-            Average: {mean:.2f} -> Yesterday: {last_value:.2f}
-            ({perc_change:.2f}% change, variance: {last_zscore})
+Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+({perc_change:.1f}% change, variance: {last_zscore:.2f})
             """.format(**locals())
         )
 
 
 def alert_message(alert):
     if alert.drop:
-        return """
-        :warning: We noticed a drop in Performance for `{a.page_name}`.
-        {a.reason}
+        return """\
+*Performance alert* :warning:  We noticed a drop in performance for `{a.page_name}.
+
+{a.reason}
+
+Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
         """.format(a=alert)
     else:
-        return """
-        :white_check_mark: We noticed a better Performance for `{a.page_name}`.
-        {a.reason}
+        return """\
+*Performance high-five* :white_check_mark:  We noticed a better performance for `{a.page_name}`.
+
+{a.reason}
+
+Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
         """.format(a=alert)
 
 
