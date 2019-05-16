@@ -16,7 +16,7 @@ import bq_util
 
 MIN_COUNT_PER_DAY = 500
 DAYS_WINDOW = 7
-THRESHOLD = 5
+THRESHOLD = 6
 ALERT_CHANNEL = '#infra-regression'
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
@@ -161,6 +161,9 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
 
     mean = np.mean(windowed_data)
     std = np.std(windowed_data)
+    if std <= 0:
+        print("{}: Skipping with zero variance".format(page_name))
+        return None
 
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
@@ -195,6 +198,7 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
             """.format(**locals())
         )
+    return None
 
 
 def alert_message(alert, date):
