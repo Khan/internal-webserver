@@ -72,7 +72,6 @@ SELECT
   re.route AS route,
   re.date AS date
 FROM `khanacademy.org:deductive-jet-827.infrastructure.route_errors` AS re
-  ON ri.route = re.route
 WHERE
     re.date >= "{start_date}"
     AND re.date <= "{end_date}"
@@ -156,7 +155,7 @@ class ErrorDataSource(DataSource):
 
         error_data = defaultdict(dict)
         for row in bq_data:
-            error_data[row['key']][row['date']] = row['error_count']
+            error_data[row['route']][row['date']] = row['error_count']
         self.data = error_data
 
 
@@ -264,17 +263,21 @@ def main(args):
     # We need an extra day to look at the past information
     start = end - datetime.timedelta(days=args.window+1)
 
-    data = PerformanceDataSource(start, end)
+    all_data = [
+        #PerformanceDataSource(start, end),
+        ErrorDataSource(start, end)
+    ]
 
-    for page in data.keys:
-        alert = find_alerts(page, data.get_key_data(page),
-                            window=args.window, threshold=args.threshold
-                            )
-        if alert:
-            print("{key}: Sending alert: {alert}".format(
-                key=page, alert=alert))
-            alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
-                args.channel)
+    for data in all_data:
+        for page in data.keys:
+            alert = find_alerts(page, data.get_key_data(page),
+                                window=args.window, threshold=args.threshold
+                                )
+            if alert:
+                print("{key}: Sending alert: {alert}".format(
+                    key=page, alert=alert))
+                alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
+                    args.channel)
 
 
 if __name__ == '__main__':
