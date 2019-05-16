@@ -8,20 +8,20 @@ error regressions.
 from collections import defaultdict, namedtuple
 import datetime
 
-import numpy
+import numpy as np
 
 import alertlib
 import bq_util
 
-BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 MIN_COUNT_PER_DAY = 500
 DAYS_WINDOW = 7
 THRESHOLD = 3
 
+BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
 # from kpi-dashboard: lib/performance/page.buckets.sql
 PERFORMANCE_QUERY = """\
-# standardSQL
+#standardSQL
 WITH
   countries AS (
     SELECT
@@ -156,20 +156,20 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     windowed_data = data_array[-window-1:-1]
     last_value = data_array[-1]
 
-    mean = statistics.mean(windowed_data)
-    std = statistics.stdev(windowed_data)
+    mean = np.mean(windowed_data)
+    std = np.std(windowed_data)
 
-    lower_bound = mean - (threshold * std)
+    #lower_bound = mean - (threshold * std)
 
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
 
     print(
-        "Comparing {page_name}: {mean:.2f} -> {last_value:.2f} ".format(
-            **locals()) +
-        "(std: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
+        "Comparing {page_name}: ".format(page_name=page_name) +
+        "mean={mean:.2f} -> last_value={last_value:.2f} ".format(**locals()) +
+        "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
-    if last_value < lower_bound:
+    if last_zscore < -THRESHOLD:
         return Alert(
             alert_type='Performance',
             drop=True,
@@ -179,24 +179,35 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
             threshold.
 
             Average: {mean:.2f} -> Yesterday: {last_value:.2f}
-            ({perc_change:.2f}% change)
+            ({perc_change:.2f}% change, variance: {last_zscore})
+            """.format(**locals())
+        )
+    elif last_zscore > THRESHOLD:
+        return Alert(
+            alert_type='Performance',
+            drop=False,
+            page_name=page_name,
+            reason="""
+            Yesterday's performance was {threshold} variance above last 7 days
+            threshold.
 
-            Threshold for alert: {lower_bound:.2f}
+            Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+            ({perc_change:.2f}% change, variance: {last_zscore})
             """.format(**locals())
         )
 
 
-def alert_message(a):
-    if a.drop:
+def alert_message(alert):
+    if alert.drop:
         return """
-        :warning: We noticed a drop in Performance for `{page_name}`.
-        {reason}
-        """.format(page_name=a.page_name, reason=a.reason)
+        :warning: We noticed a drop in Performance for `{a.page_name}`.
+        {a.reason}
+        """.format(a=alert)
     else:
         return """
         :white_check_mark: We noticed a better Performance for `{a.page_name}`.
         {a.reason}
-        """.format(page_name=a.page_name, reason=a.reason)
+        """.format(a=alert)
 
 
 def main():
