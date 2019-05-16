@@ -15,7 +15,7 @@ import bq_util
 
 MIN_COUNT_PER_DAY = 500
 DAYS_WINDOW = 7
-THRESHOLD = 3
+THRESHOLD = 1
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
@@ -175,11 +175,11 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
             drop=True,
             page_name=page_name,
             reason="""
-Yesterday's performance was {threshold} variance below last 7 days
+Yesterday's performance was significantly worse compare last 7 days
 threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
-({perc_change:.2f}% change, variance: {last_zscore})
+({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
             """.format(**locals())
         )
     elif last_zscore > threshold:
@@ -188,11 +188,11 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
             drop=False,
             page_name=page_name,
             reason="""\
-Yesterday's performance was {threshold} variance above last 7 days
+Yesterday's performance was significantly better compare to last 7 days
 threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
-({perc_change:.1f}% change, variance: {last_zscore:.2f})
+({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
             """.format(**locals())
         )
 
@@ -200,7 +200,8 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 def alert_message(alert):
     if alert.drop:
         return """\
-*Performance alert* :warning:  We noticed a drop in performance for `{a.page_name}.
+:warning: *Performance alert*
+We noticed a drop in performance for `{a.page_name}`.
 
 {a.reason}
 
@@ -208,7 +209,7 @@ Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-d
         """.format(a=alert)
     else:
         return """\
-*Performance high-five* :white_check_mark:  We noticed a better performance for `{a.page_name}`.
+:white_check_mark: *Performance high-five*  We noticed a better performance for `{a.page_name}`.
 
 {a.reason}
 
@@ -230,6 +231,7 @@ def main():
                 page=page, alert=alert))
             alertlib.Alert(alert_message(alert)).send_to_slack(
                 '#boris-bot-test')
+            break
 
 
 if __name__ == '__main__':
