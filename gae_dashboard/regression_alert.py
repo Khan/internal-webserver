@@ -32,8 +32,7 @@ ALERT_PARAMETER = {
 }
 
 MIN_COUNT_PER_DAY = 500
-# ALERT_CHANNEL = '#infra-regression'
-ALERT_CHANNEL = '#boris-bot-test'
+ALERT_CHANNEL = '#infra-regression'
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
 
