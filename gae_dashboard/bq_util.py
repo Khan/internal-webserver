@@ -77,7 +77,7 @@ def get_daily_data(report, yyyymmdd):
     if not os.path.exists(filename):
         return None
     else:
-        with open(filename) as f:
+        with open(filename, 'rb') as f:
             return cPickle.load(f)
 
 
@@ -92,7 +92,7 @@ def save_daily_data(data, report, yyyymmdd):
     filename = _get_data_filename(report, yyyymmdd)
     if not os.path.isdir(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
-    with open(filename, 'w') as f:
+    with open(filename, 'wb') as f:
         cPickle.dump(data, f)
 
 
