@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """A script for alerting pageload pangolin alerts.
 
 This script does a very simplistic check for Performance and
@@ -7,9 +7,10 @@ error regressions.
 
 from collections import defaultdict, namedtuple
 import datetime
-import statistics
-from typing import List, Dict, DefaultDict, Optional, KeysView, NamedTuple
 
+import numpy
+
+import alertlib
 import bq_util
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
@@ -20,7 +21,7 @@ THRESHOLD = 3
 
 # from kpi-dashboard: lib/performance/page.buckets.sql
 PERFORMANCE_QUERY = """\
-#standardSQL
+# standardSQL
 WITH
   countries AS (
     SELECT
@@ -67,12 +68,9 @@ class DataSource:
     """Data source which we get the performance/regression alerts.
     """
 
-    def filter(self, start_date: datetime.date, end_date: datetime.date):
+    def filter(self, start_date, end_date):
         """Return a supset of data specific by start/end date"""
         raise NotImplementedError()
-
-
-PageDataType = DefaultDict[str, Dict[datetime.date, float]]
 
 
 class PerformanceDataSource(DataSource):
@@ -80,9 +78,7 @@ class PerformanceDataSource(DataSource):
     """
     BAD_SPEED_NAMES = {'slow', 'unacceptable'}
 
-    data: PageDataType
-
-    def get_acceptable_or_faster(self, row) -> float:
+    def get_acceptable_or_faster(self, row):
         assert 'speeds' in row
         wanted_speeds = filter(
             lambda spds: spds['speed'] not in self.BAD_SPEED_NAMES,
@@ -90,22 +86,22 @@ class PerformanceDataSource(DataSource):
         )
         return sum(map(lambda spds: float(spds['count']), wanted_speeds))
 
-    def get_acceptable_or_faster_percent(self, row) -> float:
+    def get_acceptable_or_faster_percent(self, row):
         faster_count = self.get_acceptable_or_faster(row)
         all_count = sum(map(lambda spds: float(spds['count']), row['speeds']))
         if all_count <= MIN_COUNT_PER_DAY:
             return None
         return faster_count / all_count
 
-    def get_page_accceptable_percent(self, bq_data) -> PageDataType:
-        page_name_date: PageDataType = defaultdict(dict)
+    def get_page_accceptable_percent(self, bq_data):
+        page_name_date = defaultdict(dict)
         for row in bq_data:
             date_speed = page_name_date[row['page_name']]
             date_speed[row['date']
                        ] = self.get_acceptable_or_faster_percent(row)
         return page_name_date
 
-    def __init__(self, start_date: datetime.date, end_date: datetime.date):
+    def __init__(self, start_date, end_date):
         report_name = 'performance_daily'
         report_date = start_date.strftime('%Y%m%d')
         query = PERFORMANCE_QUERY.format(
@@ -118,23 +114,22 @@ class PerformanceDataSource(DataSource):
         self.data = self.get_page_accceptable_percent(bq_data)
 
     @property
-    def page_names(self) -> KeysView:
+    def page_names(self):
         return self.data.keys()
 
-    def get_page_data(self, page_name: str) -> Dict[datetime.date, float]:
+    def get_page_data(self, page_name):
         return self.data[page_name]
 
 
-class Alert(NamedTuple):
-    page_name: str
-    reason: str
-    delta: float
-    mean: float
-    lower_bound: float
+Alert = namedtuple("Alert", [
+    "alert_type",  # type: str
+    "page_name",  # type: str
+    "drop",  # type: bool
+    "reason"  # type: str
+])
 
 
-def find_alerts(page_name: str, data: Dict[datetime.date, float],
-                threadhold=THRESHOLD, window=DAYS_WINDOW) -> Optional[Alert]:
+def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
@@ -153,7 +148,7 @@ def find_alerts(page_name: str, data: Dict[datetime.date, float],
     """
     # all data must present in order for alert to trigger (high detecion value)
     if [d for d in data.values() if d is None]:
-        print(f"{page_name}: Skipping with insufficient data")
+        print("{}: Skipping with insufficient data".format(page_name))
         return None
 
     data_array = [data[k] for k in sorted(data.keys())]
@@ -164,20 +159,44 @@ def find_alerts(page_name: str, data: Dict[datetime.date, float],
     mean = statistics.mean(windowed_data)
     std = statistics.stdev(windowed_data)
 
-    lower_bound = mean - (threadhold * std)
+    lower_bound = mean - (threshold * std)
 
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
 
-    print(f"Comparing {page_name}: {mean:.2f} -> {last_value:.2f} (std: {last_zscore:.2f}, pec: {perc_change:.2f}%)")
-    if data_array[-1] < lower_bound:
+    print(
+        "Comparing {page_name}: {mean:.2f} -> {last_value:.2f} ".format(
+            **locals()) +
+        "(std: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
+    )
+    if last_value < lower_bound:
         return Alert(
+            alert_type='Performance',
+            drop=True,
             page_name=page_name,
-            reason=f"Drop below threadhold: {mean:.2f} -> {last_value:.2f}",
-            delta=last_zscore,
-            mean=mean,
-            lower_bound=lower_bound
+            reason="""
+            Yesterday's performance was {threshold} variance below last 7 days
+            threshold.
+
+            Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+            ({perc_change:.2f}% change)
+
+            Threshold for alert: {lower_bound:.2f}
+            """.format(**locals())
         )
+
+
+def alert_message(a):
+    if a.drop:
+        return """
+        :warning: We noticed a drop in Performance for `{page_name}`.
+        {reason}
+        """.format(page_name=a.page_name, reason=a.reason)
+    else:
+        return """
+        :white_check_mark: We noticed a better Performance for `{a.page_name}`.
+        {a.reason}
+        """.format(page_name=a.page_name, reason=a.reason)
 
 
 def main():
@@ -190,7 +209,10 @@ def main():
     for page in data.page_names:
         alert = find_alerts(page, data.get_page_data(page))
         if alert:
-            print(f"{page}: {alert}")
+            print("{page}: Sending alert: {alert}".format(
+                page=page, alert=alert))
+            alertlib.Alert(alert_message(alert)).send_to_slack(
+                '#boris-bot-test')
 
 
 if __name__ == '__main__':
