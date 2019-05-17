@@ -16,33 +16,40 @@ import alertlib
 import bq_util
 
 # Some explaination on the parameters:
-# - threshold: number of stanard deviation over the past days_window we would
-#              accept.  We want this number > 1 (i.e. outside normal bound of
-#              the window).
-# - days_window: number of days to look back at.  Generally we want this to be
-#                multiple of 7 to include weekend variance, increasing will
-#                likely to make the alert less noisy.
+AlertParameters = namedtuple("AlertParameters", [
+    # Number of days to look back at.
+    # Generally we want this to be multiple of 7 to include weekend variance.
+    # Increasing will make the alert less noisy.
+    "window",  # type: int
+    # Number of stanard deviation over the past days_window we accept.
+    # We want this number > 1 (i.e. outside normal bound of the window).
+    # Increasing will make the alert less noisy.
+    "threshold",  # type: int
+    # Minimal value to raise alert
+    # Useful for filtering noisy errors.
+    "min_alert_value",  # type: Maybe[int]
+])
 
 DATA_TYPE_PERF = 'Performance'
 DATA_TYPE_ERROR = 'Server Error'
 DATA_TYPE_CLIENT_ERROR = 'Client Error'
 
 ALERT_PARAMETER = {
-    DATA_TYPE_PERF: {
-        "window": 7,
-        "threshold": 6,
-        "min_alert_value": None
-    },
-    DATA_TYPE_ERROR: {
-        "window": 7,
-        "threshold": 20,
-        "min_alert_value": 100
-    },
-    DATA_TYPE_CLIENT_ERROR: {
-        "window": 7,
-        "threshold": 6,
-        "min_alert_value": 100
-    }
+    DATA_TYPE_PERF: AlertParameters(
+        window=7,
+        threshold=6,
+        min_alert_value=None
+    ),
+    DATA_TYPE_ERROR: AlertParameters(
+        window=7,
+        threshold=20,
+        min_alert_value=100
+    ),
+    DATA_TYPE_CLIENT_ERROR: AlertParameters(
+        window=7,
+        threshold=6,
+        min_alert_value=100
+    )
 }
 
 MIN_COUNT_PER_DAY = 500
@@ -423,10 +430,10 @@ def main(args):
             continue
 
         window = args.window if args.window \
-            else ALERT_PARAMETER[data_type]['window']
+            else ALERT_PARAMETER[data_type].window
         threshold = args.threshold if args.threshold \
-            else ALERT_PARAMETER[data_type]['threshold']
-        min_alert_value = ALERT_PARAMETER[data_type]['min_alert_value']
+            else ALERT_PARAMETER[data_type].threshold
+        min_alert_value = ALERT_PARAMETER[data_type].min_alert_value
 
         start = end - datetime.timedelta(days=window+1)
         data = data_source(start, end)
