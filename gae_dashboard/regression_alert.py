@@ -160,11 +160,14 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD, window=DAYS_WINDOW)
     data = data_source.get_page_data(page_name)
 
     # all data must present in order for alert to trigger (high detecion value)
-    if [d for d in data.values() if d is None]:
-        print("{}: Skipping with insufficient data".format(page_name))
+
+    days_with_data = [k for k in sorted(data.keys()) if data[k] is not None]
+    if len(days_with_data) < window+1:
+        print("{}: Skipping with insufficient data (days={})".format(
+            page_name, days_with_data))
         return None
 
-    data_array = [data[k] for k in sorted(data.keys())]
+    data_array = [data[k] for k in days_with_data]
 
     windowed_data = data_array[-window-1:-1]
     last_value = data_array[-1]
@@ -254,6 +257,7 @@ def main(args):
 
 
 if __name__ == '__main__':
+    yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
     parser = argparse.ArgumentParser()
     parser.add_argument('--window', '-w', type=int, metavar='n',
                         help="Specify window of days to use",
@@ -264,7 +268,7 @@ if __name__ == '__main__':
     parser.add_argument('--date', '-d',
                         type=lambda s: datetime.datetime.strptime(
                             s, '%Y-%m-%d'),
-                        default=datetime.datetime.utcnow(),
+                        default=yesterday,
                         help='End date of the query')
     parser.add_argument('--channel', '-c',
                         default=ALERT_CHANNEL,
