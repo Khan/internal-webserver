@@ -209,6 +209,10 @@ class ErrorDataSource(DataSource):
             error_data[row['route']][row['date']] = row['error_count']
         self.data = error_data
 
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        return "{} errors per day".format(metric)
+
 
 class SentryErrorDataSource(DataSource):
     """Getting error data from the timeframe required
@@ -234,6 +238,10 @@ class SentryErrorDataSource(DataSource):
                         continue
                     error_data[file['name']][row['date']] = int(file['count'])
         self.data = error_data
+
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        return "{} errors per day".format(metric)
 
 
 Alert = namedtuple("Alert", [
@@ -262,14 +270,14 @@ def find_alerts(data_type, key, data_source, threshold, window,
         s = r.std(ddof=0).shift(1)
         z = (x-m)/s
     """
-    data = data_source.get_page_data(page_name)
+    data = data_source.get_key_data(key)
 
     # all data must present in order for alert to trigger (high detecion value)
 
     days_with_data = [k for k in sorted(data.keys()) if data[k] is not None]
     if len(days_with_data) < window+1:
         print("{}: Skipping with insufficient data (days={})".format(
-            page_name, days_with_data))
+            key, days_with_data))
         return None
 
     data_array = [data[k] for k in days_with_data]
@@ -295,7 +303,7 @@ def find_alerts(data_type, key, data_source, threshold, window,
     readable_last_value = data_source.readable_metrics(last_value)
 
     print(
-        "Comparing {page_name}: ".format(page_name=page_name) +
+        "Comparing {key}: ".format(key=key) +
         "mean={readable_mean} -> last_value={readable_last_value} ".format(
             **locals()) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
@@ -320,7 +328,7 @@ Average: {readable_mean} -> Yesterday: {readable_last_value}
             reason="""\
 Metrics was significantly increase compare to last {window} days threshold.
 
-Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
             """.format(**locals())
         )
