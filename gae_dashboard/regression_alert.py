@@ -8,6 +8,7 @@ error regressions.
 import argparse
 from collections import defaultdict, namedtuple
 import datetime
+import itertools
 
 import numpy as np
 
@@ -136,6 +137,29 @@ class DataSource:
         """Given a metric, return a readble format."""
         raise NotImplementedError()
 
+    def fill_all_days(self, value):
+        """For days that is missing data, backfill with suitable values"""
+        all_dates = set(itertools.chain(*map(
+            lambda date_data: date_data.keys(),
+            self.data.values()
+        )))
+        min_date = datetime.datetime.strptime(min(all_dates), DB_DATE_FMT)
+        max_date = datetime.datetime.strptime(max(all_dates), DB_DATE_FMT)
+        day_count = (max_date - min_date).days
+        days_expected = {
+            (min_date + datetime.timedelta(days=days)).strftime(DB_DATE_FMT)
+            for days in range(day_count+1)
+        }
+        # assert max(days_expected) == max(all_dates)
+
+        for k in self.data.keys():
+            date_data = self.data[k]
+            days_avaliable = set(date_data.keys())
+            days_missing = days_expected - days_avaliable
+            for date in days_missing:
+                # print("{}: missing date {}".format(k, date))
+                date_data[date] = value
+
     @property
     def keys(self):
         return self.data.keys()
@@ -160,6 +184,7 @@ class PerformanceDataSource(DataSource):
             query, report_name, report_date
         )
         self.data = self.__get_page_accceptable_percent(bq_data)
+        self.fill_all_days(None)
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
@@ -208,6 +233,7 @@ class ErrorDataSource(DataSource):
         for row in bq_data:
             error_data[row['route']][row['date']] = row['error_count']
         self.data = error_data
+        self.fill_all_days(0)
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
@@ -230,14 +256,20 @@ class SentryErrorDataSource(DataSource):
         )
 
         error_data = defaultdict(dict)
+        # truncating datetime string to date string
+        date_length = 10
+
         for row in bq_data:
             project = row['project']
             for initiatives in row['initiative_counts']:
                 for file in initiatives['files']:
                     if file['name'] == '<Unknown>':
                         continue
-                    error_data[file['name']][row['date']] = int(file['count'])
+                    error_data[file['name']][row['date'][:date_length]] = (
+                        int(file['count'])
+                    )
         self.data = error_data
+        self.fill_all_days(0)
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
