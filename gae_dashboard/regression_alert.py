@@ -14,6 +14,13 @@ import numpy as np
 import alertlib
 import bq_util
 
+# Some explaination on the parameters:
+# - threshold: number of stanard deviation over the past days_window we would
+#              accept.  We want this number > 1 (i.e. outside normal bound of
+#              the window).
+# - days_window: number of days to look back at.  Generally we want this to be
+#                multiple of 7 to include weekend variance, increasing will
+#                likely to make the alert less noisy.
 MIN_COUNT_PER_DAY = 500
 DAYS_WINDOW = 7
 THRESHOLD = 6
@@ -140,7 +147,8 @@ Alert = namedtuple("Alert", [
 ])
 
 
-def find_alerts(page_name, data_source, threshold=THRESHOLD, window=DAYS_WINDOW):
+def find_alerts(page_name, data_source, threshold=THRESHOLD,
+                window=DAYS_WINDOW):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
