@@ -71,6 +71,10 @@ class DataSource:
     """Data source which we get the performance/regression alerts.
     """
 
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        raise NotImplementedError()
+
     def filter(self, start_date, end_date):
         """Return a supset of data specific by start/end date"""
         raise NotImplementedError()
@@ -80,29 +84,6 @@ class PerformanceDataSource(DataSource):
     """Getting performance data from the timeframe required
     """
     BAD_SPEED_NAMES = {'slow', 'unacceptable'}
-
-    def get_acceptable_or_faster(self, row):
-        assert 'speeds' in row
-        wanted_speeds = filter(
-            lambda spds: spds['speed'] not in self.BAD_SPEED_NAMES,
-            row['speeds']
-        )
-        return sum(map(lambda spds: float(spds['count']), wanted_speeds))
-
-    def get_acceptable_or_faster_percent(self, row):
-        faster_count = self.get_acceptable_or_faster(row)
-        all_count = sum(map(lambda spds: float(spds['count']), row['speeds']))
-        if all_count <= MIN_COUNT_PER_DAY:
-            return None
-        return faster_count / all_count
-
-    def get_page_accceptable_percent(self, bq_data):
-        page_name_date = defaultdict(dict)
-        for row in bq_data:
-            date_speed = page_name_date[row['page_name']]
-            date_speed[row['date']
-                       ] = self.get_acceptable_or_faster_percent(row)
-        return page_name_date
 
     def __init__(self, start_date, end_date):
         report_name = 'performance_daily'
@@ -114,7 +95,34 @@ class PerformanceDataSource(DataSource):
         bq_data = bq_util.get_daily_data_from_disk_or_bq(
             query, report_name, report_date
         )
-        self.data = self.get_page_accceptable_percent(bq_data)
+        self.data = self.__get_page_accceptable_percent(bq_data)
+
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        return "{:.1f}%% acceptable or faster".format(metric)
+
+    def __get_acceptable_or_faster(self, row):
+        assert 'speeds' in row
+        wanted_speeds = filter(
+            lambda spds: spds['speed'] not in self.BAD_SPEED_NAMES,
+            row['speeds']
+        )
+        return sum(map(lambda spds: float(spds['count']), wanted_speeds))
+
+    def __get_acceptable_or_faster_percent(self, row):
+        faster_count = self.__get_acceptable_or_faster(row)
+        all_count = sum(map(lambda spds: float(spds['count']), row['speeds']))
+        if all_count <= MIN_COUNT_PER_DAY:
+            return None
+        return faster_count / all_count
+
+    def __get_page_accceptable_percent(self, bq_data):
+        page_name_date = defaultdict(dict)
+        for row in bq_data:
+            date_speed = page_name_date[row['page_name']]
+            date_speed[row['date']
+                       ] = self.__get_acceptable_or_faster_percent(row)
+        return page_name_date
 
     @property
     def page_names(self):
@@ -132,7 +140,7 @@ Alert = namedtuple("Alert", [
 ])
 
 
-def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
+def find_alerts(page_name, data_source, threshold=THRESHOLD, window=DAYS_WINDOW):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
@@ -149,6 +157,8 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
         s = r.std(ddof=0).shift(1)
         z = (x-m)/s
     """
+    data = data_source.get_page_data(page_name)
+
     # all data must present in order for alert to trigger (high detecion value)
     if [d for d in data.values() if d is None]:
         print("{}: Skipping with insufficient data".format(page_name))
@@ -170,7 +180,10 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
 
     print(
         "Comparing {page_name}: ".format(page_name=page_name) +
-        "mean={mean:.2f} -> last_value={last_value:.2f} ".format(**locals()) +
+        "mean={mean} -> last_value={last_value} ".format(
+            mean=data_source.readable_metrics(mean),
+            last_value=data_source.readable_metrics(last_value)
+        ) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
     if last_zscore < -threshold:
@@ -179,8 +192,7 @@ def find_alerts(page_name, data, threshold=THRESHOLD, window=DAYS_WINDOW):
             drop=True,
             page_name=page_name,
             reason="""
-Performance was significantly worse compare last {window} days
-threshold.
+Performance was significantly worse compare last {window} days threshold.
 
 Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 ({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
@@ -231,7 +243,7 @@ def main(args):
     data = PerformanceDataSource(start, end)
 
     for page in data.page_names:
-        alert = find_alerts(page, data.get_page_data(page),
+        alert = find_alerts(page, data,
                             window=args.window, threshold=args.threshold
                             )
         if alert:
