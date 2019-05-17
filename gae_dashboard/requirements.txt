@@ -8,5 +8,4 @@ Jinja2==2.9.5
 requests==2.20.0
 matplotlib==2.0.0
 numpy==1.15.4
-six==1.12.0
 git+https://github.com/Khan/sailthru-python-client@c973e63f6#egg=sailthru-api-client
