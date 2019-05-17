@@ -41,7 +41,7 @@ ALERT_PARAMETER = {
         min_alert_value=None
     ),
     DATA_TYPE_ERROR: AlertParameters(
-        window=7,
+        window=14,  # Since server errors are a lot spiker over week
         threshold=20,
         min_alert_value=100
     ),
