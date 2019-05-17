@@ -99,7 +99,7 @@ class PerformanceDataSource(DataSource):
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
-        return "{:.1f}%% acceptable or faster".format(metric)
+        return "{:.1f}% acceptable or faster".format(100. * metric)
 
     def __get_acceptable_or_faster(self, row):
         assert 'speeds' in row
@@ -181,12 +181,13 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD, window=DAYS_WINDOW)
     last_zscore = (last_value - mean) / std
     perc_change = 100. * (last_value - mean) / mean
 
+    readable_mean = data_source.readable_metrics(mean)
+    readable_last_value = data_source.readable_metrics(last_value)
+
     print(
         "Comparing {page_name}: ".format(page_name=page_name) +
-        "mean={mean} -> last_value={last_value} ".format(
-            mean=data_source.readable_metrics(mean),
-            last_value=data_source.readable_metrics(last_value)
-        ) +
+        "mean={readable_mean} -> last_value={readable_last_value} ".format(
+            **locals()) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
     if last_zscore < -threshold:
@@ -197,7 +198,7 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD, window=DAYS_WINDOW)
             reason="""
 Performance was significantly worse compare last {window} days threshold.
 
-Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
             """.format(**locals())
         )
