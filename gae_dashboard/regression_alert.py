@@ -120,12 +120,12 @@ SENTRY_ERROR_QUERY = """\
 #standardSQL
 SELECT
   `timestamp` AS date,
-  project,
   error_count,
   initiative_counts
 FROM `khanacademy.org:deductive-jet-827.infrastructure.sentry_errors`
 WHERE
-    `timestamp` >= "{start_date}"
+    project = 'prod-js'
+    AND `timestamp` >= "{start_date}"
     AND `timestamp` <= "{end_date}"
 ORDER BY `timestamp` ASC
 """
@@ -267,7 +267,6 @@ class SentryErrorDataSource(DataSource):
         date_length = 10
 
         for row in bq_data:
-            project = row['project']
             for initiatives in row['initiative_counts']:
                 for file in initiatives['files']:
                     if file['name'] == '<Unknown>':
@@ -353,7 +352,7 @@ def find_alerts(data_type, key, data_source, threshold, window,
             drop=True,
             key=key,
             reason="""
-Metrics was significantly dropped compare last {window} days threshold.
+Metrics dropped significantly compare to last {window} days.
 
 Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
@@ -365,7 +364,7 @@ Average: {readable_mean} -> Yesterday: {readable_last_value}
             drop=False,
             key=key,
             reason="""\
-Metrics was significantly increase compare to last {window} days threshold.
+Metrics increased significantly compare to last {window} days.
 
 Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
@@ -438,8 +437,8 @@ def main(args):
         start = end - datetime.timedelta(days=window+1)
         data = data_source(start, end)
 
-        for page in data.keys:
-            alert = find_alerts(data_type, page, data,
+        for key in data.keys:
+            alert = find_alerts(data_type, key, data,
                                 window=window, threshold=threshold,
                                 min_alert_value=min_alert_value
                                 )
@@ -447,7 +446,7 @@ def main(args):
                 alert_msg = alert_message(alert, args.date)
                 if alert_msg:
                     print("{key}: Sending alert: {alert}".format(
-                        key=page, alert=alert))
+                        key=key, alert=alert))
                     alertlib.Alert(alert_msg).send_to_slack(args.channel)
 
 
