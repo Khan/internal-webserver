@@ -244,7 +244,8 @@ class ErrorDataSource(DataSource):
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
-        return "{} errors per day".format(metric)
+        # This can be integer or float (since it is mean)
+        return "{:.1f} errors per day".format(metric)
 
 
 class SentryErrorDataSource(DataSource):
@@ -279,7 +280,8 @@ class SentryErrorDataSource(DataSource):
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
-        return "{} errors per day".format(metric)
+        # This can be integer or float (since it is mean)
+        return "{:.1f} errors per day".format(metric)
 
 
 Alert = namedtuple("Alert", [
