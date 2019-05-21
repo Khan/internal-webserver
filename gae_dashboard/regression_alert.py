@@ -8,6 +8,7 @@ error regressions.
 import argparse
 from collections import defaultdict, namedtuple
 import datetime
+import itertools
 
 import numpy as np
 
@@ -15,15 +16,43 @@ import alertlib
 import bq_util
 
 # Some explaination on the parameters:
-# - threshold: number of stanard deviation over the past days_window we would
-#              accept.  We want this number > 1 (i.e. outside normal bound of
-#              the window).
-# - days_window: number of days to look back at.  Generally we want this to be
-#                multiple of 7 to include weekend variance, increasing will
-#                likely to make the alert less noisy.
+AlertParameters = namedtuple("AlertParameters", [
+    # Number of days to look back at.
+    # Generally we want this to be multiple of 7 to include weekend variance.
+    # Increasing will make the alert less noisy.
+    "window",  # type: int
+    # Number of stanard deviation over the past days_window we accept.
+    # We want this number > 1 (i.e. outside normal bound of the window).
+    # Increasing will make the alert less noisy.
+    "threshold",  # type: int
+    # Minimal value to raise alert
+    # Useful for filtering noisy errors.
+    "min_alert_value",  # type: Maybe[int]
+])
+
+DATA_TYPE_PERF = 'Performance'
+DATA_TYPE_ERROR = 'Server Error'
+DATA_TYPE_CLIENT_ERROR = 'Client Error'
+
+ALERT_PARAMETER = {
+    DATA_TYPE_PERF: AlertParameters(
+        window=7,
+        threshold=6,
+        min_alert_value=None
+    ),
+    DATA_TYPE_ERROR: AlertParameters(
+        window=14,  # Since server errors are a lot spiker over week
+        threshold=20,
+        min_alert_value=100
+    ),
+    DATA_TYPE_CLIENT_ERROR: AlertParameters(
+        window=7,
+        threshold=6,
+        min_alert_value=100
+    )
+}
+
 MIN_COUNT_PER_DAY = 500
-DAYS_WINDOW = 7
-THRESHOLD = 6
 ALERT_CHANNEL = '#infra-regression'
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
@@ -71,6 +100,36 @@ FROM combined
 GROUP by page_name, date
 """
 
+# from kpi-dashboard: lib/team/route.errors.sql
+ERROR_QUERY = """\
+#standardSQL
+SELECT
+  re.count AS error_count,
+  re.route AS route,
+  re.date AS date
+FROM `khanacademy.org:deductive-jet-827.infrastructure.route_errors` AS re
+WHERE
+    re.date >= "{start_date}"
+    AND re.date <= "{end_date}"
+    AND re.is_user_facing
+ORDER BY re.date ASC
+"""
+
+# from kpi-dashboard: lib/team/sentry.file.errors.sql
+SENTRY_ERROR_QUERY = """\
+#standardSQL
+SELECT
+  `timestamp` AS date,
+  error_count,
+  initiative_counts
+FROM `khanacademy.org:deductive-jet-827.infrastructure.sentry_errors`
+WHERE
+    project = 'prod-js'
+    AND `timestamp` >= "{start_date}"
+    AND `timestamp` <= "{end_date}"
+ORDER BY `timestamp` ASC
+"""
+
 DB_DATE_FMT = '%Y-%m-%d'
 
 
@@ -78,13 +137,42 @@ class DataSource:
     """Data source which we get the performance/regression alerts.
     """
 
+    def __init__(self, start_date, end_date):
+        self.data = {}  # type: Dict[str, Dict[date, float]]
+
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
         raise NotImplementedError()
 
-    def filter(self, start_date, end_date):
-        """Return a supset of data specific by start/end date"""
-        raise NotImplementedError()
+    def fill_all_days(self, value):
+        """For days that is missing data, backfill with suitable values"""
+        all_dates = set(itertools.chain(*map(
+            lambda date_data: date_data.keys(),
+            self.data.values()
+        )))
+        min_date = datetime.datetime.strptime(min(all_dates), DB_DATE_FMT)
+        max_date = datetime.datetime.strptime(max(all_dates), DB_DATE_FMT)
+        day_count = (max_date - min_date).days
+        days_expected = {
+            (min_date + datetime.timedelta(days=days)).strftime(DB_DATE_FMT)
+            for days in range(day_count+1)
+        }
+        # assert max(days_expected) == max(all_dates)
+
+        for k in self.data.keys():
+            date_data = self.data[k]
+            days_avaliable = set(date_data.keys())
+            days_missing = days_expected - days_avaliable
+            for date in days_missing:
+                # print("{}: missing date {}".format(k, date))
+                date_data[date] = value
+
+    @property
+    def keys(self):
+        return self.data.keys()
+
+    def get_key_data(self, key):
+        return self.data[key]
 
 
 class PerformanceDataSource(DataSource):
@@ -103,6 +191,7 @@ class PerformanceDataSource(DataSource):
             query, report_name, report_date
         )
         self.data = self.__get_page_accceptable_percent(bq_data)
+        self.fill_all_days(None)
 
     def readable_metrics(self, metric):
         """Given a metric, return a readble format."""
@@ -131,24 +220,80 @@ class PerformanceDataSource(DataSource):
                        ] = self.__get_acceptable_or_faster_percent(row)
         return page_name_date
 
-    @property
-    def page_names(self):
-        return self.data.keys()
 
-    def get_page_data(self, page_name):
-        return self.data[page_name]
+class ErrorDataSource(DataSource):
+    """Getting error data from the timeframe required
+    """
+
+    def __init__(self, start_date, end_date):
+        report_name = 'error_daily'
+        report_date = start_date.strftime('%Y%m%d')
+        query = ERROR_QUERY.format(
+            start_date=start_date.strftime(DB_DATE_FMT),
+            end_date=end_date.strftime(DB_DATE_FMT)
+        )
+        bq_data = bq_util.get_daily_data_from_disk_or_bq(
+            query, report_name, report_date
+        )
+
+        error_data = defaultdict(dict)
+        for row in bq_data:
+            error_data[row['route']][row['date']] = row['error_count']
+        self.data = error_data
+        self.fill_all_days(0)
+
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        # This can be integer or float (since it is mean)
+        return "{:.1f} errors per day".format(metric)
+
+
+class SentryErrorDataSource(DataSource):
+    """Getting error data from the timeframe required
+    """
+
+    def __init__(self, start_date, end_date):
+        report_name = 'sentry_error_daily'
+        report_date = start_date.strftime('%Y%m%d')
+        query = SENTRY_ERROR_QUERY.format(
+            start_date=start_date.strftime(DB_DATE_FMT),
+            end_date=end_date.strftime(DB_DATE_FMT)
+        )
+        bq_data = bq_util.get_daily_data_from_disk_or_bq(
+            query, report_name, report_date
+        )
+
+        error_data = defaultdict(dict)
+        # truncating datetime string to date string
+        date_length = 10
+
+        for row in bq_data:
+            for initiatives in row['initiative_counts']:
+                for file in initiatives['files']:
+                    if file['name'] == '<Unknown>':
+                        continue
+                    error_data[file['name']][row['date'][:date_length]] = (
+                        int(file['count'])
+                    )
+        self.data = error_data
+        self.fill_all_days(0)
+
+    def readable_metrics(self, metric):
+        """Given a metric, return a readble format."""
+        # This can be integer or float (since it is mean)
+        return "{:.1f} errors per day".format(metric)
 
 
 Alert = namedtuple("Alert", [
     "alert_type",  # type: str
-    "page_name",  # type: str
+    "key",  # type: str
     "drop",  # type: bool
     "reason"  # type: str
 ])
 
 
-def find_alerts(page_name, data_source, threshold=THRESHOLD,
-                window=DAYS_WINDOW):
+def find_alerts(data_type, key, data_source, threshold, window,
+                min_alert_value):
     """Trigger alert based on variance from last week
 
     From our research, we settled on looking at variance, with a
@@ -165,14 +310,14 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD,
         s = r.std(ddof=0).shift(1)
         z = (x-m)/s
     """
-    data = data_source.get_page_data(page_name)
+    data = data_source.get_key_data(key)
 
     # all data must present in order for alert to trigger (high detecion value)
 
     days_with_data = [k for k in sorted(data.keys()) if data[k] is not None]
     if len(days_with_data) < window+1:
         print("{}: Skipping with insufficient data (days={})".format(
-            page_name, days_with_data))
+            key, days_with_data))
         return None
 
     data_array = [data[k] for k in days_with_data]
@@ -180,10 +325,15 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD,
     windowed_data = data_array[-window-1:-1]
     last_value = data_array[-1]
 
+    # filter for min alert value
+    if min_alert_value is not None:
+        if last_value <= min_alert_value:
+            return None
+
     mean = np.mean(windowed_data)
     std = np.std(windowed_data)
     if std <= 0:
-        print("{}: Skipping with zero variance".format(page_name))
+        print("{}: Skipping with zero variance".format(key))
         return None
 
     last_zscore = (last_value - mean) / std
@@ -193,18 +343,18 @@ def find_alerts(page_name, data_source, threshold=THRESHOLD,
     readable_last_value = data_source.readable_metrics(last_value)
 
     print(
-        "Comparing {page_name}: ".format(page_name=page_name) +
+        "Comparing {key}: ".format(key=key) +
         "mean={readable_mean} -> last_value={readable_last_value} ".format(
             **locals()) +
         "(z: {last_zscore:.2f}, pec: {perc_change:.2f}%)".format(**locals())
     )
     if last_zscore < -threshold:
         return Alert(
-            alert_type='Performance',
+            alert_type=data_type,
             drop=True,
-            page_name=page_name,
+            key=key,
             reason="""
-Performance was significantly worse compare last {window} days threshold.
+Metrics dropped significantly compare to last {window} days.
 
 Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.2f}% change, variance: {last_zscore:.2f} < {threshold})
@@ -212,13 +362,13 @@ Average: {readable_mean} -> Yesterday: {readable_last_value}
         )
     elif last_zscore > threshold:
         return Alert(
-            alert_type='Performance',
+            alert_type=data_type,
             drop=False,
-            page_name=page_name,
+            key=key,
             reason="""\
-Performance was significantly better compare to last {window} days threshold.
+Metrics increased significantly compare to last {window} days.
 
-Average: {mean:.2f} -> Yesterday: {last_value:.2f}
+Average: {readable_mean} -> Yesterday: {readable_last_value}
 ({perc_change:.1f}% change, variance: {last_zscore:.2f} > {threshold})
             """.format(**locals())
         )
@@ -227,53 +377,88 @@ Average: {mean:.2f} -> Yesterday: {last_value:.2f}
 
 def alert_message(alert, date):
     date_str = date.strftime("%Y-%m-%d")
-    if alert.drop:
-        return """\
+    if alert.alert_type in {DATA_TYPE_ERROR, DATA_TYPE_CLIENT_ERROR}:
+        if not alert.drop:
+            return """\
+:warning: *{a.alert_type} alert* for {date_str}
+We noticed a rise in error for `{a.key}`.
+
+{a.reason}
+
+Check the <https://kpi-infrastructure.appspot.com/team|kpi-dashbaord> for detail.
+            """.format(a=alert, date_str=date_str)
+        else:
+            # Do not alert on error improvement
+            return
+    elif alert.alert_type == DATA_TYPE_PERF:
+        if alert.drop:
+            return """\
 :warning: *Performance alert* for {date_str}
-We noticed a drop in performance for `{a.page_name}`.
+We noticed a drop in performance for `{a.key}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert, date_str=date_str)
-    else:
-        return """\
+            """.format(a=alert, date_str=date_str)
+        else:
+            return """\
 :white_check_mark: *Performance high-five* for {date_str}
-We noticed a better performance for `{a.page_name}`.
+We noticed a better performance for `{a.key}`.
 
 {a.reason}
 
 Check the <https://kpi-infrastructure.appspot.com/performance#page-section|kpi-dashbaord> for detail.
-        """.format(a=alert, date_str=date_str)
+            """.format(a=alert, date_str=date_str)
+    raise KeyError("Unknown data type: {}".format(alert.alert_type))
 
 
 def main(args):
     end = args.date
     # We need an extra day to look at the past information
-    start = end - datetime.timedelta(days=args.window+1)
 
-    data = PerformanceDataSource(start, end)
+    all_data = {
+        DATA_TYPE_PERF: PerformanceDataSource,
+        DATA_TYPE_ERROR: ErrorDataSource,
+        DATA_TYPE_CLIENT_ERROR: SentryErrorDataSource
+    }
 
-    for page in data.page_names:
-        alert = find_alerts(page, data,
-                            window=args.window, threshold=args.threshold
-                            )
-        if alert:
-            print("{page}: Sending alert: {alert}".format(
-                page=page, alert=alert))
-            alertlib.Alert(alert_message(alert, args.date)).send_to_slack(
-                args.channel)
+    for data_type, data_source in all_data.items():
+        if args.error and data_type != DATA_TYPE_ERROR:
+            continue
+        if args.perf and data_type != DATA_TYPE_PERF:
+            continue
+        if args.clienterror and data_type != DATA_TYPE_CLIENT_ERROR:
+            continue
+
+        window = args.window if args.window \
+            else ALERT_PARAMETER[data_type].window
+        threshold = args.threshold if args.threshold \
+            else ALERT_PARAMETER[data_type].threshold
+        min_alert_value = ALERT_PARAMETER[data_type].min_alert_value
+
+        start = end - datetime.timedelta(days=window+1)
+        data = data_source(start, end)
+
+        for key in data.keys:
+            alert = find_alerts(data_type, key, data,
+                                window=window, threshold=threshold,
+                                min_alert_value=min_alert_value
+                                )
+            if alert:
+                alert_msg = alert_message(alert, args.date)
+                if alert_msg:
+                    print("{key}: Sending alert: {alert}".format(
+                        key=key, alert=alert))
+                    alertlib.Alert(alert_msg).send_to_slack(args.channel)
 
 
 if __name__ == '__main__':
     yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
     parser = argparse.ArgumentParser()
     parser.add_argument('--window', '-w', type=int, metavar='n',
-                        help="Specify window of days to use",
-                        default=DAYS_WINDOW)
+                        help="Specify window of days to use")
     parser.add_argument('--threshold', '-t', type=int, metavar='n',
-                        help="Specify variance threshold",
-                        default=THRESHOLD)
+                        help="Specify variance threshold")
     parser.add_argument('--date', '-d',
                         type=lambda s: datetime.datetime.strptime(
                             s, '%Y-%m-%d'),
@@ -282,5 +467,11 @@ if __name__ == '__main__':
     parser.add_argument('--channel', '-c',
                         default=ALERT_CHANNEL,
                         help='Which channel to send alert to')
+    parser.add_argument('--error', action='store_true',
+                        help='Only run error filters')
+    parser.add_argument('--perf', action='store_true',
+                        help='Only run performance filters')
+    parser.add_argument('--clienterror', action='store_true',
+                        help='Only run client error filters')
     args = parser.parse_args()
     main(args)
