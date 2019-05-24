@@ -140,6 +140,9 @@ def route_owners(route):
         match = re.match(r'([\w-]+)(\+[\w-]+)*\]', extra)
         # We can have multiple names in an extra in the case of multiple
         # graphql queries, e.g. `getFoo+getBar`.
+        if match is None:
+            # Most likey a spam route since it doesn't match our spec.
+            break
         for name in match.groups():
             if not name:
                 continue
