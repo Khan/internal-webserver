@@ -26,6 +26,7 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     '/_ah/start.*',  # Logs show this as having null status
     'api_main:/api/internal/graphql [POST]',  # Most valid graphql queries will
     'api_main:/api/internal/graphql',         # include query name in route.
+    'api_main:/api/internal/graphql [HEAD]',
 ))
 
 
