@@ -20,6 +20,7 @@ import datetime
 
 import alertlib
 import bq_util
+import dos_logs_util
 
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
@@ -42,14 +43,13 @@ SELECT
   user_agent,
   COUNT(*) AS count
 FROM
-  `logs_hourly.requestlogs_*`
+  ({request_logs_query})
 WHERE
   module_id NOT IN ( 'batch', 'react-render')
   AND start_time_timestamp >= TIMESTAMP('{start_timestamp}')
   AND start_time_timestamp < TIMESTAMP('{end_timestamp}')
-  AND STRPOS(resource, 'countBrandNewNotifications') = 0
-  AND NOT STARTS_WITH(resource, '/_ah/')
-  AND _TABLE_SUFFIX BETWEEN '{start_table}' and '{end_table}'
+  AND NOT(resource CONTAINS 'countBrandNewNotifications')
+  AND LEFT(resource, 5) != '/_ah/'
 GROUP BY
   ip,
   resource,
@@ -75,17 +75,14 @@ Consider blacklisting IP using appengine firewall.
 SCRATCHPAD_QUERY_TEMPLATE = """\
 SELECT
   ip,
-  ANY_VALUE(elog_user_kaid) as sample_kaid,
-  COUNT(bce.conversion) AS count
+  FIRST(elog_user_kaid) as sample_kaid,
+  COUNT(bingo_conversion_events) AS COUNT
 FROM
-  `logs_hourly.requestlogs_*` kalog
-JOIN
-  kalog.bingo_conversion_events bce
+  FLATTEN(({request_logs_query}), bingo_conversion_events)
 WHERE
-  bce.conversion = 'scratchpad_new_created'
+  bingo_conversion_events = 'scratchpad_new_created'
   AND start_time_timestamp >= TIMESTAMP('{start_timestamp}')
   AND start_time_timestamp < TIMESTAMP('{end_timestamp}')
-  AND _TABLE_SUFFIX BETWEEN '{start_table}' and '{end_table}'
 GROUP BY
   ip
 HAVING
@@ -115,13 +112,14 @@ MAX_SCRATCHPADS = 50
 
 def dos_detect(start, end):
     query = QUERY_TEMPLATE.format(
+            request_logs_query=(
+                dos_logs_util.latest_logs_for_ddos_query(PERIOD)),
             start_table=start.strftime(TABLE_FORMAT),
             end_table=end.strftime(TABLE_FORMAT),
             start_timestamp=start.strftime(TS_FORMAT),
             end_timestamp=end.strftime(TS_FORMAT),
             max_count=(MAX_REQS_SEC * PERIOD))
-    results = bq_util.call_bq(['query', '--nouse_legacy_sql', query],
-                              project=BQ_PROJECT)
+    results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
 
     for row in results:
         log_link = 'https://console.cloud.google.com/logs/viewer?project=khan-academy&folder=&organizationId=733120332093&minLogLevel=0&expandAll=false&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fappengine.googleapis.com%252Frequest_log%22%0AprotoPayload.ip%3D%22{}%22'.format(row['ip'])
@@ -131,14 +129,15 @@ def dos_detect(start, end):
 
 def scratchpad_detect(start, end):
     scratchpad_query = SCRATCHPAD_QUERY_TEMPLATE.format(
+            request_logs_query=(
+                dos_logs_util.latest_logs_for_ddos_query(PERIOD)),
             start_table=start.strftime(TABLE_FORMAT),
             end_table=end.strftime(TABLE_FORMAT),
             start_timestamp=start.strftime(TS_FORMAT),
             end_timestamp=end.strftime(TS_FORMAT),
             max_count=MAX_SCRATCHPADS)
 
-    scratchpad_results = bq_util.call_bq(['query', '--nouse_legacy_sql',
-                                          scratchpad_query],
+    scratchpad_results = bq_util.call_bq(['query', scratchpad_query],
                                          project=BQ_PROJECT)
 
     if len(scratchpad_results) != 0:
