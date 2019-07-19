@@ -23,6 +23,8 @@ import bq_util
 
 
 BQ_PROJECT = 'khanacademy.org:deductive-jet-827'
+FASTLY_DATASET = 'fastly'
+FASTLY_LOG_TABLE_PREFIX = 'khanacademy_dot_org_logs'
 
 # Alert if we're getting more than this many reqs per sec from a single client.
 MAX_REQS_SEC = 4
@@ -30,29 +32,27 @@ MAX_REQS_SEC = 4
 # The size of the period of time to query.
 PERIOD = 5 * 60
 
-TABLE_FORMAT = '%Y%m%d_%H'
+TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 ALERT_CHANNEL = '#infrastructure-sre'
 
 QUERY_TEMPLATE = """\
 SELECT
-  ip,
-  resource,
-  user_agent,
+  client_ip AS ip,
+  url,
+  request_user_agent AS user_agent,
   COUNT(*) AS count
 FROM
-  `logs_hourly.requestlogs_*`
+  {fastly_log_tables}
 WHERE
-  module_id NOT IN ( 'batch', 'react-render')
-  AND start_time_timestamp >= TIMESTAMP('{start_timestamp}')
-  AND start_time_timestamp < TIMESTAMP('{end_timestamp}')
-  AND STRPOS(resource, 'countBrandNewNotifications') = 0
-  AND NOT STARTS_WITH(resource, '/_ah/')
-  AND _TABLE_SUFFIX BETWEEN '{start_table}' and '{end_table}'
+  TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
+  AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
+  AND NOT(url CONTAINS 'countBrandNewNotifications')
+  AND LEFT(url, 5) != '/_ah/'
 GROUP BY
   ip,
-  resource,
+  url,
   user_agent
 HAVING
   count > {max_count}
@@ -64,7 +64,7 @@ ALERT_TEMPLATE = """\
 *Possible DoS alert*
 IP: <https://db-ip.com/{ip}|{ip}>
 Reqs in last 5 minutes: {count}
-URL: {resource}
+URL: {url}
 User agent: {user_agent}
 
 Consider blacklisting IP using appengine firewall.
@@ -74,18 +74,15 @@ Consider blacklisting IP using appengine firewall.
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
 SELECT
-  ip,
-  ANY_VALUE(elog_user_kaid) as sample_kaid,
-  COUNT(bce.conversion) AS count
+  client_ip AS ip,
+  COUNT(*) AS count
 FROM
-  `logs_hourly.requestlogs_*` kalog
-JOIN
-  kalog.bingo_conversion_events bce
+  {fastly_log_tables}
 WHERE
-  bce.conversion = 'scratchpad_new_created'
-  AND start_time_timestamp >= TIMESTAMP('{start_timestamp}')
-  AND start_time_timestamp < TIMESTAMP('{end_timestamp}')
-  AND _TABLE_SUFFIX BETWEEN '{start_table}' and '{end_table}'
+  request = 'POST'
+  AND url LIKE '/api/internal/scratchpads%'
+  AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
+  AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
 GROUP BY
   ip
 HAVING
@@ -98,14 +95,12 @@ SCRATCHPAD_ALERT_INTRO_TEMPLATE = """\
 *Possible Scratchpad DoS alert*
 
 Below is a list of IPs which have submitted more than {max_count} new
-scratchpads in the last 5 minutes. A sample user's profile for each IP can be
-found through the links below.\n
+scratchpads in the last 5 minutes.
 """
 
 SCRATCHPAD_ALERT_ENTRY_TEMPLATE = """\
 IP: <https://db-ip.com/{ip}|{ip}>
 Count: {count}
-Sample: <https://www.khanacademy.org/profile/{sample_kaid}/projects|{sample_kaid}>
 """
 
 # Alert if there are more than this many new scratchpads created by an IP in
@@ -113,15 +108,49 @@ Sample: <https://www.khanacademy.org/profile/{sample_kaid}/projects|{sample_kaid
 MAX_SCRATCHPADS = 50
 
 
+def _fastly_log_tables(start, end):
+    """Returns logs table name(s) to query from given the period for the logs.
+
+    Previously we simply query from the hourly request logs table, which was
+    around 3GB. Querying from the stream log tables will be around
+    100GB. For a script that runs every 5 minutes, this increases the cost
+    significantly.
+
+    To address this, we can assume that all logs timestamped at any given
+    moment will arrive at the logs table within 5 mins. Then, we use table
+    decorators to reduce the size of the table. A side effect of this is that
+    we will have to use legacy SQL, and we can no longer use wild card matching
+    on table names.
+    """
+
+    _MAX_LOG_DELAY_MS = 5 * 60 * 1000
+    _TABLE_STRING_TEMPLATE = """
+        [{project}.{dataset}.{table_prefix}_{table_date}@-{latest_duration}-]
+    """
+
+    # If a period goes into the previous day, we would also have to
+    # consider the log tables from that day as well. This assumes that the
+    # period this script is used on is <= 24 hours.
+    overlapped_table_dates = [end] if end.day == start.day else [end, start]
+
+    return ', '.join([
+        _TABLE_STRING_TEMPLATE.format(
+            project=BQ_PROJECT,
+            dataset=FASTLY_DATASET,
+            table_prefix=FASTLY_LOG_TABLE_PREFIX,
+            table_date=table_date.strftime(TABLE_FORMAT),
+            latest_duration=(PERIOD * 1000 + _MAX_LOG_DELAY_MS)
+        ) for table_date in overlapped_table_dates
+    ])
+
+
 def dos_detect(start, end):
     query = QUERY_TEMPLATE.format(
-            start_table=start.strftime(TABLE_FORMAT),
-            end_table=end.strftime(TABLE_FORMAT),
+            fastly_log_tables=_fastly_log_tables(start, end),
             start_timestamp=start.strftime(TS_FORMAT),
             end_timestamp=end.strftime(TS_FORMAT),
             max_count=(MAX_REQS_SEC * PERIOD))
-    results = bq_util.call_bq(['query', '--nouse_legacy_sql', query],
-                              project=BQ_PROJECT)
+    results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
 
     for row in results:
         log_link = 'https://console.cloud.google.com/logs/viewer?project=khan-academy&folder=&organizationId=733120332093&minLogLevel=0&expandAll=false&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fappengine.googleapis.com%252Frequest_log%22%0AprotoPayload.ip%3D%22{}%22'.format(row['ip'])
@@ -131,14 +160,12 @@ def dos_detect(start, end):
 
 def scratchpad_detect(start, end):
     scratchpad_query = SCRATCHPAD_QUERY_TEMPLATE.format(
-            start_table=start.strftime(TABLE_FORMAT),
-            end_table=end.strftime(TABLE_FORMAT),
+            fastly_log_tables=_fastly_log_tables(start, end),
             start_timestamp=start.strftime(TS_FORMAT),
             end_timestamp=end.strftime(TS_FORMAT),
             max_count=MAX_SCRATCHPADS)
 
-    scratchpad_results = bq_util.call_bq(['query', '--nouse_legacy_sql',
-                                          scratchpad_query],
+    scratchpad_results = bq_util.call_bq(['query', scratchpad_query],
                                          project=BQ_PROJECT)
 
     if len(scratchpad_results) != 0:
