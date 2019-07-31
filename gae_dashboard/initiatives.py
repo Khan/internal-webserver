@@ -106,7 +106,7 @@ def _load_data():
     data['graphql-queries'] = {query: teams
                                for query, teams in raw_data['graphql-queries']}
     data['routes'] = {route: team_id
-                      for route, team_id in raw_data['routes']}
+                      for route, _, team_id in raw_data['server-routes']}
     data['teams'] = {team['id']: team for team in raw_data['teams']}
     _data_cache = data
     return data
