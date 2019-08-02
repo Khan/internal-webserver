@@ -53,6 +53,7 @@ WHERE
   AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
   AND NOT(url CONTAINS 'countBrandNewNotifications')
   AND LEFT(url, 5) != '/_ah/'
+  AND at_edge_node
 GROUP BY
   ip,
   url,
@@ -70,9 +71,10 @@ Reqs in last 5 minutes: {count}
 URL: {url}
 User agent: {user_agent}
 
-Consider blacklisting IP using appengine firewall.
+Consider blacklisting IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
+Click "View active configuration", then go to "IP block list" under "Settings".
 
-<{log_link}|Stackdriver logs of reqs from IP>
+Users from this IP: <https://www.khanacademy.org/devadmin/users?ip={ip}|devadmin/users>
 """
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
@@ -86,6 +88,7 @@ WHERE
   AND url LIKE '/api/internal/scratchpads%'
   AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
   AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
+  AND at_edge_node
 GROUP BY
   ip
 HAVING
@@ -158,8 +161,7 @@ def dos_detect(start, end):
     results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
 
     for row in results:
-        log_link = 'https://console.cloud.google.com/logs/viewer?project=khan-academy&folder=&organizationId=733120332093&minLogLevel=0&expandAll=false&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fappengine.googleapis.com%252Frequest_log%22%0AprotoPayload.ip%3D%22{}%22'.format(row['ip'])
-        msg = ALERT_TEMPLATE.format(log_link=log_link, **row)
+        msg = ALERT_TEMPLATE.format(**row)
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
