@@ -91,6 +91,7 @@ WHERE
   AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
   AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
   AND at_edge_node
+  AND status = 200
 GROUP BY
   ip
 HAVING
