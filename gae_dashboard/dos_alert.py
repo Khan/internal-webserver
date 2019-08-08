@@ -116,7 +116,8 @@ User by IP: <https://www.khanacademy.org/devadmin/users?ip={ip}>
 
 # Alert if there are more than this many new scratchpads created by an IP in
 # the given period.
-MAX_SCRATCHPADS = 50
+# 20190808: Bumping limit to 80 to avoid excess noise (Boris)
+MAX_SCRATCHPADS = 80
 
 
 def _fastly_log_tables(start, end):
