@@ -54,6 +54,8 @@ WHERE
   AND NOT(url CONTAINS 'countBrandNewNotifications')
   AND LEFT(url, 5) != '/_ah/'
   AND at_edge_node
+  -- Requests blocked at Fastly should be blocked much quicker than from us
+  AND (status != 403 OR time_elapsed > 200)
 GROUP BY
   ip,
   url,
