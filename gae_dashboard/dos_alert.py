@@ -30,7 +30,8 @@ FASTLY_LOG_TABLE_PREFIX = 'khanacademy_dot_org_logs'
 MAX_REQS_SEC = 4
 
 # The size of the period of time to query.
-PERIOD = 5 * 60
+SCRATCHPAD_PERIOD = 5 * 60
+DOS_PERIOD = 15 * 60
 
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -69,7 +70,7 @@ ORDER BY
 ALERT_TEMPLATE = """\
 *Possible DoS alert*
 IP: <https://db-ip.com/{ip}|{ip}>
-Reqs in last 5 minutes: {count}
+Reqs in last 15 minutes: {count}
 URL: {url}
 User agent: {user_agent}
 
@@ -122,7 +123,7 @@ User by IP: <https://www.khanacademy.org/devadmin/users?ip={ip}>
 MAX_SCRATCHPADS = 100
 
 
-def _fastly_log_tables(start, end):
+def _fastly_log_tables(start, end, period):
     """Returns logs table name(s) to query from given the period for the logs.
 
     Previously we simply query from the hourly request logs table, which was
@@ -153,17 +154,19 @@ def _fastly_log_tables(start, end):
             dataset=FASTLY_DATASET,
             table_prefix=FASTLY_LOG_TABLE_PREFIX,
             table_date=table_date.strftime(TABLE_FORMAT),
-            latest_duration=(PERIOD * 1000 + _MAX_LOG_DELAY_MS)
+            latest_duration=(period * 1000 + _MAX_LOG_DELAY_MS)
         ) for table_date in overlapped_table_dates
     ])
 
 
-def dos_detect(start, end):
+def dos_detect(end):
+    start = end - datetime.timedelta(seconds=DOS_PERIOD)
+
     query = QUERY_TEMPLATE.format(
-            fastly_log_tables=_fastly_log_tables(start, end),
-            start_timestamp=start.strftime(TS_FORMAT),
-            end_timestamp=end.strftime(TS_FORMAT),
-            max_count=(MAX_REQS_SEC * PERIOD))
+        fastly_log_tables=_fastly_log_tables(start, end, DOS_PERIOD),
+        start_timestamp=start.strftime(TS_FORMAT),
+        end_timestamp=end.strftime(TS_FORMAT),
+        max_count=(MAX_REQS_SEC * DOS_PERIOD))
     results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
 
     for row in results:
@@ -171,12 +174,14 @@ def dos_detect(start, end):
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
-def scratchpad_detect(start, end):
+def scratchpad_detect(end):
+    start = end - datetime.timedelta(seconds=SCRATCHPAD_PERIOD)
     scratchpad_query = SCRATCHPAD_QUERY_TEMPLATE.format(
-            fastly_log_tables=_fastly_log_tables(start, end),
-            start_timestamp=start.strftime(TS_FORMAT),
-            end_timestamp=end.strftime(TS_FORMAT),
-            max_count=MAX_SCRATCHPADS)
+        fastly_log_tables=_fastly_log_tables(start, end,
+                                             SCRATCHPAD_PERIOD),
+        start_timestamp=start.strftime(TS_FORMAT),
+        end_timestamp=end.strftime(TS_FORMAT),
+        max_count=MAX_SCRATCHPADS)
 
     scratchpad_results = bq_util.call_bq(['query', scratchpad_query],
                                          project=BQ_PROJECT)
@@ -189,11 +194,10 @@ def scratchpad_detect(start, end):
 
 
 def main():
-    end = datetime.datetime.utcnow()
-    start = end - datetime.timedelta(seconds=PERIOD)
+    now = datetime.datetime.utcnow()
 
-    dos_detect(start, end)
-    scratchpad_detect(start, end)
+    dos_detect(now)
+    scratchpad_detect(now)
 
 
 if __name__ == '__main__':
