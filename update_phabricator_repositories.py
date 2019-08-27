@@ -45,11 +45,11 @@ def _retry(cmd, times, verbose=False, exceptions=(Exception,)):
     for i in xrange(times):
         try:
             return cmd()
-        except exceptions, why:
+        except exceptions:
             if i + 1 == times:    # ran out of tries
                 raise
-            if verbose:
-                print 'Error running "%s": %s.  Retrying' % (cmd, why)
+            # if verbose:
+            #    print 'Error running "%s".  Retrying' % (cmd)
             time.sleep(i * i)     # quadratic backoff
 
 
@@ -174,18 +174,18 @@ def _get_repos_to_add_and_delete(phabctl, verbose):
     phabricator_repo_info = []
     cursor = None
     # We have to do paging ourselves. :-(
-    while True:
-        query_cmd = lambda: phabctl.make_request('diffusion.repository.search',
-                                                 {'after': cursor,
-                                                  'attachments': {'uris': True}
-                                                 },
-                                                 urlparams)
-        new_info = _retry(query_cmd, times=3, verbose=verbose,
-                          exceptions=(socket.timeout,))
-        phabricator_repo_info.extend(new_info.response['data'])
-        cursor = new_info.response['cursor']['after']
-        if not cursor:
-            break
+    # while True:
+    #  query_cmd = lambda: phabctl.make_request('diffusion.repository.search',
+    #                                           {'after': cursor,
+    #                                            'attachments': {'uris': True}
+    #                                           },
+    #                                             urlparams)
+    #    new_info = _retry(query_cmd, times=3, verbose=verbose,
+    #                      exceptions=(socket.timeout,))
+    #    phabricator_repo_info.extend(new_info.response['data'])
+    #    cursor = new_info.response['cursor']['after']
+    #    if not cursor:
+    #        break
 
     # phabricator requires each repo to have a unique "callsign".  We
     # store the existing callsigns to ensure uniqueness for new ones.
@@ -350,7 +350,7 @@ def main(repo_rootdir, options):
         print
         print 'START: %s' % time.ctime()
 
-    phabricator_domain = 'https://phabricator.khanacademy.org'
+    phabricator_domain = 'https://gce-phabricator.khanacademy.org'
     phabctl = phabricator.Phabricator(host=phabricator_domain + '/api/')
 
     (new_repos, deleted_repos, url_to_callsign_map) = (
