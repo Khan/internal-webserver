@@ -77,18 +77,18 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/phabricator.pem" \
+ssh ubuntu@gce-phabricator.khanacademy.org -i "$HOME/.ssh/phabricator.pem" \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
     git submodule update --init --recursive; \
-    sudo service phd stop; \
+    PHABRICATOR_ENV=khan "$HOME/internal-webserver/phabricator/bin/phd" stop; \
     sudo service nginx stop; \
-    sudo service php5-fpm stop; \
+    sudo service php7.2-fpm stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
-    sudo service php5-fpm start; \
+    sudo service php7.2-fpm start; \
     sudo service nginx start; \
-    sudo service phd start; \
+    PHABRICATOR_ENV=khan "$HOME/internal-webserver/phabricator/bin/phd" start \
    "
 
 echo "DONE!"
