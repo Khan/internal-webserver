@@ -27,11 +27,11 @@ FASTLY_DATASET = 'fastly'
 FASTLY_LOG_TABLE_PREFIX = 'khanacademy_dot_org_logs'
 
 # Alert if we're getting more than this many reqs per sec from a single client.
-MAX_REQS_SEC = 4
+MAX_REQS_SEC = 10
 
 # The size of the period of time to query.
 SCRATCHPAD_PERIOD = 5 * 60
-DOS_PERIOD = 15 * 60
+DOS_PERIOD = 5 * 60
 
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
