@@ -374,7 +374,7 @@ GROUP BY module_id
 """
 # Utilization was last updated 2018-09-27 using log data averages from
 # 2018-09-20 to 2018-09-26.
-# Instance classes were last updated 2018-09-27.
+# Instance classes were last updated 2019-08-29.
 _MODULE_CPU_COUNT = {
     'default': 4 / 0.347,
     'es': 6 / 0.296,
@@ -384,6 +384,9 @@ _MODULE_CPU_COUNT = {
     'highmem': 8 / 0.183,
     'multithreaded': 6 / 0.464,
 }
+
+# Cost per normalized instance hour. https://cloud.google.com/appengine/pricing
+COST_PER_HOUR = 0.05
 
 
 def email_instance_hours(date, dry_run=False):
@@ -424,7 +427,10 @@ ORDER BY instance_hours DESC
 
     for row in data:
         row['%% of total'] = row['instance_hours'] / total_instance_hours * 100
-        row['per 1k requests'] = row['instance_hours'] / row['count_'] * 1000
+        row['total cost'] = '$%.2f' % (row['instance_hours'] * COST_PER_HOUR)
+        per_1k_req = row['instance_hours'] / row['count_'] * 1000
+        row['per 1k requests'] = '%.2f ($%.2f)' % (per_1k_req, per_1k_req
+                                                   * COST_PER_HOUR)
         sparkline_data = []
         for old_data in historical_data:
             old_row = old_data.get(row['url_route'])
@@ -435,8 +441,8 @@ ORDER BY instance_hours DESC
                 sparkline_data.append(None)
         row['last 2 weeks (per request)'] = sparkline_data
 
-    _ORDER = ('%% of total', 'instance_hours', 'count_', 'per 1k requests',
-              'last 2 weeks (per request)', 'url_route')
+    _ORDER = ('%% of total', 'instance_hours', 'total cost', 'count_',
+              'per 1k requests', 'last 2 weeks (per request)', 'url_route')
 
     subject = 'Instance Hours by Route - '
     heading = 'Cost-normalized instance hours by route for %s' % (
