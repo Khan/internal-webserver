@@ -70,7 +70,7 @@ ORDER BY
 ALERT_TEMPLATE = """\
 *Possible DoS alert*
 IP: <https://db-ip.com/{ip}|{ip}>
-Reqs in last 15 minutes: {count}
+Reqs in last 5 minutes: {count}
 URL: {url}
 User agent: {user_agent}
 
