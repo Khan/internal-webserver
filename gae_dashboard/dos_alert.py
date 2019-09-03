@@ -17,6 +17,7 @@ sure whether this is due to a bug or by design, but I don't think it's a DoS.
 """
 
 import datetime
+from itertools import groupby
 
 import alertlib
 import bq_util
@@ -67,17 +68,18 @@ ORDER BY
   count DESC
 """
 
-ALERT_TEMPLATE = """\
-*Possible DoS alert*
-IP: <https://db-ip.com/{ip}|{ip}>
-Reqs in last 5 minutes: {count}
-URL: {url}
-User agent: {user_agent}
+DOS_ALERT_INTRO = "*Possible DoS alert*\n"
 
+DOS_ALERT_IP_INTRO_TEMPLATE = """\n\
+*IP: <https://db-ip.com/{ip}|{ip}>* (<https://www.khanacademy.org/devadmin/users?ip={ip}|devadmin/users>)
+*Reqs in last 5 minutes:*
+"""
+DOS_ALERT_IP_COUNT_TEMPLATE = (
+    u" \u2022 {count} requsts to _{url}_ with UA `{user_agent}`\n")
+
+DOS_ALERT_FOOTER = """\
 Consider blacklisting IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
 Click "View active configuration", then go to "IP block list" under "Settings".
-
-Users from this IP: <https://www.khanacademy.org/devadmin/users?ip={ip}|devadmin/users>
 
 See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
@@ -169,9 +171,24 @@ def dos_detect(end):
         max_count=(MAX_REQS_SEC * DOS_PERIOD))
     results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
 
-    for row in results:
-        msg = ALERT_TEMPLATE.format(**row)
-        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+    # Stop processing if we don't have any flagged IPs
+    if not results:
+        return
+
+    # Group by IPs to reduce duplicate alerts during a DDoS attack
+    ip_groups = groupby(results, key=lambda row: row['ip'])
+
+    msg = DOS_ALERT_INTRO
+    for ip, rows in ip_groups:
+        # For each IP, we show some default links...
+        msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
+        for row in rows:
+            # ... and then list any routes/UAs this IP is spamming
+            msg += DOS_ALERT_IP_COUNT_TEMPLATE.format(**row)
+        msg += '\n'
+    msg += DOS_ALERT_FOOTER
+
+    alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
 def scratchpad_detect(end):
