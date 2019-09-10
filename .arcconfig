@@ -1,5 +1,5 @@
 {
   "project_id" : "internal-webserver",
-  "conduit_uri" : "https://gce-phabricator.khanacademy.org/",
+  "conduit_uri" : "https://phabricator.khanacademy.org/",
   "lint.engine": "ArcanistConfigurationDrivenLintEngine"
 }
