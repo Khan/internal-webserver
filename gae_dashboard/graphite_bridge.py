@@ -145,17 +145,6 @@ def _default_metrics():
             name='bingo.video_started.week_over_week',
             timeshift='7d'),
 
-        # Failure rate for react-render-server.  We have to go through
-        # graphite for this because stackdriver can't do the ratios
-        # manually.  TODO(csilvers): do the failure rate per-route too.
-        # TODO(csilvers): also measure server errors, timeouts, etc?
-        Metric(
-            'divideSeries('
-            '   sumSeries(webapp.*.stats.react_render_server.cache_miss:sum), '
-            '   sumSeries(webapp.*.stats.react_render_server.cache_hit:sum)'
-            ')',
-            name='react_render_server.failure_pct'),
-
         # Bigquery daily cost data.
         Metric(
             'sumSeries(gcp.*.usage.bigquery.daily_query_cost_so_far_usd)',
