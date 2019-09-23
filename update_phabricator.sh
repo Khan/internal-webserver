@@ -24,10 +24,9 @@ fi
 
 # We'll need the right permissions file to push to production.
 # c.f. https://sites.google.com/a/khanacademy.org/forge/for-khan-employees/accessing-amazon-ec2-instances#TOC-Accessing-EC2-Instances
-if [ ! -s "$HOME/.ssh/internal-webserver.pem" ]; then
-  echo "You need to install internal_webserver.pem to push to production."
-  echo "At https://www.dropbox.com/home/Khan%20Academy%20All%20Staff/Secrets"
-  echo "download internal-webserver.pem and save it in your ~/.ssh directory"
+if [ ! -s "$HOME/.ssh/google_compute_engine" ]; then
+  echo "You need to have ~/.ssh/google_compute_engine file."
+  echo "You can run 'gcloud compute config-ssh' to populate SSH config files."
   exit 1
 fi
 
@@ -77,18 +76,18 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-ssh ubuntu@gce-phab \
+ssh ubuntu@@phabricator.khanacademy.org -i "$HOME/.ssh/google_compute_engine" \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
     git submodule update --init --recursive; \
-    PHABRICATOR_ENV=khan "$HOME/internal-webserver/phabricator/bin/phd" stop; \
+    sudo service phd stop; \
     sudo service nginx stop; \
     sudo service php7.2-fpm stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
     sudo service php7.2-fpm start; \
     sudo service nginx start; \
-    PHABRICATOR_ENV=khan "$HOME/internal-webserver/phabricator/bin/phd" start \
+    sudo service phd start \
    "
 
 echo "DONE!"
