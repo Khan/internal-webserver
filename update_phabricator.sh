@@ -22,9 +22,10 @@ if [ ! -f "phabricator/.git" ]; then
     exit 1
 fi
 
-# We'll need the right permissions file to push to production.
-# c.f. https://sites.google.com/a/khanacademy.org/forge/for-khan-employees/accessing-amazon-ec2-instances#TOC-Accessing-EC2-Instances
-if [ ! -s "$HOME/.ssh/google_compute_engine" ]; then
+# If we run the script outside of Phabricator server, we need the right
+# google ssh config file to access Phabricator server to pull the changes,
+# and bounce phd/ngnix/php7.2-fpm services
+if [ "$HOSTNAME" != "phabricator" ] && [ "$USER" != "ubuntu" ] && [ ! -s "$HOME/.ssh google_compute_engine" ]; then
   echo "You need to have ~/.ssh/google_compute_engine file."
   echo "You can run 'gcloud compute config-ssh' to populate SSH config files."
   exit 1
@@ -76,7 +77,7 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-ssh ubuntu@@phabricator.khanacademy.org -i "$HOME/.ssh/google_compute_engine" \
+ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/google_compute_engine" \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
