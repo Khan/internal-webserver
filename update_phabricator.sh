@@ -2,8 +2,9 @@
 
 # Updates the internal-webserver repository, including updating all
 # the phabricator repos from upstream, and then pushes it to the
-# phabricator machine (toby), where it safely restarts the webserver
-# there.
+# GCE phabricator machine, and restart Phabricator, nginx and php services.
+# To run the script on local machine.
+
 
 # Die if something goes wrong.
 set -e
@@ -22,10 +23,9 @@ if [ ! -f "phabricator/.git" ]; then
     exit 1
 fi
 
-# If we run the script outside of Phabricator server, we need the right
-# google ssh config file to access Phabricator server to pull the changes,
-# and bounce phd/ngnix/php7.2-fpm services
-if [ "$HOSTNAME" != "phabricator" ] && [ "$USER" != "ubuntu" ] && [ ! -s "$HOME/.ssh google_compute_engine" ]; then
+# We need the right google ssh config file to access GCE Phabricator server
+# to pull the changes, and bounce phd/ngnix/php7.2-fpm services
+if [ ! -s "$HOME/.ssh google_compute_engine" ]; then
   echo "You need to have ~/.ssh/google_compute_engine file."
   echo "You can run 'gcloud compute config-ssh' to populate SSH config files."
   exit 1
@@ -77,7 +77,7 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-ssh ubuntu@phabricator.khanacademy.org -i "$HOME/.ssh/google_compute_engine" \
+gcloud compute ssh ubuntu@phabricator --zone us-central1-b --project khan-internal-services -- \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
