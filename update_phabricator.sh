@@ -23,14 +23,6 @@ if [ ! -f "phabricator/.git" ]; then
     exit 1
 fi
 
-# We need the right google ssh config file to access GCE Phabricator server
-# to pull the changes, and bounce phd/ngnix/php7.2-fpm services
-[ ! -s "$HOME/.ssh google_compute_engine" ]; then
-  echo "You need to have ~/.ssh/google_compute_engine file."
-  echo "You can run 'gcloud compute config-ssh' to populate SSH config files."
-  exit 1
-fi
-
 git checkout master
 trap 'git checkout -' 0  # reset to old branch when the script exits
 git pull --no-rebase
