@@ -1,0 +1,26 @@
+[{
+    "name": "profile_id",
+    "mode": "NULLABLE",
+    "type": "STRING"
+  },
+  {
+    "name": "email_hash",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "extid",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "kaid",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "canonical_donor_id",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]
