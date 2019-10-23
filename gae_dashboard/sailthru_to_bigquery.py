@@ -394,7 +394,7 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
 
     # appending a timestamp to table to keep historical data
     bq_table_name = "sailthru_list_data.donor_list_%s" % str(
-        datetime.date.today().strftime('%Y_%m_%d'))
+        datetime.date.today().strftime('%Y%m%d'))
 
     # convert sailthru's fields to expected format
     normalized_headers = {
