@@ -370,10 +370,9 @@ def _send_campaign_report(status, start_date, end_date, temp_file, verbose,
 
 
 def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
-    """
-    Send all the users from a list including their
-    data in from Sailthru to BigQuery. User data is
-    specified in sailthru_user_list_export_schema.json
+    """Send users list data from Sailthru to BigQuery.
+
+    User data fields are specified in sailthru_user_list_export_schema.json
 
     Arguments:
       list_name: name of list in sailthru to export
