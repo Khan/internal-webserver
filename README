@@ -1,10 +1,36 @@
 Deprecated!  A lot of things still live here, but please add new scripts/jobs
 to internal-services, located at: https://github.com/Khan/internal-services.
 
+
+-- UPDATING INTERNAL-WEBSERVER/ ON TOBY
+
+If you need to update something that still lives here (on toby), check
+in your changes to this repo and run this:
+   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver
+   cd internal-webserver/
+   git pull
+
+
+-- UPDATING CRONTAB ON TOBY
+
+If you need to update the crontab that runs on toby, check in your
+changes to Khan/aws-config:toby/crontab and run this:
+   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver
+   cd aws-config
+   git pull
+   crontab -l | diff -u - toby/crontab    # to make sure the diff is correct
+   crontab toby/crontab   # to install the new crontab
+
+
+-- CREATING A NEW TOBY
+
 To install a new internal-webserver machine, see the instructions in
    git@github.com:Khan/aws-config/toby/setup.sh
 
 (Do NOT execute setup.sh -- read it in a text editor!)
+
+
+-- CREATING A NEW PHABRICATOR
 
 For updating phabricator on the Khan Academy web server, see:
   https://sites.google.com/a/khanacademy.org/forge/for-developers/code-review-policy/using-phabricator
