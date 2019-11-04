@@ -33,6 +33,7 @@ MAX_REQS_SEC = 10
 # The size of the period of time to query.
 SCRATCHPAD_PERIOD = 5 * 60
 DOS_PERIOD = 5 * 60
+CDN_ERROR_PERIOD = 5 * 60
 
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -125,6 +126,47 @@ User by IP: <https://www.khanacademy.org/devadmin/users?ip={ip}>
 MAX_SCRATCHPADS = 100
 
 
+MAX_CDN_ERROR = 1000
+MAX_CDN_PERCENT = 0.02
+
+CDN_ERROR_QUERY_TEMPLATE = """\
+SELECT
+  -- LEFT(16) give minutes - Legacy SQL doesn't have timestamp_trunc
+  TIMESTAMP(LEFT(timestamp, 16)) AS minute_bucket,
+  COUNT(*) AS traffic_count,
+  SUM(CASE when status = 503 AND request_id = '(null)' THEN 1 END) as err_count
+FROM
+  {fastly_log_tables}
+WHERE
+  at_edge_node
+  -- AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
+  -- AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
+GROUP BY
+  minute_bucket
+HAVING
+  err_count / traffic_count > {max_cdn_percent}
+  AND err_count > {max_count}
+ORDER BY
+  minute_bucket
+"""
+
+CDN_ALERT_INTRO_TEMPLATE = """\
+*CDN error spike*
+
+We saw a spike of CDN errors.  Please check on #1s-and-0s-deploys
+to see if a deploy or rollback is happening.  This might cause any user issues
+at #zendesk-technical.
+
+
+"""
+
+CDN_ALERT_ENTRY_TEMPLATE = """\
+Time: {minute_bucket} (in GMT)
+Error rate: {percent:.2f}% ({err_count} / {traffic_count})
+
+"""
+
+
 def _fastly_log_tables(start, end, period):
     """Returns logs table name(s) to query from given the period for the logs.
 
@@ -210,11 +252,48 @@ def scratchpad_detect(end):
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
+def cdn_error_detect(end):
+    """Detected 503 CDN error
+
+    We have seen spike of these error during deploy/rollback.  This alert is
+    a temporary measure to alert us when we see such error.
+    """
+    start = end - datetime.timedelta(seconds=CDN_ERROR_PERIOD)
+    cdn_query = CDN_ERROR_QUERY_TEMPLATE.format(
+        fastly_log_tables=_fastly_log_tables(start, end,
+                                             CDN_ERROR_PERIOD),
+        start_timestamp=start.strftime(TS_FORMAT),
+        end_timestamp=end.strftime(TS_FORMAT),
+        max_cdn_percent=MAX_CDN_PERCENT,
+        max_count=MAX_CDN_ERROR
+    )
+
+    cdn_results = bq_util.call_bq(['query', cdn_query],
+                                  project=BQ_PROJECT)
+
+    if len(cdn_results) != 0:
+        msg = CDN_ALERT_INTRO_TEMPLATE
+        msg += '\n'.join(
+
+            CDN_ALERT_ENTRY_TEMPLATE.format(**{
+                'minute_bucket': row['minute_bucket'],
+                'err_count': row['err_count'],
+                'traffic_count': row['traffic_count'],
+                'percent': (
+                    100. * float(row['err_count']) / int(row['traffic_count'])
+                )
+            })
+            for row in cdn_results
+        )
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+
+
 def main():
     now = datetime.datetime.utcnow()
 
     dos_detect(now)
     scratchpad_detect(now)
+    cdn_error_detect(now)
 
 
 if __name__ == '__main__':
