@@ -126,8 +126,10 @@ User by IP: <https://www.khanacademy.org/devadmin/users?ip={ip}>
 MAX_SCRATCHPADS = 100
 
 
+# Heuristic for filtering out alert spikes from analysis at
+# https://docs.google.com/spreadsheets/d/1-6fULwlcgtyYnssKgP644IHth7_k8VPGEzyZFfeSZWk/edit#gid=338414679
 MAX_CDN_ERROR = 1000
-MAX_CDN_PERCENT = 0.02
+MAX_CDN_PERCENT = 0.005
 
 CDN_ERROR_QUERY_TEMPLATE = """\
 SELECT
@@ -139,8 +141,8 @@ FROM
   {fastly_log_tables}
 WHERE
   at_edge_node
-  -- AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
-  -- AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
+  AND TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
+  AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
 GROUP BY
   minute_bucket
 HAVING
