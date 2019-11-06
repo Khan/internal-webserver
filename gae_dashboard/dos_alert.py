@@ -156,8 +156,9 @@ CDN_ALERT_INTRO_TEMPLATE = """\
 *CDN error spike*
 
 We saw a spike of CDN errors.  Please check on #1s-and-0s-deploys
-to see if a deploy or rollback is happening.  This might cause any user issues
-at #zendesk-technical.
+to see if a deploy or rollback is happening (see <https://console.cloud.google.com/logs/viewer?project=khan-academy&folder&organizationId=733120332093&minLogLevel=0&expandAll=false&interval=PT1H&resource=gae_app&logName=projects%2Fkhan-academy%2Flogs%2Fcloudaudit.googleapis.com%252Factivity&advancedFilter=resource.type%3D%22gae_app%22%0AlogName%3D%22projects%2Fkhan-academy%2Flogs%2Fcloudaudit.googleapis.com%252Factivity%22%0AprotoPayload.methodName%3D%22google.appengine.v1.Services.UpdateService%22|audit log>).
+
+This might cause any user issues at #zendesk-technical.
 
 
 """
@@ -272,7 +273,6 @@ def cdn_error_detect(end):
 
     cdn_results = bq_util.call_bq(['query', cdn_query],
                                   project=BQ_PROJECT)
-
     if len(cdn_results) != 0:
         msg = CDN_ALERT_INTRO_TEMPLATE
         msg += '\n'.join(
