@@ -331,18 +331,22 @@ def _send_campaign_report(status, start_date, end_date, temp_file, verbose,
         with open(temp_file, "wb") as json_file:
             for i in range(all_blasts_length):
                 # Get the date a blast was started.
-                date = datetime.datetime.strptime(
-                    blasts_info_json[i]['start_time'],
-                    '%a, %d %b %Y %H:%M:%S -%f')
-                # Store a list of all blast IDs that started in the
-                # last 7 days of end_date.
-                if date >= datetime.datetime.strptime(
-                        end_date, '%B %d %Y') - datetime.timedelta(days=7):
-                    recent_blast_ids.add(blasts_info_json[i]['blast_id'])
-                json.dump(blasts_info_json[i], json_file)
+                if blasts_info_json[i].get('start_time'):
+                    date = datetime.datetime.strptime(
+                        blasts_info_json[i]['start_time'],
+                        '%a, %d %b %Y %H:%M:%S -%f')
+                    # Store a list of all blast IDs that started in the
+                    # last 7 days of end_date.
+                    if date >= datetime.datetime.strptime(
+                            end_date, '%B %d %Y') - datetime.timedelta(days=7):
+                        recent_blast_ids.add(blasts_info_json[i]['blast_id'])
+                    json.dump(blasts_info_json[i], json_file)
 
-                if i != len(blasts_info_json) - 1:
-                    json_file.write("\n")
+                    if i != len(blasts_info_json) - 1:
+                        json_file.write("\n")
+                else:
+                    print ("No start_time for %s" %
+                           blasts_info_json[i]['name'])
 
         table_name = "sailthru_blasts.campaigns"
 
