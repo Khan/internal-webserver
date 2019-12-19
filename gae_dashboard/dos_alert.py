@@ -58,7 +58,8 @@ WHERE
   AND LEFT(url, 5) != '/_ah/'
   AND at_edge_node
   -- Requests blocked at Fastly should be blocked much quicker than from us
-  AND NOT (status == 403 AND time_elapsed <= 200)
+  -- Note that time_elapsed is in microseconds.
+  AND NOT (status == 403 AND time_elapsed <= 500)
   -- We only care about request that is not cached (INFRA-3864)
   AND CACHE_STATUS != 'HIT'
 GROUP BY
