@@ -49,19 +49,27 @@ SELECT
   url,
   request_user_agent AS user_agent,
   COUNT(*) AS count
-FROM
-  {fastly_log_tables}
+FROM (
+  SELECT
+    FIRST(client_ip) AS client_ip,
+    FIRST(url) AS url,
+    FIRST(request_user_agent) AS request_user_agent,
+    SUM(IF(cache_status = 'HIT', 1, 0)) AS hit
+  FROM
+    {fastly_log_tables}
+  WHERE
+    TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
+    AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
+    AND NOT(url CONTAINS 'countBrandNewNotifications')
+    AND LEFT(url, 5) != '/_ah/'
+    -- Requests blocked at Fastly should be blocked much quicker than from us
+    -- Note that time_elapsed is in microseconds.
+    AND NOT (status == 403 AND time_elapsed <= 500)
+  GROUP BY
+    request_id)
 WHERE
-  TIMESTAMP(LEFT(timestamp, 19)) >= TIMESTAMP('{start_timestamp}')
-  AND TIMESTAMP(LEFT(timestamp, 19)) < TIMESTAMP('{end_timestamp}')
-  AND NOT(url CONTAINS 'countBrandNewNotifications')
-  AND LEFT(url, 5) != '/_ah/'
-  AND at_edge_node
-  -- Requests blocked at Fastly should be blocked much quicker than from us
-  -- Note that time_elapsed is in microseconds.
-  AND NOT (status == 403 AND time_elapsed <= 500)
-  -- We only care about request that is not cached (INFRA-3864)
-  AND CACHE_STATUS != 'HIT'
+  -- We only care about requests that are not cached.
+  hit = 0
 GROUP BY
   ip,
   url,
