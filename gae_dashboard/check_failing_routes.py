@@ -24,9 +24,17 @@ _DEFAULT_DAY = datetime.datetime.utcnow() - datetime.timedelta(1)
 ROUTES_EXPECTED_TO_FAIL = frozenset((
     'main:/crash',
     '/_ah/start.*',  # Logs show this as having null status
-    'api_main:/api/internal/graphql [POST]',  # Most valid graphql queries will
-    'api_main:/api/internal/graphql',         # include query name in route.
+    'api_main:/api/v1/exercises',  # Removed API
+    # Most valid graphql queries will include query name in route.
+    'api_main:/api/internal/graphql [POST]',
+    'api_main:/api/internal/graphql/<path_opname> [POST]',
+    'api_main:/api/internal/_mt/graphql/<path_opname> [POST]',
+    'api_main:/api/internal/graphql',
+    'api_main:/api/internal/graphql/<path_opname>',
+    'api_main:/api/internal/_mt/graphql/<path_opname>',
     'api_main:/api/internal/graphql [HEAD]',
+    'api_main:/api/internal/graphql/<path_opname> [HEAD]',
+    'api_main:/api/internal/_mt/graphql/<path_opname> [HEAD]',
 ))
 
 
