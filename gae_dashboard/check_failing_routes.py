@@ -12,6 +12,7 @@ Run by cron once per day.
 import argparse
 import datetime
 import logging
+import re
 
 import alertlib
 import bq_util
@@ -25,17 +26,13 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     'main:/crash',
     '/_ah/start.*',  # Logs show this as having null status
     'api_main:/api/v1/exercises',  # Removed API
-    # Most valid graphql queries will include query name in route.
-    'api_main:/api/internal/graphql [POST]',
-    'api_main:/api/internal/graphql/<path_opname> [POST]',
-    'api_main:/api/internal/_mt/graphql/<path_opname> [POST]',
-    'api_main:/api/internal/graphql',
-    'api_main:/api/internal/graphql/<path_opname>',
-    'api_main:/api/internal/_mt/graphql/<path_opname>',
-    'api_main:/api/internal/graphql [HEAD]',
-    'api_main:/api/internal/graphql/<path_opname> [HEAD]',
-    'api_main:/api/internal/_mt/graphql/<path_opname> [HEAD]',
 ))
+
+# Graphql queries that don't include a query name are expected to fail.
+BAD_GRAPHQL_ROUTE = re.compile(
+    r'^api_main:/api/internal/(_mt/)?graphql'
+    '(/persist_(across_publish|across_deploy|until_publish))?'
+    '(/<path_opname>)?( \[(POST|HEAD)\])?$')
 
 
 QUERY = """\
@@ -99,7 +96,8 @@ def check(date, dry_run=False):
     q = QUERY.format(yyyymmdd)
     data = bq_util.query_bigquery(q)
     route_data = [row for row in data
-                  if not row['route'] in ROUTES_EXPECTED_TO_FAIL]
+                  if not (row['route'] in ROUTES_EXPECTED_TO_FAIL or
+                          BAD_GRAPHQL_ROUTE.match(row['route']))]
 
     for row in route_data:
         route = row['route']
