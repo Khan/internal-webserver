@@ -131,14 +131,20 @@ MAX_SCRATCHPADS = 100
 # Heuristic for filtering out alert spikes from analysis at
 # https://docs.google.com/spreadsheets/d/1-6fULwlcgtyYnssKgP644IHth7_k8VPGEzyZFfeSZWk/edit#gid=338414679
 MAX_CDN_ERROR = 1000
-MAX_CDN_PERCENT = 0.005
+
+# TODO (boris): We are temporarily upping this during INFRA-4276 from 0.5%
+#     to avoid noisy background noise (current Feb max: 2.2%)
+MAX_CDN_PERCENT = 0.025
 
 CDN_ERROR_QUERY_TEMPLATE = """\
 SELECT
   -- LEFT(16) give minutes - Legacy SQL doesn't have timestamp_trunc
   TIMESTAMP(LEFT(timestamp, 16)) AS minute_bucket,
   COUNT(*) AS traffic_count,
-  SUM(CASE when status = 503 AND request_id = '(null)' THEN 1 END) as err_count
+  SUM(CASE
+    when status = 503 AND (request_id = '(null)' OR request_id IS NULL)
+    THEN 1 END
+    ) as err_count
 FROM
   {fastly_log_tables}
 WHERE
