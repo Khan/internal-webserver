@@ -96,6 +96,16 @@ Click "View active configuration", then go to "IP block list" under "Settings".
 See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
+DOS_WHITELIST_URL_REGEX = [
+    # Mobile team will fix in 6.9.0
+    # TODO: remove after 2020401
+    r'/api/auth2/request_token',
+    # Known common browser path below
+    r'/mission/sat/tasks/.*',
+    r'/math/.*',
+    r'/computing/.*',
+]
+
 SCRATCHPAD_QUERY_TEMPLATE = """\
 SELECT
   client_ip AS ip,
@@ -245,8 +255,14 @@ def dos_detect(end):
         # For each IP, we show some default links...
         msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
         for row in rows:
-            # ... and then list any routes/UAs this IP is spamming
-            msg += DOS_ALERT_IP_COUNT_TEMPLATE.format(**row)
+            to_alert = True
+            for filter_regex in DOS_WHITELIST_URL_REGEX:
+                if re.match(filter_regex, row['url']):
+                    to_alert = False
+                    break
+            if to_alert:
+                # ... and then list any routes/UAs this IP is spamming
+                msg += DOS_ALERT_IP_COUNT_TEMPLATE.format(**row)
         msg += '\n'
     msg += DOS_ALERT_FOOTER
 
