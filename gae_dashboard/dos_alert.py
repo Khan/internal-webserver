@@ -257,7 +257,7 @@ def dos_detect(end):
         # For each IP, we show some default links...
         msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
         for row in rows:
-            to_alert = any([
+            to_alert = not any([
                 re.match(filter_regex, row['url'])
                 for filter_regex in DOS_WHITELIST_URL_REGEX
             ])
