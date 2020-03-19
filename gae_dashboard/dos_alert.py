@@ -16,6 +16,7 @@ which are currently being requested 80 times a minute by some clients. I'm not
 sure whether this is due to a bug or by design, but I don't think it's a DoS.
 """
 
+import re
 import datetime
 from itertools import groupby
 
