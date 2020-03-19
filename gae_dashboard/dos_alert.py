@@ -16,6 +16,7 @@ which are currently being requested 80 times a minute by some clients. I'm not
 sure whether this is due to a bug or by design, but I don't think it's a DoS.
 """
 
+import re
 import datetime
 from itertools import groupby
 
@@ -101,6 +102,7 @@ DOS_WHITELIST_URL_REGEX = [
     # TODO: remove after 2020401
     r'/api/auth2/request_token',
     # Known common browser path below
+    # TODO (boris, INFRA-4452) to investigate these paths
     r'/mission/sat/tasks/.*',
     r'/math/.*',
     r'/computing/.*',
@@ -251,19 +253,22 @@ def dos_detect(end):
     ip_groups = groupby(results, key=lambda row: row['ip'])
 
     msg = DOS_ALERT_INTRO
+    any_alerts_seen = False
     for ip, rows in ip_groups:
         # For each IP, we show some default links...
         msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
         for row in rows:
-            to_alert = True
-            for filter_regex in DOS_WHITELIST_URL_REGEX:
-                if re.match(filter_regex, row['url']):
-                    to_alert = False
-                    break
+            to_alert = not any([
+                re.match(filter_regex, row['url'])
+                for filter_regex in DOS_WHITELIST_URL_REGEX
+            ])
             if to_alert:
                 # ... and then list any routes/UAs this IP is spamming
                 msg += DOS_ALERT_IP_COUNT_TEMPLATE.format(**row)
+                any_alerts_seen = True
         msg += '\n'
+    if not any_alerts_seen:
+        return
     msg += DOS_ALERT_FOOTER
 
     alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
