@@ -4,6 +4,11 @@
     "type": "STRING"
   },
   {
+    "name": "previous_blast_id",
+    "mode": "NULLABLE",
+    "type": "STRING"
+  },
+  {
     "name": "profile_id",
     "mode": "NULLABLE",
     "type": "STRING"
