@@ -25,6 +25,16 @@
         "type": "INTEGER"
     },
     {
+        "name": "previous_blast_id",
+        "mode": "NULLABLE",
+        "type": "INTEGER"
+    },
+    {
+        "name": "message_criteria",
+        "mode": "NULLABLE",
+        "type": "STRING"
+    },
+    {
         "mode": "NULLABLE",
         "name": "copy_template",
         "type": "STRING"
