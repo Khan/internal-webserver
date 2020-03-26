@@ -9,6 +9,11 @@
     "type": "STRING"
   },
   {
+    "name": "message_criteria",
+    "mode": "NULLABLE",
+    "type": "STRING"
+  },
+  {
     "name": "profile_id",
     "mode": "NULLABLE",
     "type": "STRING"
