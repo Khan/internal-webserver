@@ -106,6 +106,8 @@ DOS_WHITELIST_URL_REGEX = [
     r'/mission/sat/tasks/.*',
     r'/math/.*',
     r'/computing/.*',
+    # TODO (boris): 20200403 - legit user still having traffic,silence for now.
+    r'/profile/Bloomsburgstudent/.*',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
