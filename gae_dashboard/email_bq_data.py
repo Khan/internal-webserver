@@ -562,11 +562,10 @@ ORDER BY tcost.rpc_cost DESC;
                                data_col='last 2 weeks (%s/req)' % micropennies,
                                dry_run=dry_run)
 
-    # As of 1 Feb 2016, the most expensive RPC route is about $300 a
-    # day.  More than $750 a day and we should be very suspcious.
-    # TODO(csilvers): do this check more frequently.
-    # TODO(csilvers): send to slack and/or 911 as well as emailing
-    if any(row[2] > 750 for row in all_data[1:]):    # ignore the header line
+    # As of April 2020, we have some queries that cost about $1000
+    # a day in rpc costs due to large amounts of traffic. We warn on
+    # over $1500 a day in costs.
+    if any(row[2] > 1500 for row in all_data[1:]):    # ignore the header line
         _send_email({heading: all_data[:75]}, None,
                     to=['infrastructure@khanacademy.org'],
                     subject=('WARNING: some very expensive RPC calls on %s!'
