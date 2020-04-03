@@ -28,6 +28,7 @@ PROJECTS_TO_CHECK = [
     'mobile-android',
     'mobile-ios',
     'mobile-webview',
+    'react-native',
 ]
 
 
