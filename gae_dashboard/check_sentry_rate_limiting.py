@@ -25,10 +25,6 @@ with open(os.path.join(here, 'sentry_api_key')) as f:
 PROJECTS_TO_CHECK = [
     'prod-js',
     'mobile-app',
-    'mobile-android',
-    'mobile-ios',
-    'mobile-webview',
-    'react-native',
 ]
 
 
