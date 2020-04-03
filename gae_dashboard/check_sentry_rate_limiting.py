@@ -22,10 +22,16 @@ with open(os.path.join(here, 'sentry_api_key')) as f:
     api_key = f.read().strip()
 
 
-def get_num_rejected():
+PROJECTS_TO_CHECK = [
+    'prod-js',
+    'mobile-app',
+]
+
+
+def get_num_rejected(project):
     "Return the number of events rate-limited in the last day"
     resp = requests.get(
-        'https://sentry.io/api/0/projects/khanacademyorg/prod-js/stats/',
+        'https://sentry.io/api/0/projects/khanacademyorg/{}/stats/'.format(project),
         auth=(api_key, ''),
         params={'resolution': '1d', 'stat': 'rejected'})
     resp.raise_for_status()
@@ -34,10 +40,12 @@ def get_num_rejected():
 
 
 def main():
-    if get_num_rejected() == 0:
-        return
-    alertlib.Alert('Sentry prod-js project is being '
-                   'rate-limited').send_to_slack('#infrastructure-sre')
+    for project in PROJECTS_TO_CHECK:
+        if get_num_rejected(project) == 0:
+            continue
+        alertlib.Alert(
+            'Sentry {} project is being rate-limited'.format(project)
+            ).send_to_slack('#infrastructure-sre')
 
 
 if __name__ == '__main__':
