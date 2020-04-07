@@ -66,6 +66,8 @@ FROM (
     -- Requests blocked at Fastly should be blocked much quicker than from us
     -- Note that time_elapsed is in microseconds.
     AND NOT (status == 403 AND time_elapsed <= 500)
+    -- Or requests that are already rate limited by webapp
+    AND NOT (request = 'POST' AND url = '/login' AND status = 400)
   GROUP BY
     request_id)
 WHERE
