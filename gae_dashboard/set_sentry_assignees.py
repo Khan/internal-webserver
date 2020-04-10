@@ -93,6 +93,8 @@ def best_initiative(urls):
     for url, count in urls:
         initiative = initiatives.url_owner(url)
         totals.update({initiative: count})
+    if len(totals) == 0:
+        raise KeyError("No initiative found for {}".format(urls))
     return totals.most_common(1)[0][0]
 
 
@@ -127,8 +129,11 @@ def main():
             # Not sure why this sometimes happens.
             print 'Could not fetch issue {}'.format(issue_id)
             continue
-        initiative = best_initiative(issue_urls)
-        set_issue_assignee(issue_id, initiative, ids)
+        try:
+            initiative = best_initiative(issue_urls)
+            set_issue_assignee(issue_id, initiative, ids)
+        except KeyError as e:
+            print 'Cannot find initiative for {}: {}'.format(issue_id, e)
 
     print 'Set assignees for {} issues.'.format(len(unassigned_issue_ids))
 
