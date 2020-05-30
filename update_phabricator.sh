@@ -44,7 +44,6 @@ push_upstream() {
 }
 
 push_upstream phabricator
-push_upstream libphutil
 push_upstream arcanist
 
 git status
