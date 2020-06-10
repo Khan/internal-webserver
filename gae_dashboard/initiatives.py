@@ -161,3 +161,9 @@ def route_owners(route):
         return [routes[route]]
 
     return ['unknown']
+
+
+def graphql_query_owners(operation_name):
+    """Owners of a particular graphql query"""
+    data = _load_data()
+    return data['graphql-queries'].get(operation_name, ["unknown"])
