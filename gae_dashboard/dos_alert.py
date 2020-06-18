@@ -255,7 +255,9 @@ To check this please:
 
 * Log the content of
 <https://www.khanacademy.org/api/internal/graphql/getCommitAndStaticVersionQuery?fastly_cacheable=persist_until_publish&hash=379868032&lang=en|getCommitAndStaticVersionQuery> and its header
-* Compare against `__HEADER__` in our render template.
+* Compare against `__HEADER__` in our static content response.
+* Try to <https://www.khanacademy.org/prep/lsat/practice|tests> to see if
+  refresh behaviour occurs.
 
 Seen started at: {start_time} (in GMT)
 Percent of server nav: {traffic_percent:.2f}%
@@ -413,7 +415,8 @@ def server_nav_detect(end):
             start_time=start,
             traffic_percent=100 * float(results[0]['traffic_percent']),
         )
-        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+        # NOTE: send to personal channel to avoid spam
+        alertlib.Alert(msg).send_to_slack('#boris-bot-test')
 
 
 def main(now=None):
