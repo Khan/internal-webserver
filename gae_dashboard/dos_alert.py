@@ -205,7 +205,7 @@ Error rate: {percent:.2f}% ({err_count} / {traffic_count})
 # This looks at the % of server nav over the last 5 minutes.
 # If this goes over the threadhold this might means that
 # clients are having excessive server navigation.
-SERVER_NAV_THRESHOLD = 0.45
+SERVER_NAV_THRESHOLD = 0.5
 SERVER_NAV_QUERY = """\
 #standardSQL
 SELECT
