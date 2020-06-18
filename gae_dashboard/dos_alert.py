@@ -16,6 +16,7 @@ which are currently being requested 80 times a minute by some clients. I'm not
 sure whether this is due to a bug or by design, but I don't think it's a DoS.
 """
 
+import argparse
 import re
 import datetime
 from itertools import groupby
@@ -200,6 +201,68 @@ Error rate: {percent:.2f}% ({err_count} / {traffic_count})
 
 """
 
+# TODO (boris): remove once PM-93 is resolved
+# This looks at the % of server nav over the last 5 minutes.
+# If this goes over the threadhold this might means that
+# clients are having excessive server navigation.
+SERVER_NAV_THRESHOLD = 0.45
+SERVER_NAV_QUERY = """\
+#standardSQL
+SELECT
+  TIMESTAMP_TRUNC(info.timestamp, MINUTE) as t,
+  count(distinct info.request_id) as total_traffic,
+  count(distinct IF(LOWER(navigation) = 'server', info.request_id, NULL))
+     as server_traffic,
+  count(distinct IF(LOWER(navigation) = 'server', info.request_id, NULL))
+     / count(distinct info.request_id)
+    as traffic_percent
+FROM
+`khanacademy.org:deductive-jet-827.log_streams.page_load_perf_{tablesuffix}`
+WHERE 1=1
+AND info.timestamp BETWEEN '{start_time}' AND '{end_time}'
+AND LOWER(page_name) IN (
+  -- list of possibly affected pages
+  "lihp_missions",
+  "unit_test_modal",
+  "ccl_exercise_report",
+  "lihp_sat",
+  "article_modal",
+  "exercise_modal",
+  "ccl_class_roster",
+  "lihp_lsat",
+  "ccl_class_progress_v2",
+  "topic_page",
+  "article_page",
+  "gtp_settings_page",
+  "ccl_class_progress",
+  "ccl_class_settings",
+  "mastery_challenge_modal",
+  "coding_challenge_page",
+  "coding_talkthrough_page",
+  "ccl_class_course_mastery_placement"
+)
+GROUP BY t
+HAVING traffic_percent >= {threshold}
+ORDER BY t
+"""
+
+SERVER_NAV_ALERT_TEMPLATE = """\
+*Server Navigation spike*
+
+(No actions required - a monitor for <@UB922PB9P>)
+
+We have been seeing high percentage of Server Navigation.  See
+<https://docs.google.com/document/d/1eMZLVM0wYxyZuGD7fxInOjSlegu--IbT3kpZqZrssuA/edit#|Incident #93>.
+
+To check this please:
+
+* Log the content of
+<https://www.khanacademy.org/api/internal/graphql/getCommitAndStaticVersionQuery?fastly_cacheable=persist_until_publish&hash=379868032&lang=en|getCommitAndStaticVersionQuery> and its header
+* Compare against `__HEADER__` in our render template.
+
+Seen betwen: {start_time} - {end_time} (in GMT)
+"""
+
 
 def _fastly_log_tables(start, end, period):
     """Returns logs table name(s) to query from given the period for the logs.
@@ -330,13 +393,50 @@ def cdn_error_detect(end):
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
-def main():
-    now = datetime.datetime.utcnow()
+# TODO (boris): remove once PM-93 is resolved
+def server_nav_detect(end):
+    """Detected High percentage of Server Navigation
+
+    This is a monitor to detect when Incident-93 like situtation occurs.
+    """
+    start = end - datetime.timedelta(minutes=5)
+    query = SERVER_NAV_QUERY.format(
+        start_time=start.strftime(TS_FORMAT),
+        end_time=end.strftime(TS_FORMAT),
+        # NOTE: it will just return 0 results on start of day query
+        tablesuffix=end.strftime(TABLE_FORMAT),
+        threshold=SERVER_NAV_THRESHOLD,
+    )
+
+    results = bq_util.call_bq(['query', query],
+                              project=BQ_PROJECT)
+    if len(results) != 0:
+        time_seen = [r['t'] for r in results]
+        msg = SERVER_NAV_ALERT_TEMPLATE.format(
+            start_time=min(time_seen),
+            end_time=max(time_seen),
+        )
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+
+
+def main(now=None):
+    # Type: now: datetime
+    if now is None:
+        now = datetime.datetime.utcnow()
 
     dos_detect(now)
     scratchpad_detect(now)
     cdn_error_detect(now)
+    # TODO (boris): remove once PM-93 is resolved
+    server_nav_detect(now)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--end',
+        type=lambda s: datetime.datetime.strptime(s, TS_FORMAT),
+        help="Detect from this timestamp (isoformat)"
+    )
+    args = parser.parse_args()
+    main(args.end)
