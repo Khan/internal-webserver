@@ -209,7 +209,6 @@ SERVER_NAV_THRESHOLD = 0.45
 SERVER_NAV_QUERY = """\
 #standardSQL
 SELECT
-  TIMESTAMP_TRUNC(info.timestamp, MINUTE) as t,
   count(distinct info.request_id) as total_traffic,
   count(distinct IF(LOWER(navigation) = 'server', info.request_id, NULL))
      as server_traffic,
@@ -241,9 +240,7 @@ AND LOWER(page_name) IN (
   "coding_talkthrough_page",
   "ccl_class_course_mastery_placement"
 )
-GROUP BY t
 HAVING traffic_percent >= {threshold}
-ORDER BY t
 """
 
 SERVER_NAV_ALERT_TEMPLATE = """\
@@ -260,7 +257,8 @@ To check this please:
 <https://www.khanacademy.org/api/internal/graphql/getCommitAndStaticVersionQuery?fastly_cacheable=persist_until_publish&hash=379868032&lang=en|getCommitAndStaticVersionQuery> and its header
 * Compare against `__HEADER__` in our render template.
 
-Seen betwen: {start_time} - {end_time} (in GMT)
+Seen started at: {start_time} (in GMT)
+Percent of server nav: {traffic_percent:.2f}%
 """
 
 
@@ -410,11 +408,10 @@ def server_nav_detect(end):
 
     results = bq_util.call_bq(['query', query],
                               project=BQ_PROJECT)
-    if len(results) != 0:
-        time_seen = [r['t'] for r in results]
+    if len(results) > 0:
         msg = SERVER_NAV_ALERT_TEMPLATE.format(
-            start_time=min(time_seen),
-            end_time=max(time_seen),
+            start_time=start,
+            traffic_percent=100 * float(results[0]['traffic_percent']),
         )
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
