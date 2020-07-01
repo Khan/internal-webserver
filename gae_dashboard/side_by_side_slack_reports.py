@@ -18,8 +18,16 @@ import initiatives
 
 COUNTS_BY_OPERATION = """
 #standardSQL
-SELECT operation_name,
-       count(*) AS num_requests
+SELECT
+  operation_name,
+  COUNT(*) AS num_total_requests,
+  COUNTIF( EXISTS(
+    SELECT
+      1
+    FROM
+      UNNEST(differences)
+    WHERE
+      normal_services != preview_services)) AS num_cross_service,
 FROM `khanacademy.org:deductive-jet-827.side_by_side.side_by_side_result_*`
 WHERE _TABLE_SUFFIX="{date_param}"
 GROUP BY 1
@@ -61,10 +69,11 @@ def send_to_slack(results_by_team, date):
                 date=date_str
             )
             msg += (
-                "<{link}|{operation_name}>: {num_requests} requests"
-                " with side-by-side errors\n".format(
+                "<{link}|{operation_name}>: {num_requests} total requests"
+                " ({cross_service} cross-service requests)\n".format(
                     operation_name=row["operation_name"],
-                    num_requests=row["num_requests"],
+                    num_requests=row["num_total_requests"],
+                    cross_service=row["num_cross_service"],
                     link=link
                 ))
 
@@ -76,7 +85,7 @@ def send_to_slack(results_by_team, date):
 
 
 def main():
-    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    yesterday = datetime.date.today()
     results = fetch_counts_from_bq(yesterday)
     results_by_team = group_by_team(results)
     send_to_slack(results_by_team, yesterday)
