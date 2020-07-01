@@ -85,7 +85,7 @@ def send_to_slack(results_by_team, date):
 
 
 def main():
-    yesterday = datetime.date.today()
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
     results = fetch_counts_from_bq(yesterday)
     results_by_team = group_by_team(results)
     send_to_slack(results_by_team, yesterday)
