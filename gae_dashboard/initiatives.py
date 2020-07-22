@@ -18,7 +18,7 @@ TEAM_EMAIL = {
     'infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'classroom': 'coached-perf-reports@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
-    'test-prep': 'testprep-blackhole@khanacademy.org',
+    'test-prep': 'test-prep-dev@khanacademy.org',
     'content-platform': 'content-platform-analytics@khanacademy.org',
     'mpp': 'mpp@khanacademy.org',
     'districts': 'coached-perf-reports@khanacademy.org',
