@@ -47,8 +47,7 @@ FROM (
     elog_url_route AS route,
     SUM((status >= 200 AND status < 400) OR status IN (401, 404, 405, 501))
         AS ok_reqs,
-    SUM(elog_device_type is NULL or elog_device_type = "bot/dev")
-        AS bot_reqs,
+    SUM(elog_user_bingo_id = "_gae_bingo_bot") AS bot_reqs,
     COUNT(distinct IP) AS num_ips,
     SUM(1) AS total_reqs
   FROM
