@@ -463,116 +463,6 @@ ORDER BY instance_hours DESC
                                dry_run=dry_run)
 
 
-def email_rpcs(date, dry_run=False):
-    """Email RPCs-per-route report for the given datetime.date object.
-
-    Also email a more urgent message if one of the RPCs is too expensive.
-    This indicates a bug that is costing us money.
-    """
-    yyyymmdd = date.strftime("%Y%m%d")
-    rpc_fields = ('Get', 'Put', 'Next', 'RunQuery', 'Delete', 'Commit')
-
-    inits = ["IFNULL(INTEGER(t%s.rpc_%s), 0) AS rpc_%s" % (name, name, name)
-             for name in rpc_fields]
-    inits.append("IFNULL(tcost.rpc_cost, 0) AS rpc_cost")
-    joins = ["LEFT OUTER JOIN ( "
-             "SELECT elog_url_route AS url_route, "
-             "       SUM(elog_stats_rpc_ops.value) as rpc_%s "
-             "FROM [logs.requestlogs_%s] "
-             "WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.%s.count' "
-             "GROUP BY url_route) AS t%s "
-             "ON t1.url_route = t%s.url_route"
-             % (name, yyyymmdd, name, name, name)
-             for name in rpc_fields]
-    joins.append("LEFT OUTER JOIN ( "
-                 "SELECT elog_url_route AS url_route, "
-                 "       SUM(elog_stats_rpc_ops.value) AS rpc_cost "
-                 "FROM [logs.requestlogs_%s] "
-                 "WHERE elog_stats_rpc_ops.key = 'stats.rpc_ops.cost' "
-                 "GROUP BY url_route) AS tcost "
-                 "ON t1.url_route = tcost.url_route"
-                 % yyyymmdd)
-    query = """\
-SELECT t1.url_route AS url_route,
-t1.url_requests AS requests,
-%s
-FROM (
-    SELECT elog_url_route AS url_route, COUNT(1) AS url_requests
-    FROM (
-        SELECT FIRST(elog_url_route) AS elog_url_route
-        FROM [logs.requestlogs_%s]
-        WHERE LEFT(version_id, 3) != 'znd' # ignore znds
-        GROUP BY request_id
-    )
-    GROUP BY url_route
-) AS t1
-%s
-ORDER BY tcost.rpc_cost DESC;
-""" % (',\n'.join(inits), yyyymmdd, '\n'.join(joins))
-    data = bq_util.query_bigquery(query)
-    bq_util.save_daily_data(data, "rpcs", yyyymmdd)
-    historical_data = bq_util.process_past_data(
-        "rpcs", date, 14, lambda row: row['url_route'])
-
-    # Munge the table by getting per-request counts for every RPC stat.
-    micropennies = '&mu;&cent;'
-    for row in data:
-        for stat in rpc_fields:
-            row['%s/req' % stat] = row['rpc_%s' % stat] * 1.0 / row['requests']
-        row[micropennies + '/req'] = row['rpc_cost'] * 1.0 / row['requests']
-        row['$'] = row['rpc_cost'] * 1.0e-8
-        sparkline_data = []
-        for old_data in historical_data:
-            old_row = old_data.get(row['url_route'])
-            if old_row and 'rpc_cost' in old_row:
-                sparkline_data.append(
-                    old_row['rpc_cost'] * 1.0 / old_row['requests'])
-            else:
-                sparkline_data.append(None)
-        row['last 2 weeks (%s/req)' % micropennies] = sparkline_data
-
-        del row['rpc_cost']
-
-    # Convert each row from a dict to a list, in a specific order.
-    _ORDER = (['url_route', 'requests', '$', micropennies + '/req',
-               'last 2 weeks (%s/req)' % micropennies] +
-              ['rpc_%s' % f for f in rpc_fields] +
-              ['%s/req' % f for f in rpc_fields])
-    all_data = _convert_table_rows_to_lists(data, _ORDER)
-    subject = 'RPC calls by route - '
-    heading = 'RPC calls by route for %s' % _pretty_date(yyyymmdd)
-    _send_email({heading: all_data[:75]}, None,
-                to=[initiatives.email('infrastructure')],
-                subject=subject + 'All',
-                dry_run=dry_run)
-
-    # Per-initiative reports
-    for initiative_id, initiative_data in _by_initiative(data):
-        table = _convert_table_rows_to_lists(initiative_data, _ORDER)
-        # Let's just send the top most expensive routes, not all of them.
-        _send_email({heading: table[:75]}, None,
-                    to=[initiatives.email(initiative_id)],
-                    subject=subject + initiatives.title(initiative_id),
-                    dry_run=dry_run)
-
-    # We'll also send the most-most expensive ones to stackdriver.
-    _send_table_to_stackdriver(all_data[:20],
-                               'webapp.routes.rpc_cost.week_over_week',
-                               'url_route', metric_label_col='url_route',
-                               data_col='last 2 weeks (%s/req)' % micropennies,
-                               dry_run=dry_run)
-
-    # As of April 2020, we have some queries that cost about $1000
-    # a day in rpc costs due to large amounts of traffic. We warn on
-    # over $1500 a day in costs.
-    if any(row[2] > 1500 for row in all_data[1:]):    # ignore the header line
-        _send_email({heading: all_data[:75]}, None,
-                    to=['infrastructure@khanacademy.org'],
-                    subject=('WARNING: some very expensive RPC calls on %s!'
-                             % _pretty_date(yyyymmdd)),
-                    dry_run=dry_run)
-
-
 def email_out_of_memory_errors(date, dry_run=False):
     # This sends two emails, for two different ways of seeing the data.
     # But we'll have them share the same subject so they thread together.
@@ -940,9 +830,6 @@ def main():
     else:
         print 'Emailing instance hour info'
         email_instance_hours(date, dry_run=args.dry_run)
-
-        print 'Emailing rpc stats info'
-        email_rpcs(date, dry_run=args.dry_run)
 
         print 'Emailing out-of-memory info'
         email_out_of_memory_errors(date, dry_run=args.dry_run)
