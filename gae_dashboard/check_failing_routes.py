@@ -28,11 +28,16 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     'api_main:/api/v1/exercises',  # Removed API
 ))
 
-# Graphql queries that don't include a query name are expected to fail.
-BAD_GRAPHQL_ROUTE = re.compile(
-    r'^api_main:/api/internal/(_mt/)?graphql'
-    '(/persist_(across_publish|across_deploy|until_publish))?'
-    '(/<path_opname>)?( \[(POST|HEAD)\])?$')
+BAD_ROUTES_RE = [
+    # Graphql queries that don't include a query name are expected to fail.
+    re.compile(
+        r'^api_main:/api/internal/(_mt/)?graphql'
+        '(/persist_(across_publish|across_deploy|until_publish))?'
+        '(/<path_opname>)?( \[(POST|HEAD)\])?$'),
+    # Kotlin routes which are spam (contain non path char) are expected to fail
+    # e.g. kt:/api/internal/_bb/bigbingo'||(select extractvalue(xmltype....
+    re.compile(r'^kt:.*[^\w/]'),
+]
 
 
 QUERY = """\
@@ -96,7 +101,8 @@ def check(date, dry_run=False):
     data = bq_util.query_bigquery(q)
     route_data = [row for row in data
                   if not (row['route'] in ROUTES_EXPECTED_TO_FAIL or
-                          BAD_GRAPHQL_ROUTE.match(row['route']))]
+                          any([r.match(row['route']) for r in BAD_ROUTES_RE])
+                          )]
 
     for row in route_data:
         route = row['route']
