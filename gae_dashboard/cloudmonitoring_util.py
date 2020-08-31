@@ -27,7 +27,7 @@ def from_rfc3339(iso_string):
     # This is suprisingly hard to get right, since strptime assumes
     # the local timezone by default.  I use a technique from
     # http://aboutsimon.com/2013/06/05/datetime-hell-time-zone-aware-to-unix-timestamp/
-    time_t = time.strptime(re.sub(r'(\.\d{3})?Z$', 'GMT', iso_string),
+    time_t = time.strptime(re.sub(r'(\.\d{3,})?Z$', 'GMT', iso_string),
                            '%Y-%m-%dT%H:%M:%S%Z')
     return calendar.timegm(time_t)
 
