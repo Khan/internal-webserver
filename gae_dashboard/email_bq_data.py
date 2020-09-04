@@ -630,103 +630,6 @@ ORDER BY client DESC, build DESC, request_count DESC;
                     dry_run=dry_run)
 
 
-def email_rrs_stats(date, dry_run=False):
-    """Emails stats about rrs requests that are too slow or have errors.
-
-    rrs == React Render Server.
-
-    Requests that take longer than one second are timed out and thus simply add
-    a second to the reponse, rather than speeding it up.
-    """
-    yyyymmdd = date.strftime("%Y%m%d")
-
-    latency_q = """
-SELECT
-  REPLACE(REGEXP_EXTRACT(
-    httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
-  AVG(FLOAT(jsonPayload.latencyseconds)) AS average_latency,
-  COUNT(1) AS count,
-  SUM(CASE
-      WHEN FLOAT(jsonPayload.latencyseconds) >= 1.0 THEN 1
-      ELSE 0 END) AS timeouts,
-  SUM(CASE
-      WHEN FLOAT(jsonPayload.latencyseconds) >= 1.0 THEN 100
-      ELSE 0 END) / count(1) as timeout_percent
-FROM
-  [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
-GROUP BY
-  url
-ORDER BY
-  timeout_percent DESC
-""".format(yyyymmdd)
-
-    error_q = """
-SELECT
-  REPLACE(REGEXP_EXTRACT(
-    httpRequest.requestUrl, r'/render\?path=\.(.*)'), '%2F', '/') AS url,
-  SUM(httpRequest.status == 500) AS error_count,
-  (SUM(httpRequest.status == 500) / COUNT(1)) * 100 AS error_percent
-FROM
-  [khan-academy:react_render_logs.appengine_googleapis_com_nginx_request_{}]
-GROUP BY
-  url
-ORDER BY
-  error_percent DESC
-""".format(yyyymmdd)
-
-    latency_data = bq_util.get_daily_data('rrs_latency', yyyymmdd)
-    if latency_data is None:
-        table_name = ("khan-academy:react_render_logs" +
-                      ".appengine_googleapis_com_nginx_request_{}"
-                      ).format(yyyymmdd)
-        table_exists = bq_util.does_table_exist(table_name)
-        if not table_exists:
-            print "The RRS logs were not generated. No email will be sent."
-            print "Returning..."
-            return
-        latency_data = bq_util.query_bigquery(latency_q)
-        bq_util.save_daily_data(latency_data, 'rrs_latency', yyyymmdd)
-
-    error_data = bq_util.get_daily_data('rrs_errors', yyyymmdd)
-    if error_data is None:
-        error_data = bq_util.query_bigquery(error_q)
-        bq_util.save_daily_data(error_data, 'rrs_errors', yyyymmdd)
-
-    subject = 'React render server errors and timeouts - '
-    error_heading = 'React component errors'
-    latency_heading = 'React compontent render latency (> 1 sec = timeout)'
-    error_order = ('url', 'error_count', 'error_percent')
-    latency_order = ('url', 'average_latency', 'count', 'timeouts',
-                     'timeout_percent')
-    tables = collections.defaultdict(dict)
-
-    # Put data in tables by initiative
-    for initiative_id, initiative_data in _by_initiative(
-            error_data, key='url', by_package=True):
-        tables[initiative_id][error_heading] = _convert_table_rows_to_lists(
-            initiative_data, error_order)
-    for initiative_id, initiative_data in _by_initiative(
-            latency_data, key='url', by_package=True):
-        tables[initiative_id][latency_heading] = _convert_table_rows_to_lists(
-            initiative_data, latency_order)
-
-    # Send email to initiatives
-    for initiative_id, initiative_tables in tables.items():
-        _send_email(initiative_tables, graph=None,
-                    to=[initiatives.email(initiative_id)],
-                    subject=subject + initiatives.title(initiative_id),
-                    dry_run=dry_run)
-
-    # Send all data to infra
-    tables = {}
-    tables[error_heading] = _convert_table_rows_to_lists(error_data,
-                                                         error_order)
-    tables[latency_heading] = _convert_table_rows_to_lists(latency_data,
-                                                           latency_order)
-    _send_email(tables, graph=None, to=[initiatives.email('infrastructure')],
-                subject=subject + 'All', dry_run=dry_run)
-
-
 def email_applog_sizes(date, dry_run=False):
     """Email app-log report for the given datetime.date object.
 
@@ -836,9 +739,6 @@ def main():
 
         print 'Emailing client API usage info'
         email_client_api_usage(date, dry_run=args.dry_run)
-
-        print 'Emailing react render server info'
-        email_rrs_stats(date, dry_run=args.dry_run)
 
         print 'Emailing app-log sizes'
         email_applog_sizes(date, dry_run=args.dry_run)
