@@ -99,7 +99,7 @@ if __name__ == '__main__':
                         help='Path of the fastly API secret' + dflt)
     parser.add_argument('--history-file', default=_HISTORY_LOCATION,
                         help='Path of the notification-history file' + dflt)
-    parser.add_argument('--slack-channel', default='#bot-testing',
+    parser.add_argument('--slack-channel', default='#whats-happening',
                         help='Slack channel to notify at' + dflt)
     args = parser.parse_args()
 
