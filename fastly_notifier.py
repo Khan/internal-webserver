@@ -103,11 +103,14 @@ if __name__ == '__main__':
                         help='Slack channel to notify at' + dflt)
     args = parser.parse_args()
 
-    with open(os.path.expanduser(args.secret_file)) as f:
+    secret_file = os.path.expanduser(args.secret_file)
+    history_file = os.path.expanduser(args.history_file)
+
+    with open(secret_file) as f:
         api_key = f.read().strip()
 
-    if os.path.exists(args.history_file):
-        with open(os.path.expanduser(args.history_file)) as f:
+    if os.path.exists(history_file):
+        with open(history_file) as f:
             last_service_info = json.load(f)
     else:
         logging.warn("No history file found, assuming this is the first run")
@@ -115,8 +118,8 @@ if __name__ == '__main__':
 
     service_info = get_service_info(api_key)
     messages = get_modification_messages(service_info, last_service_info,
-                                         args.history_file)
+                                         history_file)
     send_to_slack(args.slack_channel, messages)
 
-    with open(os.path.expanduser(args.history_file), 'w') as f:
+    with open(history_file, 'w') as f:
         json.dump(service_info, f, indent=4, sort_keys=True)
