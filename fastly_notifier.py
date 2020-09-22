@@ -74,7 +74,8 @@ def get_modification_messages(service_info, last_service_info, history_file):
             % (service, time.ctime(os.path.getmtime(history_file))))
 
     for (service, info) in service_info.iteritems():
-        if info != last_service_info.get(service):
+        # json stores data as a list, not a tuple, so we have to convert.
+        if list(info) != last_service_info.get(service):
             messages.append(
                 '*Fastly service `%s` was modified at %s*.\n'
                 'New version: %s.\nDescription: %s'
