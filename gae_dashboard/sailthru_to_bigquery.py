@@ -235,7 +235,9 @@ def _send_blast_details_to_bq(blast_id, temp_file,
                     for row_csv in reader:
                         row_object = {}
                         for idx, column_name in enumerate(headers):
-                            cell_content = row_csv[idx].strip()
+                            cell_content = row_csv[idx]
+                            if isinstance(cell_content, str):
+                                cell_content = cell_content.strip()
                             if cell_content == "":
                                 row_object[column_name] = None
                             elif (column_name in
@@ -476,7 +478,9 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
                     for row_csv in reader:
                         row_object = {}
                         for idx, column_name in enumerate(headers):
-                            cell_content = row_csv[idx].strip()
+                            cell_content = row_csv[idx]
+                            if isinstance(cell_content, str):
+                                cell_content = cell_content.strip()
                             if cell_content == "":
                                 row_object[column_name] = None
                             else:
