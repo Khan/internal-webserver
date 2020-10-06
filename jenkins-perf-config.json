@@ -1,0 +1,81 @@
+// This is like a normal json file, except comments are allowed.
+// Only full-line comments are supported, not end-of-line comments.
+{
+    // Protocol plus hostname of your Jenkins instance.
+    "jenkinsBase": "https://jenkins.khanacademy.org/",
+
+    // The method you want to use to authorize this script with
+    // jenkins.  The fields you use here determine the auth method.
+    "jenkinsAuth": {
+        "username": "jenkins@khanacademy.org",
+        "passwordFile": "../jenkins-perf-visualizer/jenkins.token"
+    },
+
+    // Where to store data files as we download them, and also the
+    // generated html.
+    "datadir": "../jenkins-perf-data",
+
+    // When downloading build data in bulk, how many threads to use.
+    // Set to 1 to disable threading.
+    "downloadThreads": 7,
+
+    // When downloading build data, we create a symlink job that puts
+    // all builds from the same "task" into a single folder.
+    "groupingParameter": "BUILDMASTER_DEPLOY_ID",
+
+    // We take the title of the graph from this parameter.
+    "titleParameter": "REVISION_DESCRIPTION",
+
+    // The keys here are regular expressions that must match the
+    // *entire* label (that is, they have an implicit "^" and "$".)
+    // The values are colors of the form "#RRGGBB".
+    "colors": {
+        // Colors I use:
+        // #00008b  blue
+        // #006400  green
+        // #a9a9a9  gray
+        // #b22222  red
+        // #daa520  gold
+
+        // Build-root
+        "<.*>": "#b22222",
+
+        // All builds (stages run via notify.groovy and other helper functions)
+        "main": "#b22222",
+        "_watchdog": "#a9a9a9",
+        "Resolving commit": "#006400",
+        "Talking to buildmaster": "#006400",
+
+        // 2ndsmoketest-priming
+        "Priming": "#daa520",
+
+        // build-webapp
+        "Merging in master": "#006400",
+        "Deploying": "#daa520",
+        "deploy-.*": "#00008b",
+        "Send changelog": "#006400",
+
+        // deploy-webapp
+        "Await first smoke test and set-default confirmation": "#a9a9a9",
+        "Promoting and monitoring": "#daa520",
+        "monitor": "#00008b",
+        "promote": "#00008b",
+        "wait-and-start-tests": "#00008b",
+        "Await finish-up confirmation": "#a9a9a9",
+        "Merging to master": "#006400",
+
+        // merge-branches
+        // <none needed>
+
+        // webapp-test
+        "Determining splits & running tests": "#daa520",
+        "Running tests": "#006400",
+        "determine-splits": "#006400",
+        "Analyzing results": "#006400",
+        "^test-.*": "#00008b",
+
+        // e2e-test
+        "e2e-test-.*": "#00008b",
+        "job-.*": "#daa520"
+    }
+}
