@@ -21,7 +21,7 @@
 
     // When downloading build data, we create a symlink job that puts
     // all builds from the same "task" into a single folder.
-    "groupingParameter": "BUILDMASTER_DEPLOY_ID",
+    "groupingParameter": null,
 
     // We take the title of the graph from this parameter.
     "titleParameter": "REVISION_DESCRIPTION",
