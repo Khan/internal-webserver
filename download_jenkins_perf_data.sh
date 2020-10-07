@@ -62,3 +62,23 @@ done
 find . -type f -a -mtime +"$KEEP_DAYS" -print0 | xargs -r -0 rm || true
 # Now get rid of an empty symlink-farm dirs.
 find . -depth -type d -print0 | xargs -r -0 rmdir 2>/dev/null || true
+
+# Now create the html visualization files for each deploy.
+mkdir -p html
+
+to_upload=
+for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
+    outfile="html/$(basename "$deploy_dir").html"
+    if ! [ -s "$outfile" ]; then
+        ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
+            --config=../internal-webserver/jenkins-perf-config.json \
+            -o "$outfile"
+        to_upload="$to_upload $outfile"
+    fi
+done
+
+if [ -n "$to_upload" ]; then
+    echo "Uploading $to_upload to gcs"
+    gsutil cp -z html $to_upload gs://ka-jenkins-perf/
+fi
+
