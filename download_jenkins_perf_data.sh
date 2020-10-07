@@ -70,11 +70,12 @@ to_upload=
 for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
     outfile="html/$(basename "$deploy_dir").html"
     if ! [ -s "$outfile" ]; then
+        echo "Creating an html file for $deploy_dir"
         ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
             --config=../internal-webserver/jenkins-perf-config.json \
             -o "$outfile" \
-            "$deploy_dir"/*.data
-        to_upload="$to_upload $outfile"
+            "$deploy_dir"/*.data \
+        && to_upload="$to_upload $outfile"
     fi
 done
 
