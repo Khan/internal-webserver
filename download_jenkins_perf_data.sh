@@ -33,7 +33,7 @@ ls deploy--deploy-webapp*.data | while read dw; do
     git_revision_text=$(grep -o '"GIT_REVISION": "[^"]*"' "$dw")
     git_revision=$(echo "$git_revision_text" | cut -d'"' -f4)
     symlink_farm=$(date -r "$dw" +"%Y-%m-%d.$git_revision")
-    if [ -d "$symlink_farm" ]; then
+    if [ -z "$git_revision" -o -d "$symlink_farm" ]; then
         continue   # already processed this deploy-webapp file.
     fi
     mkdir "$symlink_farm"
