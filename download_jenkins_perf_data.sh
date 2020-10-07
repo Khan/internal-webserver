@@ -18,6 +18,6 @@ jenkins-perf-visualizer/download_jenkins_perf_data.py \
     deploy/e2e-test
 
 # Get rid of files that are old, to bound the disk space we use.
-find jenkins-perf-data -type f -a -mtime +"$KEEP_DAYS" -print0 | xargs -0 rm
+find jenkins-perf-data -type f -a -mtime +"$KEEP_DAYS" -print0 | xargs -0 rm || true
 # Now get rid of an empty symlink-farm dirs.
-find jenkins-perf-data -type d -print0 | xargs -0 rmdir 2>/dev/null
+find jenkins-perf-data -depth -type d -print0 | xargs -0 rmdir 2>/dev/null || true
