@@ -90,5 +90,15 @@ done
 if [ -n "$to_upload" ]; then
     echo "Uploading $to_upload to gcs"
     gsutil cp -z html $to_upload gs://ka-jenkins-perf/
+
+    # We'll just always update the index file.  We sort so the newest
+    # profiles are at the top.
+    for html in html/20*.html; do
+        base=$(basename "$html")
+        title=$(grep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
+        date=$(echo "$title" | grep -o '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]')
+        echo "<a href='https://storage.cloud.google.com/ka-jenkins-perf/$base'>$date</a>: $title<br>"
+    done | sort -t'>' -k2r > html/index.html
+    gsutil cp -z html html/index.html gs://ka-jenkins-perf/
 fi
 
