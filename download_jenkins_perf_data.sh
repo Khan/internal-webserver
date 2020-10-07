@@ -72,7 +72,8 @@ for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
     if ! [ -s "$outfile" ]; then
         ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
             --config=../internal-webserver/jenkins-perf-config.json \
-            -o "$outfile"
+            -o "$outfile" \
+            "$deploy_dir"/*.data
         to_upload="$to_upload $outfile"
     fi
 done
