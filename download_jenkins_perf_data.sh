@@ -71,11 +71,19 @@ for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
     outfile="html/$(basename "$deploy_dir").html"
     if ! [ -s "$outfile" ]; then
         echo "Creating an html file for $deploy_dir"
+        # If we can't parse these files, it's possibly because we
+        # tried to download them before the job was complete.  Let's
+        # just delete the jobs and re-try to download them again next
+        # run.
         ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
             --config=../internal-webserver/jenkins-perf-config.json \
             -o "$outfile" \
             "$deploy_dir"/*.data \
-        && to_upload="$to_upload $outfile"
+        && to_upload="$to_upload $outfile" \
+        || {
+            echo "Deleting $deploy_dir due to error; will re-download later"
+            rm -rf "$deploy_dir" $(echo "$deploy_dir"/* | xargs -n1 basename)
+        }
     fi
 done
 
