@@ -19,9 +19,12 @@
     // Set to 1 to disable threading.
     "downloadThreads": 7,
 
-    // When downloading build data, we create a symlink job that puts
-    // all builds from the same "task" into a single folder.
-    "groupingParameter": "BUILDMASTER_DEPLOY_ID",
+    // When downloading build data, we can create a symlink job that
+    // puts all builds from the same "task" into a single folder.
+    // We want to group bsaed on GIT_REVISION, but we'll do this
+    // outside of jenkins-perf-visualizer, since the logic we use
+    // is a bit more complicated than this script can handle.
+    "groupingParameter": null,
 
     // We take the title of the graph from this parameter.
     "titleParameter": "REVISION_DESCRIPTION",
