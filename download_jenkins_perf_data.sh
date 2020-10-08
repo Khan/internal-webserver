@@ -33,14 +33,14 @@ ls deploy--deploy-webapp*.data | while read dw; do
     git_revision_text=$(grep -o '"GIT_REVISION": "[^"]*"' "$dw")
     git_revision=$(echo "$git_revision_text" | cut -d'"' -f4)
     symlink_farm=$(date -r "$dw" +"%Y-%m-%d.$git_revision")
-    if [ -z "$git_revision" -o -d "$symlink_farm" ]; then
-        continue   # already processed this deploy-webapp file.
+    if [ -z "$git_revision" ]; then
+        continue
     fi
-    mkdir "$symlink_farm"
+    mkdir -p "$symlink_farm"
 
     # Find all jobs with the same GIT_REVISION.
     grep -l "$git_revision_text" *.data | while read f; do
-        ln -s "../$f" "$symlink_farm/$f"
+        ln -snf "../$f" "$symlink_farm/$f"
     done
 done
 
@@ -51,7 +51,9 @@ done
 # actually delete them, or they'll just be re-downloaded the next run
 # of this script.  Instead we just replace their content with
 # something small.
-find . -maxdepth 1 -name '*.data' -a -size +1k | while read f; do
+# To make sure we don't zero out files just because the corresponding
+# deploy-webapp job hasn't started yet, we wait a day before clearing.
+find . -maxdepth 1 -name '*.data' -a -mtime +1 -a -size +1k | while read f; do
     if [ -z "$(find . -type l -name "$(basename "$f")")" ]; then
         echo "Zeroing out $f: not a build used in a deploy"
         echo "Not a deploy build" > "$f"
