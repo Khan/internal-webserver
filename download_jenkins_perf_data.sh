@@ -41,6 +41,8 @@ ls deploy--deploy-webapp*.data | while read dw; do
     # Find all jobs with the same GIT_REVISION.
     grep -l "$git_revision_text" *.data | while read f; do
         ln -snf "../$f" "$symlink_farm/$f"
+        # Make the symlink have the same timestamp as the pointed-to file.
+        touch -h -r "$f" "$symlink_farm/$f"
     done
 done
 
@@ -52,8 +54,8 @@ done
 # of this script.  Instead we just replace their content with
 # something small.
 # To make sure we don't zero out files just because the corresponding
-# deploy-webapp job hasn't started yet, we wait a day before clearing.
-find . -maxdepth 1 -name '*.data' -a -mtime +1 -a -size +1k | while read f; do
+# deploy-webapp job hasn't started yet, we wait 4 hours before clearing.
+find . -maxdepth 1 -name '*.data' -a -mmin +240 -a -size +1k | while read f; do
     if [ -z "$(find . -type l -name "$(basename "$f")")" ]; then
         echo "Zeroing out $f: not a build used in a deploy"
         echo "Not a deploy build" > "$f"
@@ -70,34 +72,36 @@ find . -depth -type d -print0 | xargs -r -0 rmdir 2>/dev/null || true
 # Now create the html visualization files for each deploy.
 mkdir -p html
 
-# We always rebuild all html files because new .data files may have
-# been created that should be included in the html.
-# TODO(csilvers): only rebuild html files from the past day.
-echo "Rebuilding html files"
+# We only build html files if the latest file in a deploy-dir is
+# at least 4 hours old.  That avoids us building "partial" html files
+# for deploys that are still going on.
 for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
+    if [ -n "$(find "$deploy_dir" -type l -mmin -240)" ]; then
+        continue
+    fi
     outfile="html/$(basename "$deploy_dir").html"
-    # If we can't parse these files, it's possibly because we
-    # tried to download them before the job was complete.  Let's
-    # just delete the jobs and re-try to download them again next
-    # run.
-    ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
-        --config=../internal-webserver/jenkins-perf-config.json \
-        -o "$outfile" \
-        "$deploy_dir"/*.data \
-    || {
-        echo "Deleting $deploy_dir due to error; will re-download later"
-        rm -rf "$deploy_dir" $(echo "$deploy_dir"/* | xargs -n1 basename)
-    }
+    if [ ! -s "$outfile" ]; then
+        echo "Creating an html file for $deploy_dir"
+        # We compress the html to take less space on gcs.
+        # (We'll set the right header so gcs knows it's compressed.)
+        ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
+                --config=../internal-webserver/jenkins-perf-config.json \
+                -o /dev/stdout \
+                "$deploy_dir"/*.data \
+            | gzip -9 \
+            > "$outfile"
+    fi
 done
 
-# Also update the index file.  We sort so the newest profiles are at
-# the top.
+# Let's just always update the index file.  We sort so the newest
+# profiles are at the top.
 for html in html/20*.html; do
     base=$(basename "$html")
-    title=$(grep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
+    title=$(zgrep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
     date=$(echo "$title" | grep -o '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]')
     echo "<a href='https://storage.cloud.google.com/ka-jenkins-perf/$base'>$date</a>: $title<br>"
-done | sort -t'>' -k2r > html/index.html
+done | sort -t'>' -k2r | gzip -9 > html/index.html
 
 echo "Uploading html to gcs"
-gsutil -m rsync -j html html/ gs://ka-jenkins-perf/
+# We let gzip know that all the files we're uploading are compressed.
+gsutil -m -h Content-encoding:gzip rsync -j html html/ gs://ka-jenkins-perf/

@@ -19,6 +19,10 @@
     // Set to 1 to disable threading.
     "downloadThreads": 7,
 
+    // When creating a .html file, should we automatically load
+    // that html file up in your web browser?
+    "openWebpageInBrowser": false,
+
     // When downloading build data, we can create a symlink job that
     // puts all builds from the same "task" into a single folder.
     // We want to group bsaed on GIT_REVISION, but we'll do this
