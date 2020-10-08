@@ -80,12 +80,23 @@ for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
         continue
     fi
     outfile="html/$(basename "$deploy_dir").html"
+    # Let's figure out a good title for this graph.
+    # The REVISION_DESCRIPTION is good but let's get rid of
+    # the suffixes some jobs add:
+    #   . "and the prior deploy"
+    #   . "(currently deploying)
+    #   . "(now live)"
+    title=$(grep -ho '"REVISION_DESCRIPTION": "[^"]*"' "$deploy_dir"/*.data \
+            | head -n1 \
+            | cut -d'"' -f4 \
+            | sed 's/and the prior deploy\|(currently deploying)\|(now live)//')
     if [ ! -s "$outfile" ]; then
         echo "Creating an html file for $deploy_dir"
         # We compress the html to take less space on gcs.
         # (We'll set the right header so gcs knows it's compressed.)
         ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
                 --config=../internal-webserver/jenkins-perf-config.json \
+                --title="$title" \
                 -o /dev/stdout \
                 "$deploy_dir"/*.data \
             | gzip -9 \
@@ -98,7 +109,7 @@ done
 for html in html/20*.html; do
     base=$(basename "$html")
     title=$(zgrep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
-    date=$(echo "$title" | grep -o '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]')
+    date=$(zgrep '^ *"subtitle": ' "$html" | tail -n1 | cut -f4 -d'"')
     echo "<a href='https://storage.cloud.google.com/ka-jenkins-perf/$base'>$date</a>: $title<br>"
 done | sort -t'>' -k2r | gzip -9 > html/index.html
 
