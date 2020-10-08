@@ -62,45 +62,42 @@ done
 
 # Get rid of files that are old, to bound the disk space we use.
 find . -type f -a -mtime +"$KEEP_DAYS" -print0 | xargs -r -0 rm || true
+# Get rid of any dangling symlinks that resulted from the above.
+find . -xtype l -print0 | xargs -r -0 rm || true
 # Now get rid of an empty symlink-farm dirs.
 find . -depth -type d -print0 | xargs -r -0 rmdir 2>/dev/null || true
 
 # Now create the html visualization files for each deploy.
 mkdir -p html
 
-to_upload=
+# We always rebuild all html files because new .data files may have
+# been created that should be included in the html.
+# TODO(csilvers): only rebuild html files from the past day.
+echo "Rebuilding html files"
 for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
     outfile="html/$(basename "$deploy_dir").html"
-    if ! [ -s "$outfile" ]; then
-        echo "Creating an html file for $deploy_dir"
-        # If we can't parse these files, it's possibly because we
-        # tried to download them before the job was complete.  Let's
-        # just delete the jobs and re-try to download them again next
-        # run.
-        ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
-            --config=../internal-webserver/jenkins-perf-config.json \
-            -o "$outfile" \
-            "$deploy_dir"/*.data \
-        && to_upload="$to_upload $outfile" \
-        || {
-            echo "Deleting $deploy_dir due to error; will re-download later"
-            rm -rf "$deploy_dir" $(echo "$deploy_dir"/* | xargs -n1 basename)
-        }
-    fi
+    # If we can't parse these files, it's possibly because we
+    # tried to download them before the job was complete.  Let's
+    # just delete the jobs and re-try to download them again next
+    # run.
+    ../jenkins-perf-visualizer/visualize_jenkins_perf_data.py \
+        --config=../internal-webserver/jenkins-perf-config.json \
+        -o "$outfile" \
+        "$deploy_dir"/*.data \
+    || {
+        echo "Deleting $deploy_dir due to error; will re-download later"
+        rm -rf "$deploy_dir" $(echo "$deploy_dir"/* | xargs -n1 basename)
+    }
 done
 
-if [ -n "$to_upload" ]; then
-    echo "Uploading $to_upload to gcs"
-    gsutil cp -z html $to_upload gs://ka-jenkins-perf/
+# Also update the index file.  We sort so the newest profiles are at
+# the top.
+for html in html/20*.html; do
+    base=$(basename "$html")
+    title=$(grep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
+    date=$(echo "$title" | grep -o '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]')
+    echo "<a href='https://storage.cloud.google.com/ka-jenkins-perf/$base'>$date</a>: $title<br>"
+done | sort -t'>' -k2r > html/index.html
 
-    # We'll just always update the index file.  We sort so the newest
-    # profiles are at the top.
-    for html in html/20*.html; do
-        base=$(basename "$html")
-        title=$(grep '^ *"title": ' "$html" | tail -n1 | cut -f4 -d'"')
-        date=$(echo "$title" | grep -o '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]')
-        echo "<a href='https://storage.cloud.google.com/ka-jenkins-perf/$base'>$date</a>: $title<br>"
-    done | sort -t'>' -k2r > html/index.html
-    gsutil cp -z html html/index.html gs://ka-jenkins-perf/
-fi
-
+echo "Uploading html to gcs"
+gsutil -m rsync -j html html/ gs://ka-jenkins-perf/
