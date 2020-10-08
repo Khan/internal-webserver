@@ -54,6 +54,7 @@
         "Talking to buildmaster": "#006400",
 
         // 2ndsmoketest-priming
+        "sync-webapp": "#daa520",
         "Priming": "#daa520",
 
         // build-webapp
@@ -63,7 +64,10 @@
         "Send changelog": "#006400",
 
         // deploy-webapp
+        // DEPRECATED: old name
         "Await first smoke test and set-default confirmation": "#a9a9a9",
+        "Await first smoke test": "#a9a9a9",
+        "set-default confirmation": "#a9a9a9",
         "Promoting and monitoring": "#daa520",
         "monitor": "#00008b",
         "promote": "#00008b",
