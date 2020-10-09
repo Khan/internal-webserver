@@ -100,7 +100,8 @@ for deploy_dir in 20*/; do   # this will last us for another 80 years :-)
                 -o /dev/stdout \
                 "$deploy_dir"/*.data \
             | gzip -9 \
-            > "$outfile"
+            > "$outfile" \
+            || rm "$outfile"
     fi
 done
 
