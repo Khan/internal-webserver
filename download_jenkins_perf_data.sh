@@ -11,7 +11,7 @@ KEEP_DAYS=30
 jenkins-perf-visualizer/download_jenkins_perf_data.py \
     --config=internal-webserver/jenkins-perf-config.json \
     deploy/merge-branches \
-    deploy/2ndsmoketest-priming \
+    deploy/firstinqueue-priming \
     deploy/build-webapp \
     deploy/deploy-webapp \
     deploy/webapp-test \
