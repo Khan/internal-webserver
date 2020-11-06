@@ -53,7 +53,7 @@
         "Resolving commit": "#006400",
         "Talking to buildmaster": "#006400",
 
-        // 2ndsmoketest-priming
+        // firstinqueue-priming
         "sync-webapp": "#daa520",
         "Priming": "#daa520",
 
@@ -79,14 +79,16 @@
         // <none needed>
 
         // webapp-test
+        // DEPRECATED: old name
         "Determining splits & running tests": "#daa520",
-        "Running tests": "#006400",
-        "determine-splits": "#006400",
+        "Running tests": "#daa520",
+        "Serving tests": "#006400",
         "Analyzing results": "#006400",
         "^test-.*": "#00008b",
+        "job-.*": "#daa520"
 
         // e2e-test
+        "Running smoketests": "#daa520",
         "e2e-test-.*": "#00008b",
-        "job-.*": "#daa520"
     }
 }
