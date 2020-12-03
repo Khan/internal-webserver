@@ -81,14 +81,18 @@
         // webapp-test
         // DEPRECATED: old name
         "Determining splits & running tests": "#daa520",
-        "Running tests": "#daa520",
+        // DEPRECATED: old name
         "Serving tests": "#006400",
-        "Analyzing results": "#006400",
+        "Running tests": "#daa520",
+        "test-server": "#006400",
+        "test-clients": "#daa520",
         "^test-.*": "#00008b",
-        "job-.*": "#daa520"
+        "^client-.*": "#daa520",
+        "Analyzing results": "#006400",
 
         // e2e-test
         "Running smoketests": "#daa520",
         "e2e-test-.*": "#00008b",
+        "job-.*": "#daa520"
     }
 }
