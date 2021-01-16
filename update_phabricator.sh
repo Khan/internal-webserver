@@ -68,7 +68,7 @@ fi
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
 # Now push to production
-gcloud compute ssh ubuntu@phabricator --zone us-central1-b --project khan-internal-services -- \
+gcloud compute ssh ubuntu@phabricator --project khan-internal-services -- \
    "cd internal-webserver; \
     git checkout master; \
     git pull; \
