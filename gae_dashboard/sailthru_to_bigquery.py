@@ -616,12 +616,12 @@ if __name__ == "__main__":
 
         # When attempting 15 threads, the Sailthru UI only showed 12 jobs
         # running (the rest were "waiting"). Therefore, there's no point
-        # in running more than 12 threads. Lets only use 8 threads so we
-        # don't block other consumers.
+        # in running more than 12 threads.  We use 4 to minimize the amount
+        # of disk space used.
         #
         # In dry_run mode, we're probably debugging and do not want to
         # create lots of spurious jobs.
-        THREAD_COUNT = 2 if args.dry_run else 8
+        THREAD_COUNT = 2 if args.dry_run else 4
 
         # We need Python to raise a KeyboardInterrupt so that ctrl+c actually
         # stops the application, which is broken when not specifying a timeout.
@@ -647,4 +647,3 @@ if __name__ == "__main__":
         print "Not removing temp_dir %s" % (temp_dir)
     else:
         shutil.rmtree(temp_dir)
-
