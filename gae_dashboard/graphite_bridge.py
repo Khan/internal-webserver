@@ -140,10 +140,6 @@ def _default_metrics():
             'webapp.stats.bingo.registration:sum',
             name='bingo.registration.week_over_week',
             timeshift='7d'),
-        _historical_ratio_metric(
-            'webapp.stats.bingo.video_started:sum',
-            name='bingo.video_started.week_over_week',
-            timeshift='7d'),
 
         # Bigquery daily cost data.
         Metric(
