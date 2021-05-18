@@ -38,6 +38,9 @@ BAD_ROUTES_RE = [
     # Kotlin routes which are spam (contain non path char) are expected to fail
     # e.g. kt:/api/internal/_bb/bigbingo'||(select extractvalue(xmltype....
     re.compile(r'^kt:.*[<>|\'()]'),
+    # Spamy routes
+    re.compile(r'/graphql/[console|graphql-playground|v1| [POST]'),
+    re.compile(r'/graphql/schema\.\w+ [POST]'),
 ]
 
 
@@ -62,12 +65,13 @@ FROM (
     route)
 WHERE
   ok_reqs = 0
-  AND total_reqs > 0
+  -- Should be more than a handful of requests.
+  AND total_reqs > 50
   -- We ignore errors that are just from bots
   AND total_reqs > bot_reqs
-  -- If it's just one bad IP, it's likely just a bad client of some
+  -- If it's just a couple bad IPs, it's likely just a bad client of some
   -- sort, so we ignore it.
-  AND num_ips > 1
+  AND num_ips > 20
 """
 
 
