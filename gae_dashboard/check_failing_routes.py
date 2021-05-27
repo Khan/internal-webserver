@@ -38,6 +38,9 @@ BAD_ROUTES_RE = [
     # Kotlin routes which are spam (contain non path char) are expected to fail
     # e.g. kt:/api/internal/_bb/bigbingo'||(select extractvalue(xmltype....
     re.compile(r'^kt:.*[<>|\'()]'),
+    # gateway-proxy resource route is meaningless.
+    # They cause falsepos with low traffic (e.g. old mobile) route
+    re.compile(r'^/_gateway-proxy/.*'),
     # Spamy routes
     re.compile(r'/graphql/[console|graphql-playground|v1| [POST]'),
     re.compile(r'/graphql/schema\.\w+ [POST]'),
