@@ -245,7 +245,7 @@ def dos_detect(end):
         start_timestamp=start.strftime(TS_FORMAT),
         end_timestamp=end.strftime(TS_FORMAT),
         max_count=(MAX_REQS_SEC * DOS_PERIOD))
-    results = bq_util.call_bq(['query', query], project=BQ_PROJECT)
+    results = bq_util.query_bigquery(query, project=BQ_PROJECT)
 
     # Stop processing if we don't have any flagged IPs
     if not results:
@@ -285,8 +285,8 @@ def scratchpad_detect(end):
         end_timestamp=end.strftime(TS_FORMAT),
         max_count=MAX_SCRATCHPADS)
 
-    scratchpad_results = bq_util.call_bq(['query', scratchpad_query],
-                                         project=BQ_PROJECT)
+    scratchpad_results = bq_util.query_bigquery(scratchpad_query,
+                                                project=BQ_PROJECT)
 
     if len(scratchpad_results) != 0:
         msg = SCRATCHPAD_ALERT_INTRO_TEMPLATE.format(max_count=MAX_SCRATCHPADS)
@@ -311,8 +311,7 @@ def cdn_error_detect(end):
         max_count=MAX_CDN_ERROR
     )
 
-    cdn_results = bq_util.call_bq(['query', cdn_query],
-                                  project=BQ_PROJECT)
+    cdn_results = bq_util.query_bigquery(cdn_query, project=BQ_PROJECT)
     if len(cdn_results) != 0:
         msg = CDN_ALERT_INTRO_TEMPLATE
         msg += '\n'.join(
