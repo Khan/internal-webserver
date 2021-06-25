@@ -92,7 +92,7 @@ def save_daily_data(data, report, yyyymmdd):
     if not os.path.isdir(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
     with open(filename, 'w') as f:
-        cPickle.dump(data, f)
+        cPickle.dump(data, f, protocol=2)
 
 
 def get_daily_data_from_disk_or_bq(query, report, yyyymmdd):
