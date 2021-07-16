@@ -1,15 +1,5 @@
 #!/usr/bin/env python
-"""Check request logs to look for an in progress WAF attack.
-
-This script does a very simplistic check for WAF attack and notifies us via
-slack if it notices anything that looks like a WAF attack.
-
-Note: we are only checking for two simple types of attacks - a single
-client requesting the same URL repeatedly, and scratchpad spam.
-
-The hope is that this alerting will allow us to blacklist the offending IP
-address using the appengine firewall.
-"""
+"""Check fastly logs to look for an in progress WAF attack."""
 
 import re
 import datetime
@@ -44,7 +34,7 @@ QUERY_TEMPLATE = """\
 #standardSQL
 WITH BLOCKED_REQ AS (
   SELECT
-    TIMESTAMP_TRUNC(TIMESTAMP(timestamp), MINUTE) AS t,
+    TIMESTAMP(timestamp) AS t,
     count(*) AS blocked,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].value AS message,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].count AS unique_messages,
