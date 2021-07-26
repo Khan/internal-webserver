@@ -66,6 +66,9 @@ FROM (
     -- Requests blocked at Fastly should be blocked much quicker than from us
     -- Note that time_elapsed is in microseconds.
     AND NOT (status == 403 AND time_elapsed <= 500)
+    -- Requests that are quick redirects don't make it to our servers, so the
+    -- impact is only on Fastly
+    AND NOT (status == 308)
   GROUP BY
     request_id)
 WHERE
