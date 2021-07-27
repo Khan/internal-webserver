@@ -134,6 +134,7 @@ def waf_detect(end):
 def main():
     # For demoing alert against specific attack time
     # python waf_alert.py --date '2021-07-23 10:03:00'
+    # NOTE: Dates will only work for after 2021-07-20
     parser = argparse.ArgumentParser(description='Process the date that we want to investigate.')
     parser.add_argument("--date", help="Date that we want to investigate.",
      type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
