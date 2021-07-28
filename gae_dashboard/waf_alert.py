@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Check fastly logs to look for an in progress WAF attack."""
+"""Periodically checks blocked requests which indicates either an attack or a problem with the WAF rules."""
 
 import re
 import datetime
@@ -89,14 +89,11 @@ WHERE
 
 def waf_detect(end):
     start = end - datetime.timedelta(seconds=WAF_PERIOD)
-    try:
-        query = QUERY_TEMPLATE.format(
-            fastly_log_tables=log_name,fastly_waf_log_tables=waf_log_name,
-            start_timestamp=start.strftime(TS_FORMAT),
-            end_timestamp=end.strftime(TS_FORMAT),
-            )
-    except TypeError:
-        query=None
+    query = QUERY_TEMPLATE.format(
+        fastly_log_tables=log_name,fastly_waf_log_tables=waf_log_name,
+        start_timestamp=start.strftime(TS_FORMAT),
+        end_timestamp=end.strftime(TS_FORMAT),
+        )
     results = bq_util.query_bigquery(query, project=BQ_PROJECT)
 
     # Stop processing if we don't have any flagged IPs
@@ -117,15 +114,16 @@ def waf_detect(end):
     message_percentage = results[0]['message_percentage']
     rua_percentage = results[0]['rua_percentage']
 
+    if ip_percentage == '(None)':
+        return
+
     start_time = start.strftime("%H:%M")
     end_time = end.strftime("%H:%M")
-
-    # import pdb; pdb.set_trace()
 
     msg = """
     :exclamation: *Possible WAF alert* :exclamation:
     *Time Range:* {start_time} - {end_time}
-    *Blocked requests in last 5 minutes:* {percentage:.1f}% ({blocked} / {total})
+    *Blocked requests:* {percentage:.1f}% ({blocked} / {total})
     *IP:* {ip} ({ip_percentage:.1f}% of blocks)
     *Request User Agent:* {request_user_agent} ({rua_percentage:.1f}% of blocks)
     *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
@@ -135,15 +133,15 @@ def waf_detect(end):
 
 def main():
     # For demoing alert against specific attack time
-    # python waf_alert.py --date '2021-07-23 10:03:00'
+    # python waf_alert.py --datetime '2021-07-23 10:03:00'
     # NOTE: Dates will only work for after 2021-07-20
-    parser = argparse.ArgumentParser(description='Process the date that we want to investigate.')
-    parser.add_argument("--date", help="Date that we want to investigate.",
+    parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
+    parser.add_argument("--datetime", help="Date and time that we want to investigate.",
      type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
     args = parser.parse_args()
 
-    if args.date:
-        now = args.date
+    if args.datetime:
+        now = args.datetime
     else:
         now = datetime.datetime.utcnow()
     waf_detect(now)
