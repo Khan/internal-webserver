@@ -105,6 +105,8 @@ def waf_detect(end):
 
 
     # TODO Need to come up with a case for when the query returns as empty, ie there are no blocked=1 columns
+
+    # When an empty query is returned, these are of types ['None']. I have not typecasted yet because it harms successful attempts
     percentage = results[0]['percentage']
     blocked = results[0]['blocked']
     total = results[0]['total']
