@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Periodically checks blocked requests which indicates either an attack or a problem with the WAF rules."""
 
+# PROBLEM: TAKING MOST RECENT DATE INSTEAD OF SPECIFIED DATETIME ARG
+
 import re
 import datetime
 from itertools import groupby
@@ -27,9 +29,20 @@ ALERT_CHANNEL = '#bot-testing'
 # The fastly's timestamp field is a string with extra details denoting the time
 # zone. BigQuery doesn't understand that part, so we trim that out as the time
 # zone is always +0000.
-today = datetime.datetime.now()
-now = datetime.datetime.utcnow()
-ymd = today.strftime(TABLE_FORMAT)
+
+# For demoing alert against specific attack time
+# python waf_alert.py --datetime '2021-07-23 10:03:00'
+# NOTE: Dates will only work for after 2021-07-20
+parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
+parser.add_argument("--datetime", help="Date and time that we want to investigate. For example, `python waf_alert.py --datetime '2021-07-23 10:03:00'``",
+ type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
+args = parser.parse_args()
+
+if args.datetime:
+    now = args.datetime
+else:
+    now = datetime.datetime.utcnow()
+ymd = now.strftime(TABLE_FORMAT)
 waf_log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_WAF_LOG_TABLE_PREFIX + '_' + ymd
 log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_LOG_TABLE_PREFIX + '_' + ymd
 
@@ -96,14 +109,7 @@ def waf_detect(end):
         )
     results = bq_util.query_bigquery(query, project=BQ_PROJECT)
 
-    # Stop processing if we don't have any flagged IPs
-    if not results:
-        return
-
-
-    # TODO Need to come up with a case for when the query returns as empty, ie there are no blocked=1 columns
-
-    # When an empty query is returned, these are of types ['None']. I have not typecasted yet because it harms successful attempts
+    # When an empty query is returned, these are of types ['None'].
     percentage = results[0]['percentage']
     blocked = results[0]['blocked']
     total = results[0]['total']
@@ -114,6 +120,8 @@ def waf_detect(end):
     message_percentage = results[0]['message_percentage']
     rua_percentage = results[0]['rua_percentage']
 
+
+    # Edge case for an empty query.
     if ip_percentage == '(None)':
         return
 
@@ -132,18 +140,6 @@ def waf_detect(end):
     alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 def main():
-    # For demoing alert against specific attack time
-    # python waf_alert.py --datetime '2021-07-23 10:03:00'
-    # NOTE: Dates will only work for after 2021-07-20
-    parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
-    parser.add_argument("--datetime", help="Date and time that we want to investigate.",
-     type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
-    args = parser.parse_args()
-
-    if args.datetime:
-        now = args.datetime
-    else:
-        now = datetime.datetime.utcnow()
     waf_detect(now)
 
 if __name__ == '__main__':
