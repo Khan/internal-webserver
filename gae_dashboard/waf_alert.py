@@ -101,7 +101,6 @@ def waf_detect(end):
         return
 
 
-
     # When an empty query is returned, these are of types ['None']. I have not typecasted yet because it harms successful attempts
     percentage = results[0]['percentage']
     blocked = results[0]['blocked']
