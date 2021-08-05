@@ -17,6 +17,7 @@ FASTLY_LOG_TABLE_PREFIX = 'khanacademy_dot_org_logs'
 
 # The size of the period of time to query. We are monitoring every 5 minutes.
 WAF_PERIOD = 5 * 60
+SPIKE_PERCENTAGE = 0.17
 
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -27,17 +28,24 @@ ALERT_CHANNEL = '#bot-testing'
 # The fastly's timestamp field is a string with extra details denoting the time
 # zone. BigQuery doesn't understand that part, so we trim that out as the time
 # zone is always +0000.
-today = datetime.datetime.now()
-now = datetime.datetime.utcnow()
-ymd = today.strftime(TABLE_FORMAT)
+
+# For demoing alert against specific attack time
+# python waf_alert.py --endtime '2021-07-23 10:03:00'
+# NOTE: Dates will only work for after 2021-07-20
+
+if args.endtime:
+    now = args.endtime
+else:
+    now = datetime.datetime.utcnow()
+ymd = now.strftime(TABLE_FORMAT)
 waf_log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_WAF_LOG_TABLE_PREFIX + '_' + ymd
 log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_LOG_TABLE_PREFIX + '_' + ymd
 
-QUERY_TEMPLATE = """\
+QUERY_TEMPLATE = """
 #standardSQL
 WITH BLOCKED_REQ AS (
   SELECT
-    TIMESTAMP(timestamp) AS t,
+    TIMESTAMP_TRUNC(TIMESTAMP(timestamp), MINUTE) AS t,
     count(*) AS blocked,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].value AS message,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].count AS unique_messages,
@@ -64,15 +72,16 @@ TOTAL_REQ AS (
     count(*) AS total
   FROM
     `{fastly_log_tables}`
+  WHERE
+    TIMESTAMP(timestamp) BETWEEN TIMESTAMP('{start_timestamp}')
+    AND TIMESTAMP('{end_timestamp}')
   GROUP BY
     t
   ORDER BY
     t DESC
 )
 SELECT
-  SUM(blocked) AS blocked,
-  SUM(total) AS total,
-  100 * SUM(blocked) / SUM(total) AS percentage,
+  100*MAX(blocked/total) AS percentage,
   APPROX_TOP_COUNT(b_ip,1)[OFFSET(0)].value AS ip,
   APPROX_TOP_COUNT(message,1)[OFFSET(0)].value AS message,
   100 * SUM(unique_messages)/SUM(total_messages) AS message_percentage,
@@ -96,15 +105,8 @@ def waf_detect(end):
         )
     results = bq_util.query_bigquery(query, project=BQ_PROJECT)
 
-    # Stop processing if we don't have any flagged IPs
-    if not results:
-        return
-
-
-    # When an empty query is returned, these are of types ['None']. I have not typecasted yet because it harms successful attempts
+    # When an empty query is returned, these are of types ['None'].
     percentage = results[0]['percentage']
-    blocked = results[0]['blocked']
-    total = results[0]['total']
     ip = results[0]['ip']
     ip_percentage = results[0]['ip_percentage']
     request_user_agent = results[0]['request_user_agent']
@@ -127,9 +129,25 @@ def waf_detect(end):
     *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
     """.format(percentage=percentage, blocked=blocked, total=total, ip=ip, request_user_agent=request_user_agent, message=message, ip_percentage=ip_percentage, message_percentage=message_percentage, rua_percentage=rua_percentage, start_time=start_time, end_time=end_time)
 
-    alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+    if percentage > SPIKE_PERCENTAGE:
+        msg = """
+        :exclamation: *Possible WAF alert* :exclamation:
+        *Time Range:* {start_time} - {end_time}
+        *Blocked requests:* {percentage:.2f}%
+        *IP:* {ip} ({ip_percentage:.1f}% of blocks)
+        *Request User Agent:* {request_user_agent} ({rua_percentage:.1f}% of blocks)
+        *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
+        """.format(percentage=percentage, ip=ip, request_user_agent=request_user_agent, message=message, ip_percentage=ip_percentage, message_percentage=message_percentage, rua_percentage=rua_percentage, start_time=start_time, end_time=end_time)
+
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+    else:
+        return
 
 def main():
+    parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
+    parser.add_argument("--endtime", help="Date and time that we want to investigate. For example, `python waf_alert.py --endtime '2021-07-23 10:03:00'``",
+     type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
+    args = parser.parse_args()
     # For demoing alert against specific attack time
     # python waf_alert.py --datetime '2021-07-23 10:03:00'
     # NOTE: Dates will only work for after 2021-07-20
