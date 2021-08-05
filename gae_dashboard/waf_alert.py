@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """Periodically checks blocked requests which indicates either an attack or a problem with the WAF rules."""
 
-# PROBLEM: TAKING MOST RECENT DATE INSTEAD OF SPECIFIED DATETIME ARG
-
 import re
 import datetime
 from itertools import groupby
@@ -19,6 +17,7 @@ FASTLY_LOG_TABLE_PREFIX = 'khanacademy_dot_org_logs'
 
 # The size of the period of time to query. We are monitoring every 5 minutes.
 WAF_PERIOD = 5 * 60
+SPIKE_PERCENTAGE = 0.17
 
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -31,15 +30,15 @@ ALERT_CHANNEL = '#bot-testing'
 # zone is always +0000.
 
 # For demoing alert against specific attack time
-# python waf_alert.py --datetime '2021-07-23 10:03:00'
+# python waf_alert.py --endtime '2021-07-23 10:03:00'
 # NOTE: Dates will only work for after 2021-07-20
 parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
-parser.add_argument("--datetime", help="Date and time that we want to investigate. For example, `python waf_alert.py --datetime '2021-07-23 10:03:00'``",
+parser.add_argument("--endtime", help="Date and time that we want to investigate. For example, `python waf_alert.py --endtime '2021-07-23 10:03:00'``",
  type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
 args = parser.parse_args()
 
-if args.datetime:
-    now = args.datetime
+if args.endtime:
+    now = args.endtime
 else:
     now = datetime.datetime.utcnow()
 ymd = now.strftime(TABLE_FORMAT)
@@ -50,7 +49,7 @@ QUERY_TEMPLATE = """\
 #standardSQL
 WITH BLOCKED_REQ AS (
   SELECT
-    TIMESTAMP(timestamp) AS t,
+    TIMESTAMP_TRUNC(TIMESTAMP(timestamp), MINUTE) AS t,
     count(*) AS blocked,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].value AS message,
     APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].count AS unique_messages,
@@ -77,15 +76,16 @@ TOTAL_REQ AS (
     count(*) AS total
   FROM
     `{fastly_log_tables}`
+  WHERE
+    TIMESTAMP(timestamp) BETWEEN TIMESTAMP('{start_timestamp}')
+    AND TIMESTAMP('{end_timestamp}')
   GROUP BY
     t
   ORDER BY
     t DESC
 )
 SELECT
-  SUM(blocked) AS blocked,
-  SUM(total) AS total,
-  100 * SUM(blocked) / SUM(total) AS percentage,
+  100*MAX(blocked/total) AS percentage,
   APPROX_TOP_COUNT(b_ip,1)[OFFSET(0)].value AS ip,
   APPROX_TOP_COUNT(message,1)[OFFSET(0)].value AS message,
   100 * SUM(unique_messages)/SUM(total_messages) AS message_percentage,
@@ -102,6 +102,7 @@ WHERE
 
 def waf_detect(end):
     start = end - datetime.timedelta(seconds=WAF_PERIOD)
+    end = end - datetime.timedelta(seconds=1)
     query = QUERY_TEMPLATE.format(
         fastly_log_tables=log_name,fastly_waf_log_tables=waf_log_name,
         start_timestamp=start.strftime(TS_FORMAT),
@@ -111,8 +112,6 @@ def waf_detect(end):
 
     # When an empty query is returned, these are of types ['None'].
     percentage = results[0]['percentage']
-    blocked = results[0]['blocked']
-    total = results[0]['total']
     ip = results[0]['ip']
     ip_percentage = results[0]['ip_percentage']
     request_user_agent = results[0]['request_user_agent']
@@ -128,16 +127,19 @@ def waf_detect(end):
     start_time = start.strftime("%H:%M")
     end_time = end.strftime("%H:%M")
 
-    msg = """
-    :exclamation: *Possible WAF alert* :exclamation:
-    *Time Range:* {start_time} - {end_time}
-    *Blocked requests:* {percentage:.1f}% ({blocked} / {total})
-    *IP:* {ip} ({ip_percentage:.1f}% of blocks)
-    *Request User Agent:* {request_user_agent} ({rua_percentage:.1f}% of blocks)
-    *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
-    """.format(percentage=percentage, blocked=blocked, total=total, ip=ip, request_user_agent=request_user_agent, message=message, ip_percentage=ip_percentage, message_percentage=message_percentage, rua_percentage=rua_percentage, start_time=start_time, end_time=end_time)
+    if percentage > SPIKE_PERCENTAGE:
+        msg = """
+        :exclamation: *Possible WAF alert* :exclamation:
+        *Time Range:* {start_time} - {end_time}
+        *Blocked requests:* {percentage:.2f}%
+        *IP:* {ip} ({ip_percentage:.1f}% of blocks)
+        *Request User Agent:* {request_user_agent} ({rua_percentage:.1f}% of blocks)
+        *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
+        """.format(percentage=percentage, ip=ip, request_user_agent=request_user_agent, message=message, ip_percentage=ip_percentage, message_percentage=message_percentage, rua_percentage=rua_percentage, start_time=start_time, end_time=end_time)
 
-    alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+    else:
+        return
 
 def main():
     waf_detect(now)
