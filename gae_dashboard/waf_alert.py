@@ -28,19 +28,6 @@ ALERT_CHANNEL = '#bot-testing'
 # The fastly's timestamp field is a string with extra details denoting the time
 # zone. BigQuery doesn't understand that part, so we trim that out as the time
 # zone is always +0000.
-
-# For demoing alert against specific attack time
-# python waf_alert.py --endtime '2021-07-23 10:03:00'
-# NOTE: Dates will only work for after 2021-07-20
-
-if args.endtime:
-    now = args.endtime
-else:
-    now = datetime.datetime.utcnow()
-ymd = now.strftime(TABLE_FORMAT)
-waf_log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_WAF_LOG_TABLE_PREFIX + '_' + ymd
-log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_LOG_TABLE_PREFIX + '_' + ymd
-
 QUERY_TEMPLATE = """
 #standardSQL
 WITH BLOCKED_REQ AS (
@@ -96,7 +83,7 @@ WHERE
   AND TIMESTAMP('{end_timestamp}')
 """
 
-def waf_detect(end):
+def waf_detect(end, ymd, waf_log_name, log_name):
     start = end - datetime.timedelta(seconds=WAF_PERIOD)
     query = QUERY_TEMPLATE.format(
         fastly_log_tables=log_name,fastly_waf_log_tables=waf_log_name,
@@ -105,7 +92,7 @@ def waf_detect(end):
         )
     results = bq_util.query_bigquery(query, project=BQ_PROJECT)
 
-    # When an empty query is returned, these are of types ['None'].
+    # When an empty query is returned, these are of types ('None').
     percentage = results[0]['percentage']
     ip = results[0]['ip']
     ip_percentage = results[0]['ip_percentage']
@@ -144,23 +131,22 @@ def waf_detect(end):
         return
 
 def main():
+    # For demoing alert against specific attack time
+    # python waf_alert.py --endtime '2021-07-23 10:03:00'
+    # NOTE: Dates will only work for after 2021-07-20
     parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
     parser.add_argument("--endtime", help="Date and time that we want to investigate. For example, `python waf_alert.py --endtime '2021-07-23 10:03:00'``",
      type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
     args = parser.parse_args()
-    # For demoing alert against specific attack time
-    # python waf_alert.py --datetime '2021-07-23 10:03:00'
-    # NOTE: Dates will only work for after 2021-07-20
-    parser = argparse.ArgumentParser(description='Process the date and time that we want to investigate.')
-    parser.add_argument("--datetime", help="Date and time that we want to investigate.",
-     type=lambda s: datetime.datetime.strptime(s, TS_FORMAT))
-    args = parser.parse_args()
 
-    if args.datetime:
-        now = args.datetime
+    if args.endtime:
+        now = args.endtime
     else:
         now = datetime.datetime.utcnow()
-    waf_detect(now)
+    ymd = now.strftime(TABLE_FORMAT)
+    waf_log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_WAF_LOG_TABLE_PREFIX + '_' + ymd
+    log_name = BQ_PROJECT + '.' + FASTLY_DATASET + '.' + FASTLY_LOG_TABLE_PREFIX + '_' + ymd
+    waf_detect(now, ymd, waf_log_name, log_name)
 
 if __name__ == '__main__':
     main()
