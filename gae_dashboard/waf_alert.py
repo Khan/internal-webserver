@@ -5,10 +5,8 @@ an attack or a problem with the WAF rules.
 """
 
 import datetime
-
 import alertlib
 import bq_util
-
 import argparse
 
 BQ_PROJECT = "khanacademy.org:deductive-jet-827"
@@ -26,37 +24,28 @@ SPIKE_PERCENTAGE = 0.17
 TABLE_FORMAT = "%Y%m%d"
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ALERT_CHANNEL = "#bot-testing"
+ALERT_CHANNEL = "#infrastructure-sre"
 
 BLOCKED_REQ = """
 #standardSQL
 SELECT
-  SUM(x.blocked) AS blocked,
-  APPROX_TOP_COUNT(x.b_ip,1)[OFFSET(0)].value AS ip,
-  APPROX_TOP_COUNT(x.message,1)[OFFSET(0)].value AS message,
-  100 * SUM(x.unique_messages)/SUM(x.total_messages) AS message_percentage,
-  APPROX_TOP_COUNT(x.b_rua,1)[OFFSET(0)].value AS rua,
-  100 * SUM(x.unique_ip)/SUM(x.total_ip) AS ip_percentage,
-  100 * SUM(x.unique_rua)/SUM(x.total_rua) AS rua_percentage
-FROM (
-  SELECT
-    COUNT(*) AS blocked,
-    APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].value AS message,
-    APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].count AS unique_messages,
-    COUNT(waf.message) AS total_messages,
-    APPROX_TOP_COUNT(client_ip,1)[OFFSET(0)].value AS b_ip,
-    APPROX_TOP_COUNT(request_user_agent,1)[OFFSET(0)].value AS b_rua,
-    APPROX_TOP_COUNT(request_user_agent,1)[OFFSET(0)].count AS unique_rua,
-    APPROX_TOP_COUNT(client_ip,1)[OFFSET(0)].count AS unique_ip,
-    COUNT(client_ip) AS total_ip,
-    COUNT(request_user_agent) AS total_rua
-  FROM
+  COUNT(*) AS blocked,
+  APPROX_TOP_COUNT(client_ip,1)[OFFSET(0)].value AS ip,
+  100 * APPROX_TOP_COUNT(client_ip,1)[OFFSET(0)].count /
+   COUNT(*) AS ip_percentage,
+  APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].value AS message,
+  100 * APPROX_TOP_COUNT(waf.message,1)[OFFSET(0)].count /
+   COUNT(*) AS message_percentage,
+  APPROX_TOP_COUNT(request_user_agent,1)[OFFSET(0)].value
+   AS request_user_agent,
+  100 * APPROX_TOP_COUNT(request_user_agent,1)[OFFSET(0)].count
+   / COUNT(*) AS request_user_agent_percentage,
+FROM
     `{fastly_waf_log_tables}`
   WHERE
     TIMESTAMP(timestamp) BETWEEN TIMESTAMP('{start_timestamp}')
-    AND TIMESTAMP('{end_timestamp}') AND blocked=1
-  GROUP BY
-    TIMESTAMP(timestamp))x
+    AND TIMESTAMP('{end_timestamp}')
+    AND blocked=1
 """
 
 TOTAL_REQ = """
@@ -71,66 +60,83 @@ WHERE
 """
 
 
-def waf_detect(end):
-    ymd = end.strftime(TABLE_FORMAT)
+# Detects a WAF attack and alerts to Slack channel if there is an attack.
+def waf_detect(endtime):
+    ymd = endtime.strftime(TABLE_FORMAT)
     waf_log_name = (
-        BQ_PROJECT + "." + FASTLY_DATASET + "." + FASTLY_WAF_LOG_TABLE_PREFIX
-        + "_" + ymd
+        BQ_PROJECT
+        + "."
+        + FASTLY_DATASET
+        + "."
+        + FASTLY_WAF_LOG_TABLE_PREFIX
+        + "_"
+        + ymd
     )
     log_name = (
-        BQ_PROJECT + "." + FASTLY_DATASET + "." + FASTLY_LOG_TABLE_PREFIX +
-        "_" + ymd
+        BQ_PROJECT + "." + FASTLY_DATASET + "." +
+        FASTLY_LOG_TABLE_PREFIX + "_" + ymd
     )
-    start = end - datetime.timedelta(seconds=WAF_PERIOD)
-    date = end.date()
+    start = endtime - datetime.timedelta(seconds=WAF_PERIOD)
+    date = endtime.date()
 
     blocked_info = BLOCKED_REQ.format(
         fastly_waf_log_tables=waf_log_name,
         start_timestamp=start.strftime(TS_FORMAT),
-        end_timestamp=end.strftime(TS_FORMAT),
+        end_timestamp=endtime.strftime(TS_FORMAT),
     )
     blocked_results = bq_util.query_bigquery(blocked_info, project=BQ_PROJECT)
+
+    blocked = blocked_results[0]["blocked"]
+    ip = blocked_results[0]["ip"]
+    ip_percentage = blocked_results[0]["ip_percentage"]
+    request_user_agent = blocked_results[0]["request_user_agent"]
+    message = blocked_results[0]["message"]
+    message_percentage = blocked_results[0]["message_percentage"]
+    request_user_agent_percentage = (
+        blocked_results[0]["request_user_agent_percentage"]
+    )
+
+    if ip_percentage == "(None)":
+        return
 
     total_info = TOTAL_REQ.format(
         fastly_log_tables=log_name,
         start_timestamp=start.strftime(TS_FORMAT),
-        end_timestamp=end.strftime(TS_FORMAT),
+        end_timestamp=endtime.strftime(TS_FORMAT),
     )
     total_results = bq_util.query_bigquery(total_info, project=BQ_PROJECT)
 
     # When an empty query is returned, these are of types ('None').
     total = total_results[0]["total"]
-    blocked = blocked_results[0]["blocked"]
     percentage = float(100 * float(blocked) / float(total))
 
-    ip = blocked_results[0]["ip"]
-    ip_percentage = blocked_results[0]["ip_percentage"]
-    request_user_agent = blocked_results[0]["rua"]
-    message = blocked_results[0]["message"]
-
-    if ip_percentage == "(None)":
-        return
-
     start_time = start.strftime("%H:%M")
-    end_time = end.strftime("%H:%M")
+    end_time = endtime.strftime("%H:%M")
 
     if percentage > SPIKE_PERCENTAGE:
         msg = """
-        :exclamation: *Possible WAF alert* :exclamation:
-        *Date and Time:* {date}, {start_time} - {end_time}
-        *Blocked requests:* {percentage:.2f}%
-        *IP:* {ip}
-        *Request User Agent:* {request_user_agent}
-        *WAF Block Reason:* {message}
+        :exclamation: *Spike in WAF blocking* :exclamation:
+        *Date and Time:* {date} {start_time} - {end_time}
+        *Blocked requests:* {percentage:.2f}% ({blocked} / {total})
+        *IP:* {ip} ({ip_percentage:.1f}% of blocks)
+        *Request User Agent:* {request_user_agent} \
+        ({request_user_agent_percentage:.1f}% of blocks)
+        *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
         """.format(
-            date=date,
             percentage=percentage,
+            blocked=blocked,
+            total=total,
             ip=ip,
             request_user_agent=request_user_agent,
+            date=date,
             message=message,
+            ip_percentage=ip_percentage,
+            message_percentage=message_percentage,
+            request_user_agent_percentage=request_user_agent_percentage,
             start_time=start_time,
             end_time=end_time,
         )
+
         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
@@ -150,13 +156,13 @@ def main():
     args = parser.parse_args()
 
     if args.endtime:
-        now = args.endtime
+        endtime = args.endtime
     else:
-        now = datetime.datetime.utcnow()
-    assert now > datetime.datetime(
+        endtime = datetime.datetime.utcnow()
+    assert endtime > datetime.datetime(
         2021, 7, 20
     ), "Blocked column was introduced on 2021-07-20"
-    waf_detect(now)
+    waf_detect(endtime)
 
 
 if __name__ == "__main__":
