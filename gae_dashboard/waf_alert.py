@@ -14,7 +14,7 @@ FASTLY_DATASET = "fastly"
 FASTLY_WAF_LOG_TABLE_PREFIX = "khanacademy_dot_org_waf_logs"
 FASTLY_LOG_TABLE_PREFIX = "khanacademy_dot_org_logs"
 
-# The size of the period of time to query. We are monitoring every 5 minutes.
+# The size of the period of time to query. We are monitoring every 60 minutes.
 WAF_PERIOD = 60 * 60
 
 # Spike percentage determined from WAF Investigation:
@@ -24,7 +24,7 @@ SPIKE_PERCENTAGE = 0.03
 TABLE_FORMAT = "%Y%m%d"
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ALERT_CHANNEL = "#bot-testing"
+ALERT_CHANNEL = "#infrastructure-sre"
 
 BLOCKED_REQ = """
 #standardSQL
@@ -160,7 +160,7 @@ def waf_detect(endtime):
             end_time=end_time,
         )
 
-         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
 def main():
