@@ -15,16 +15,16 @@ FASTLY_WAF_LOG_TABLE_PREFIX = "khanacademy_dot_org_waf_logs"
 FASTLY_LOG_TABLE_PREFIX = "khanacademy_dot_org_logs"
 
 # The size of the period of time to query. We are monitoring every 5 minutes.
-WAF_PERIOD = 5 * 60
+WAF_PERIOD = 60 * 60
 
 # Spike percentage determined from WAF Investigation:
 # https://app.mode.com/editor/khanacademy/reports/f58d1ec83e48/presentation
-SPIKE_PERCENTAGE = 0.17
+SPIKE_PERCENTAGE = 0.03
 
 TABLE_FORMAT = "%Y%m%d"
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ALERT_CHANNEL = "#infrastructure-sre"
+ALERT_CHANNEL = "#bot-testing"
 
 BLOCKED_REQ = """
 #standardSQL
@@ -86,6 +86,7 @@ def waf_detect(endtime):
     )
     blocked_results = bq_util.query_bigquery(blocked_info, project=BQ_PROJECT)
 
+    # When an empty query is returned, these are of types ('None').
     blocked = blocked_results[0]["blocked"]
     ip = blocked_results[0]["ip"]
     ip_percentage = blocked_results[0]["ip_percentage"]
@@ -106,12 +107,34 @@ def waf_detect(endtime):
     )
     total_results = bq_util.query_bigquery(total_info, project=BQ_PROJECT)
 
-    # When an empty query is returned, these are of types ('None').
     total = total_results[0]["total"]
     percentage = float(100 * float(blocked) / float(total))
 
     start_time = start.strftime("%H:%M")
     end_time = endtime.strftime("%H:%M")
+
+    msg = """
+    :exclamation: *Spike in WAF blocking* :exclamation:
+    *Date and Time:* {date} {start_time} - {end_time}
+    *Blocked requests:* {percentage:.5f}% ({blocked} / {total})
+    *IP:* <https://db-ip.com/{ip}|{ip}> ({ip_percentage:.1f}% of blocks)
+    *Request User Agent:* {request_user_agent} \
+    ({request_user_agent_percentage:.1f}% of blocks)
+    *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
+    """.format(
+        percentage=percentage,
+        blocked=blocked,
+        total=total,
+        ip=ip,
+        request_user_agent=request_user_agent,
+        date=date,
+        message=message,
+        ip_percentage=ip_percentage,
+        message_percentage=message_percentage,
+        request_user_agent_percentage=request_user_agent_percentage,
+        start_time=start_time,
+        end_time=end_time,
+    )
 
     if percentage > SPIKE_PERCENTAGE:
         msg = """
@@ -137,12 +160,12 @@ def waf_detect(endtime):
             end_time=end_time,
         )
 
-        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+         alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
 
 
 def main():
     # For demoing alert against specific attack time
-    # python waf_alert.py --endtime '2021-07-23 10:03:00'
+    # python waf_alert.py --endtime '2021-07-23 10:00:00'
     # NOTE: Dates will only work for after 2021-07-20
     parser = argparse.ArgumentParser(
         description="Process the date and time that we want to investigate."
