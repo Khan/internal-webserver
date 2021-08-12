@@ -24,7 +24,7 @@ SPIKE_PERCENTAGE = 0.03
 TABLE_FORMAT = "%Y%m%d"
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ALERT_CHANNEL = "#infrastructure-sre"
+ALERT_CHANNEL = "#bot-testing"
 
 BLOCKED_REQ = """
 #standardSQL
@@ -46,6 +46,7 @@ FROM
     TIMESTAMP(timestamp) BETWEEN TIMESTAMP('{start_timestamp}')
     AND TIMESTAMP('{end_timestamp}')
     AND blocked=1
+    AND _TABLE_SUFFIX BETWEEN '{yesterday_ymd}' AND '{ymd}'
 """
 
 TOTAL_REQ = """
@@ -57,24 +58,31 @@ FROM
 WHERE
   TIMESTAMP(timestamp) BETWEEN TIMESTAMP('{start_timestamp}')
   AND TIMESTAMP('{end_timestamp}')
+  AND _TABLE_SUFFIX BETWEEN '{yesterday_ymd}' AND '{ymd}'
 """
 
 
 # Detects a WAF attack and alerts to Slack channel if there is an attack.
 def waf_detect(endtime):
     ymd = endtime.strftime(TABLE_FORMAT)
+
+    # For edge case where we need today and yesterday's log (23:00:00 - 00:00:00)
+    if endtime.hour == 0:
+        yesterday_ymd = (endtime - datetime.timedelta(hours=1)).strftime(TABLE_FORMAT)
+    else:
+        yesterday_ymd = ymd
+
     waf_log_name = (
         BQ_PROJECT
         + "."
         + FASTLY_DATASET
         + "."
         + FASTLY_WAF_LOG_TABLE_PREFIX
-        + "_"
-        + ymd
+        + "_*"
     )
     log_name = (
         BQ_PROJECT + "." + FASTLY_DATASET + "." +
-        FASTLY_LOG_TABLE_PREFIX + "_" + ymd
+        FASTLY_LOG_TABLE_PREFIX + "_*"
     )
     start = endtime - datetime.timedelta(seconds=WAF_PERIOD)
     date = endtime.date()
@@ -83,6 +91,8 @@ def waf_detect(endtime):
         fastly_waf_log_tables=waf_log_name,
         start_timestamp=start.strftime(TS_FORMAT),
         end_timestamp=endtime.strftime(TS_FORMAT),
+        ymd=ymd,
+        yesterday_ymd=yesterday_ymd
     )
     blocked_results = bq_util.query_bigquery(blocked_info, project=BQ_PROJECT)
 
@@ -104,6 +114,8 @@ def waf_detect(endtime):
         fastly_log_tables=log_name,
         start_timestamp=start.strftime(TS_FORMAT),
         end_timestamp=endtime.strftime(TS_FORMAT),
+        ymd=ymd,
+        yesterday_ymd=yesterday_ymd
     )
     total_results = bq_util.query_bigquery(total_info, project=BQ_PROJECT)
 
@@ -112,29 +124,6 @@ def waf_detect(endtime):
 
     start_time = start.strftime("%H:%M")
     end_time = endtime.strftime("%H:%M")
-
-    msg = """
-    :exclamation: *Spike in WAF blocking* :exclamation:
-    *Date and Time:* {date} {start_time} - {end_time}
-    *Blocked requests:* {percentage:.5f}% ({blocked} / {total})
-    *IP:* <https://db-ip.com/{ip}|{ip}> ({ip_percentage:.1f}% of blocks)
-    *Request User Agent:* {request_user_agent} \
-    ({request_user_agent_percentage:.1f}% of blocks)
-    *WAF Block Reason:* {message} ({message_percentage:.1f}% of blocks)
-    """.format(
-        percentage=percentage,
-        blocked=blocked,
-        total=total,
-        ip=ip,
-        request_user_agent=request_user_agent,
-        date=date,
-        message=message,
-        ip_percentage=ip_percentage,
-        message_percentage=message_percentage,
-        request_user_agent_percentage=request_user_agent_percentage,
-        start_time=start_time,
-        end_time=end_time,
-    )
 
     if percentage > SPIKE_PERCENTAGE:
         msg = """
