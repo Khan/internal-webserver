@@ -151,7 +151,7 @@ def maybe_send_to_graphite(graphite_host, category, records, module=None):
             datetime.datetime() object that says when this record's
             data is from.
         module: the GAE module that we collected this data for.
-            e.g. 'default', 'frontend-highmem', etc.  If None, we
+            e.g. 'default', 'highmem', etc.  If None, we
             assume this is global (not per-module) data and do not
             include it in the key.
     """

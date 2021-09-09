@@ -379,9 +379,8 @@ _MODULE_CPU_COUNT = {
     'default': 4 / 0.347,
     'es': 6 / 0.296,
     'i18n': 6 / 0.306,
-    'frontend-highmem': 6 / 0.258,
+    'highmem': 6 / 0.258,
     'batch': 4 / 0.681,
-    'highmem': 8 / 0.183,
     'multithreaded': 6 / 0.464,
 }
 

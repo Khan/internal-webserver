@@ -70,8 +70,7 @@ def get_uptime_for_day(dt, sec_per_chunk, down_threshold):
         instance_key IS NOT NULL
         -- We only include requests to "user-facing" modules; others
         -- don't necessarily indicate a user-visible problem.
-        AND module_id IN ('default', 'i18n', 'frontend-highmem',
-                          'multithreaded')
+        AND module_id IN ('default', 'i18n', 'highmem', 'multithreaded')
         -- We only include requests that actually started on the day in
         -- question.  This will exclude a few stragglers, so our data might be
         -- a little off for the last bucket of the day.
@@ -210,6 +209,7 @@ def main():
     # TODO(benkraft): allow specifying a date and overriding the default
     # parameters
     send_uptime_email(datetime.datetime.utcnow().date())
+
 
 if __name__ == '__main__':
     main()
