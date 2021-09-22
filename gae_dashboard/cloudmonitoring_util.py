@@ -1,8 +1,7 @@
 """Utility functions for sending data to Cloud Monitoring.
 
 Cloud Monitoring monitors and alerts based on timeseries data for App
-Engine and Compute Engine. We also send it custom metrics based on
-data in graphite, our timeseries-graphing tool.
+Engine and Compute Engine.
 """
 
 import calendar
