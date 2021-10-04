@@ -111,6 +111,9 @@ DOS_WHITELIST_URL_REGEX = [
     r'/computing/.*',
     # TODO (boris): 20200403 - legit user still having traffic,silence for now.
     r'/profile/Bloomsburgstudent/.*',
+    # A high volume URL triggered by
+    # https://github.com/Khan/khanflow-pipelines/blob/main/app/map_datastore_entities/map_datastore_entities.py
+    r'/graphql/debugDatastoreMapMutation',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
