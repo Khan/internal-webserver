@@ -207,5 +207,10 @@
         "mode": "NULLABLE",
         "name": "public_url",
         "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "schedule_type",
+        "type": "STRING"
     }
 ]
