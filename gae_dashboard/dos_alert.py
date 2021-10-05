@@ -7,8 +7,8 @@ slack if it notices anything that looks like a DoS attack.
 Note: we are only checking for two simple types of attacks - a single
 client requesting the same URL repeatedly, and scratchpad spam.
 
-The hope is that this alerting will allow us to blacklist the offending IP
-address using the appengine firewall.
+The hope is that this alerting will allow us to block the offending IP
+address using Fastly IP blocking.
 
 Note that we exclude URLs like these
 `/api/internal/user/profile?kaid=...&projection=%7B%22countBrandNewNotifications%22:1%7D`
@@ -94,13 +94,13 @@ DOS_ALERT_IP_COUNT_TEMPLATE = (
     u" \u2022 {count} requsts to _{url}_ with UA `{user_agent}`\n")
 
 DOS_ALERT_FOOTER = """\
-Consider blacklisting IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
+Consider blocking IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
 Click "View active configuration", then go to "IP block list" under "Settings".
 
 See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
-DOS_WHITELIST_URL_REGEX = [
+DOS_SAFELIST_URL_REGEX = [
     # Mobile team will fix in 6.9.0
     # TODO: remove after 2020401
     r'/api/auth2/request_token',
@@ -114,6 +114,8 @@ DOS_WHITELIST_URL_REGEX = [
     # A high volume URL triggered by
     # https://github.com/Khan/khanflow-pipelines/blob/main/app/map_datastore_entities/map_datastore_entities.py
     r'/graphql/debugDatastoreMapMutation',
+    # A backfill for test prep data
+    r'/graphql/backfillTestPrepUserPracticeTests',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
@@ -268,7 +270,7 @@ def dos_detect(end):
         for row in rows:
             to_alert = not any([
                 re.match(filter_regex, row['url'])
-                for filter_regex in DOS_WHITELIST_URL_REGEX
+                for filter_regex in DOS_SAFELIST_URL_REGEX
             ])
             if to_alert:
                 # ... and then list any routes/UAs this IP is spamming
