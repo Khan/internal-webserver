@@ -114,6 +114,7 @@ DOS_SAFELIST_URL_REGEX = [
     # A high volume URL triggered by
     # https://github.com/Khan/khanflow-pipelines/blob/main/app/map_datastore_entities/map_datastore_entities.py
     r'/graphql/debugDatastoreMapMutation',
+    r'/graphql/deleteTestUser',
     # A backfill for test prep data
     r'/graphql/backfillTestPrepUserPracticeTests',
 ]
