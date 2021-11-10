@@ -117,6 +117,10 @@ DOS_SAFELIST_URL_REGEX = [
     r'/graphql/deleteTestUser',
     # A backfill for test prep data
     r'/graphql/backfillTestPrepUserPracticeTests',
+    # We temporaily disable this as we are getting hit hard by extension
+    # https://khanacademy.slack.com/archives/C02JH0F7EHY/p1636569182038500
+    # TODO (INFRA-6713): Remove this after we filter Graphql rate limiting
+    r'/api/internal/graphql/getFullUserProfile',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
