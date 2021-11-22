@@ -67,7 +67,8 @@ fi
 # Turn off linting (it's all third-party code).
 env FORCE_COMMIT=1 git commit -am "merge from upstream phabricator" && git push
 
-# Now push to production
+# Now push to production.  Note that now phabricator is in "read-only"
+# mode, we no longer start up the phabricator daemons!
 gcloud compute ssh ubuntu@phabricator --project khan-internal-services -- \
    "cd internal-webserver; \
     git checkout master; \
@@ -78,8 +79,7 @@ gcloud compute ssh ubuntu@phabricator --project khan-internal-services -- \
     sudo service php7.2-fpm stop; \
     PHABRICATOR_ENV=khan phabricator/bin/storage upgrade --force; \
     sudo service php7.2-fpm start; \
-    sudo service nginx start; \
-    sudo service phd start \
+    sudo service nginx start \
    "
 
 echo "DONE!"

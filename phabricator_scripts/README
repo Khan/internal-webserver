@@ -1,5 +1,0 @@
-This directory holds scripts that we want to run on the phabricator
-ec2 machine.
-
-It's weird that this is in the internal-webserver repo, but that's
-"historical accident" for you.
