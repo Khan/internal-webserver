@@ -115,8 +115,8 @@ DOS_SAFELIST_URL_REGEX = [
     # https://github.com/Khan/khanflow-pipelines/blob/main/app/map_datastore_entities/map_datastore_entities.py
     r'/graphql/debugDatastoreMapMutation',
     r'/graphql/deleteTestUser',
-    # A backfill for test prep data
-    r'/graphql/backfillTestPrepUserPracticeTests',
+    # Backfills
+    r'/graphql/backfill.*',
     # We temporaily disable this as we are getting hit hard by extension
     # https://khanacademy.slack.com/archives/C02JH0F7EHY/p1636569182038500
     # TODO (INFRA-6713): Remove this after we filter Graphql rate limiting
