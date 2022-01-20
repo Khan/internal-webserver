@@ -270,14 +270,18 @@ def dos_detect(end):
     msg = DOS_ALERT_INTRO
     any_alerts_seen = False
     for ip, rows in ip_groups:
-        # For each IP, we show some default links...
-        msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
+        alerted_ip = False
         for row in rows:
             to_alert = not any([
                 re.match(filter_regex, row['url'])
                 for filter_regex in DOS_SAFELIST_URL_REGEX
             ])
             if to_alert:
+                # Once for each IP, we show some default links...
+                if not alerted_ip:
+                    msg += DOS_ALERT_IP_INTRO_TEMPLATE.format(ip=ip)
+                    alerted_ip = True
+
                 # ... and then list any routes/UAs this IP is spamming
                 msg += DOS_ALERT_IP_COUNT_TEMPLATE.format(**row)
                 any_alerts_seen = True
