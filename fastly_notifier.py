@@ -25,7 +25,6 @@ import httplib
 import logging
 import os
 import time
-import urllib
 
 import alertlib
 
@@ -58,7 +57,8 @@ def get_service_info(api_key):
         name = service['name']
         if name in _SERVICES_TO_IGNORE:
             continue
-        active_version = next(v for v in service['versions'] if v['active'])
+        active_version = next((v for v in service['versions'] if v['active']),
+                              '<none>')
         retval[name] = ServiceInfo(version=active_version['number'],
                                    updated_at=active_version['updated_at'],
                                    description=active_version['comment'])
