@@ -212,5 +212,10 @@
         "mode": "NULLABLE",
         "name": "schedule_type",
         "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "local_day",
+        "type": "STRING"
     }
 ]
