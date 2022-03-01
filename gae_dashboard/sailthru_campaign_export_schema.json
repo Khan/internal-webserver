@@ -217,5 +217,10 @@
         "mode": "NULLABLE",
         "name": "local_day",
         "type": "STRING"
+    },
+    {
+        "mode": "NULLABLE",
+        "name": "local_time",
+        "type": "STRING"
     }
 ]
