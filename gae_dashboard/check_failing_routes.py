@@ -40,7 +40,7 @@ BAD_ROUTES_RE = [
     # For new gateway, it is okay not to include query name.
     # However these are from 3rd party scripts that we don't care if error,
     # especially a lot of them will be blocked by GraphQL safelist and 400.
-    re.compile('/graphql/'),
+    re.compile('^/graphql/$'),
     # Kotlin routes which are spam (contain non path char) are expected to fail
     # e.g. kt:/api/internal/_bb/bigbingo'||(select extractvalue(xmltype....
     re.compile(r'^kt:.*[<>|\'()]'),
