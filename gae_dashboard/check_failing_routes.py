@@ -30,11 +30,15 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
 ))
 
 BAD_ROUTES_RE = [
-    # Graphql queries that don't include a query name are expected to fail.
+    # Graphql queries that don't include a query name are likely to means
+    # these reqs from 3rd party scripts that we don't care if they error,
+    # especially a lot of them will be blocked by GraphQL safelist and 400.
     re.compile(
         r'^api_main:/api/internal/(_mt/)?graphql'
         '(/persist_(across_publish|across_deploy|until_publish))?'
-        '(/<path_opname>)?( \[(POST|HEAD)\])?$'),
+        '(/<path_opname>)?( \[(POST|HEAD)\])?$',
+        '/graphql/',
+    ),
     # Kotlin routes which are spam (contain non path char) are expected to fail
     # e.g. kt:/api/internal/_bb/bigbingo'||(select extractvalue(xmltype....
     re.compile(r'^kt:.*[<>|\'()]'),
