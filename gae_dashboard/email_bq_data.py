@@ -680,6 +680,13 @@ ORDER BY
             else:
                 sparkline_data.append(None)
         row['last 2 weeks'] = sparkline_data
+
+        # If the logline is just a number, bq will report it as an int (sigh).
+        if not isinstance(row['firstword'], basestring):
+            row['firstword'] = str(row['firstword'])
+        if not isinstance(row['sample_logline'], basestring):
+            row['sample_logline'] = str(row['sample_logline'])
+
         # While we're here, truncate the sample-logline, since it can get
         # really long.
         row['sample_logline'] = row['sample_logline'][:80]
