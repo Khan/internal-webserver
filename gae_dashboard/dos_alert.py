@@ -123,6 +123,10 @@ DOS_SAFELIST_URL_REGEX = [
     # https://khanacademy.slack.com/archives/C02JH0F7EHY/p1636569182038500
     # TODO (INFRA-6713): Remove this after we filter Graphql rate limiting
     r'/api/internal/graphql/getFullUserProfile',
+    # https://khanacademy.atlassian.net/browse/INFRA-6713 this mutation is
+    # being rate-limited but we can't see that from the fastly logs - so don't
+    # alert on it.
+    r'(/api/internal)?/graphql/LoginWithPasswordMutation.*',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
