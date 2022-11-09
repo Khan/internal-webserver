@@ -117,6 +117,8 @@ DOS_SAFELIST_URL_REGEX = [
     r'/graphql/deleteTestUser',
     # Backfills
     r'/graphql/\w*[Bb]ackfill\w*',
+    r'/graphql/phantomDeletion.*',
+    # End of backfill
     r'/graphql/queueTask.*',
     r'/graphql/sync.*',
     # We temporaily disable this as we are getting hit hard by extension
