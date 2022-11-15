@@ -120,6 +120,8 @@ DOS_SAFELIST_URL_REGEX = [
     r'/graphql/phantomDeletion.*',
     r'/graphql/queueTask.*',
     r'/graphql/sync.*',
+    # Learning Equality API use
+    r'/graphql/LearningEquality_\w+',
     # We temporaily disable this as we are getting hit hard by extension
     # https://khanacademy.slack.com/archives/C02JH0F7EHY/p1636569182038500
     # TODO (INFRA-6713): Remove this after we filter Graphql rate limiting
