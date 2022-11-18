@@ -130,6 +130,8 @@ DOS_SAFELIST_URL_REGEX = [
     # being rate-limited but we can't see that from the fastly logs - so don't
     # alert on it.
     r'(/api/internal)?/graphql/LoginWithPasswordMutation.*',
+    # Fastly SYNTH routes - minimal impact and we use these internally.
+    r'/_fastly/.*',
 ]
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
