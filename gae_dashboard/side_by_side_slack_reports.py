@@ -94,6 +94,7 @@ def main():
         # currently in progress.  That's not an error.
         if 'side_by_side_result_* does not match any table' in str(e):
             return
+        raise
 
     results_by_team = group_by_team(results)
     send_to_slack(results_by_team, yesterday)
