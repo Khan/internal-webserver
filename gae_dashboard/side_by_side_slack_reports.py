@@ -90,9 +90,10 @@ def main():
     try:
         results = fetch_counts_from_bq(yesterday)
     except bq_util.BQException as e:
+        error_text = str(e).replace('\n', ' ')
         # This can happen if there are no side-by-side experiments
         # currently in progress.  That's not an error.
-        if 'side_by_side_result_* does not match any table' in str(e):
+        if 'side_by_side_result_* does not match any table' in error_text:
             return
         raise
 
