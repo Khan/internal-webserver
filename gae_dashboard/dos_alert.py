@@ -19,6 +19,7 @@ sure whether this is due to a bug or by design, but I don't think it's a DoS.
 import re
 import datetime
 from itertools import groupby
+import socket
 
 import alertlib
 import bq_util
@@ -261,6 +262,11 @@ def _fastly_log_tables(start, end, period):
     ])
 
 
+def is_ip_gcp(ip):
+    hostname, _ = socket.getnameinfo((ip, 0), 0)
+    return hostname.endswith('bc.googleusercontent.com')
+
+
 def dos_detect(end):
     start = end - datetime.timedelta(seconds=DOS_PERIOD)
 
@@ -283,10 +289,10 @@ def dos_detect(end):
     for ip, rows in ip_groups:
         alerted_ip = False
         for row in rows:
-            to_alert = not any([
+            to_alert = not (any([
                 re.match(filter_regex, row['url'])
                 for filter_regex in DOS_SAFELIST_URL_REGEX
-            ])
+            ]) or is_ip_gcp(ip))
             if to_alert:
                 # Once for each IP, we show some default links...
                 if not alerted_ip:
