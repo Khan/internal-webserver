@@ -91,7 +91,7 @@ DOS_ALERT_IP_INTRO_TEMPLATE = """\n\
 *Reqs in last 5 minutes:*
 """
 DOS_ALERT_IP_COUNT_TEMPLATE = (
-    u" \u2022 {count} requsts to _{url}_ with UA `{user_agent}`\n")
+    u" \u2022 {count} requests to _{url}_ with UA `{user_agent}`\n")
 
 DOS_ALERT_FOOTER = """\
 Consider blocking IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
@@ -100,39 +100,43 @@ Click "View active configuration", then go to "IP block list" under "Settings".
 See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
-DOS_SAFELIST_URL_REGEX = [
+# Dictionary with override values for certain routes to support more traffic
+# without alerting. A value of "None" will use the default number, MAX_REQS_SEC
+# Note that overrides won't work if set below the minimum (default) threshold
+DOS_SAFELIST_URL_REGEX = {
     # Mobile team will fix in 6.9.0
     # TODO: remove after 2020401
-    r'/api/auth2/request_token',
+    r'/api/auth2/request_token': None,
     # Known common browser path below
     # TODO (boris, INFRA-4452) to investigate these paths
-    r'/mission/sat/tasks/.*',
-    r'/math/.*',
-    r'/computing/.*',
+    r'/mission/sat/tasks/.*': None,
+    r'/math/.*': None,
+    r'/computing/.*': None,
     # TODO (boris): 20200403 - legit user still having traffic,silence for now.
-    r'/profile/Bloomsburgstudent/.*',
+    r'/profile/Bloomsburgstudent/.*': None,
     # A high volume URL triggered by
     # https://github.com/Khan/khanflow-pipelines/blob/main/app/map_datastore_entities/map_datastore_entities.py
-    r'/graphql/debugDatastoreMapMutation',
-    r'/graphql/deleteTestUser',
+    r'/graphql/debugDatastoreMapMutation': None,
+    r'/graphql/deleteTestUser': None,
     # Backfills
-    r'/graphql/\w*[Bb]ackfill\w*',
-    r'/graphql/phantomDeletion.*',
-    r'/graphql/queueTask.*',
-    r'/graphql/sync.*',
+    r'/graphql/\w*[Bb]ackfill\w*': None,
+    r'/graphql/phantomDeletion.*': None,
+    r'/graphql/queueTask.*': None,
+    r'/graphql/sync.*': None,
     # Learning Equality API use
-    r'/graphql/LearningEquality_\w+',
+    r'/graphql/LearningEquality_\w+': None,
     # We temporaily disable this as we are getting hit hard by extension
     # https://khanacademy.slack.com/archives/C02JH0F7EHY/p1636569182038500
     # TODO (INFRA-6713): Remove this after we filter Graphql rate limiting
-    r'/api/internal/graphql/getFullUserProfile',
+    r'/api/internal/graphql/getFullUserProfile': None,
     # https://khanacademy.atlassian.net/browse/INFRA-6713 this mutation is
     # being rate-limited but we can't see that from the fastly logs - so don't
     # alert on it.
-    r'(/api/internal)?/graphql/LoginWithPasswordMutation.*',
+    r'(/api/internal)?/graphql/LoginWithPasswordMutation.*': None,
     # Fastly SYNTH routes - minimal impact and we use these internally.
-    r'/_fastly/.*',
-]
+    r'/_fastly/.*': 100,
+    r'/_api/static_version.*': 100,
+}
 
 SCRATCHPAD_QUERY_TEMPLATE = """\
 SELECT
@@ -283,10 +287,18 @@ def dos_detect(end):
     for ip, rows in ip_groups:
         alerted_ip = False
         for row in rows:
-            to_alert = not any([
-                re.match(filter_regex, row['url'])
-                for filter_regex in DOS_SAFELIST_URL_REGEX
-            ])
+            # If a matching url is found, check for adjusted/overriden max
+            # requests for that particular route
+            # TODO(drosile): maybe refactor this to be cleaner?
+            alerting_url_regexes = [
+                    filter_regex for filter_regex
+                    in DOS_SAFELIST_URL_REGEX.keys()
+                    if re.match(filter_regex, row['url'])]
+            if alerting_url_regexes:
+                regex = alerting_url_regexes[1]
+                calculated_max = DOS_SAFELIST_URL_REGEX[regex] or MAX_REQS_SEC
+                calculated_max_reqs = calculated_max * DOS_PERIOD
+                to_alert = row['count'] > calculated_max_reqs
             if to_alert:
                 # Once for each IP, we show some default links...
                 if not alerted_ip:
