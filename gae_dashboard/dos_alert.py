@@ -295,9 +295,26 @@ def dos_detect(end):
                     in DOS_SAFELIST_URL_REGEX.keys()
                     if re.match(filter_regex, row['url'])]
             if alerting_url_regexes:
-                regex = alerting_url_regexes[1]
-                calculated_max = DOS_SAFELIST_URL_REGEX[regex] or MAX_REQS_SEC
-                calculated_max_reqs = calculated_max * DOS_PERIOD
+                # Note that if more than one route regex matches, the value for
+                # the first match will be used. In other words, the order of
+                # DOS_SAFELIST_URL_REGEX might matter for overrides!
+                regex = alerting_url_regexes[0]
+                override_max_reqs_sec = DOS_SAFELIST_URL_REGEX[regex]
+                if not override_max_reqs_sec:
+                    # There's no override, so the fact that the regex matched
+                    # the query results doesn't matter - we ignore the route
+                    # entirely. No alert needed.
+                    continue
+                # The rule has an override. Calculate the new max and see if we
+                # exceeded it. Only alert when over the threshold, otherwise we
+                # ignore.
+                # Note that if the override is set below MAX_REQS_SEC, the
+                # alert will still trigger, *but* the script won't catch
+                # anything where num_requests is more than the override but
+                # less than MAX_REQS_SEC - this is because of how the querying
+                # is done in BigQuery. Code changes would be needed to support
+                # lower override thresholds.
+                calculated_max_reqs = override_max_reqs_sec * DOS_PERIOD
                 to_alert = row['count'] > calculated_max_reqs
             if to_alert:
                 # Once for each IP, we show some default links...
