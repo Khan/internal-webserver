@@ -287,6 +287,7 @@ def dos_detect(end):
     for ip, rows in ip_groups:
         alerted_ip = False
         for row in rows:
+            to_alert = False
             # If a matching url is found, check for adjusted/overriden max
             # requests for that particular route
             # TODO(drosile): maybe refactor this to be cleaner?
@@ -301,9 +302,9 @@ def dos_detect(end):
                 regex = alerting_url_regexes[0]
                 override_max_reqs_sec = DOS_SAFELIST_URL_REGEX[regex]
                 if not override_max_reqs_sec:
-                    # There's no override, so the fact that the regex matched
-                    # the query results doesn't matter - we ignore the route
-                    # entirely. No alert needed.
+                    # There's no override set, so we do the default behavior
+                    # when detecting a matched URL, which is to exclude it from
+                    # alerting entirely. Skip to the next row.
                     continue
                 # The rule has an override. Calculate the new max and see if we
                 # exceeded it. Only alert when over the threshold, otherwise we
