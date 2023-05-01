@@ -39,7 +39,7 @@ CDN_ERROR_PERIOD = 5 * 60
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
 
-ALERT_CHANNEL = '#infrastructure-sre'
+ALERT_CHANNEL = "#security-engineering"
 
 # The fastly's timestamp field is a string with extra details denoting the time
 # zone. BigQuery doesn't understand that part, so we trim that out as the time
