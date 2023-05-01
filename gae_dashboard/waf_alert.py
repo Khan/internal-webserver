@@ -28,7 +28,7 @@ SPIKE_PERCENTAGE = 1.0
 TABLE_FORMAT = "%Y%m%d"
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ALERT_CHANNEL = "#infrastructure-sre"
+ALERT_CHANNEL = "#security-engineering"
 
 BLOCKED_REQ = """
 #standardSQL
