@@ -39,7 +39,8 @@ CDN_ERROR_PERIOD = 5 * 60
 TABLE_FORMAT = '%Y%m%d'
 TS_FORMAT = '%Y-%m-%d %H:%M:%S'
 
-ALERT_CHANNEL = '#infrastructure-sre'
+ALERT_CHANNEL_SECURITY = "#security-engineering"
+ALERT_CHANNEL_SRE = "#infrastructure-sre"
 
 # The fastly's timestamp field is a string with extra details denoting the time
 # zone. BigQuery doesn't understand that part, so we trim that out as the time
@@ -331,7 +332,7 @@ def dos_detect(end):
         return
     msg += DOS_ALERT_FOOTER
 
-    alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+    alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL_SECURITY)
 
 
 def scratchpad_detect(end):
@@ -350,7 +351,7 @@ def scratchpad_detect(end):
         msg = SCRATCHPAD_ALERT_INTRO_TEMPLATE.format(max_count=MAX_SCRATCHPADS)
         msg += '\n'.join(SCRATCHPAD_ALERT_ENTRY_TEMPLATE.format(**row)
                          for row in scratchpad_results)
-        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL_SECURITY)
 
 
 def cdn_error_detect(end):
@@ -384,7 +385,7 @@ def cdn_error_detect(end):
             })
             for row in cdn_results
         )
-        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL)
+        alertlib.Alert(msg).send_to_slack(ALERT_CHANNEL_SRE)
 
 
 def main():
