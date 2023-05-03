@@ -6,7 +6,7 @@ to internal-services, located at: https://github.com/Khan/internal-services.
 
 If you need to update something that still lives here (on toby), check
 in your changes to this repo and run this:
-   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver
+   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver --zone=us-central1-c
    cd internal-webserver/
    git pull
 
@@ -15,7 +15,7 @@ in your changes to this repo and run this:
 
 If you need to update the crontab that runs on toby, check in your
 changes to Khan/aws-config:toby/crontab and run this:
-   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver
+   gcloud --project=khan-internal-services compute ssh ubuntu@toby-internal-webserver --zone=us-central1-c
    cd aws-config
    git pull
    crontab -l | diff -u - toby/crontab    # to make sure the diff is correct
