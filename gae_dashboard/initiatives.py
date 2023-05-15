@@ -15,15 +15,23 @@ import urlparse
 # email addresses, rather they are the ones that teams want the bq cron
 # reporter emails to go to.
 TEAM_EMAIL = {
+    'architecture': 'infrastructure-blackhole@khanacademy.org',
+    'teacher-experience': 'coached-perf-reports@khanacademy.org',
+    'content-library': 'independent-learning-blackhole@khanacademy.org',
+    'content-platform': 'content-platform-analytics@khanacademy.org',
+    'data-infrastructure': 'infrastructure-blackhole@khanacademy.org',
+    'districts': 'coached-perf-reports@khanacademy.org',
+    'frontend-infra': 'fe-infrastructure-blackhole@khanacademy.org',
+    'guided-learning': 'independent-learning-blackhole@khanacademy.org',
     'infrastructure': 'infrastructure-blackhole@khanacademy.org',
+    'learning-components': 'independent-learning-blackhole@khanacademy.org',
+    'mpp': 'mpp@khanacademy.org',
+
+    # DEPRECATED NAMES -- will be removed soon.
     'classroom': 'coached-perf-reports@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
     'test-prep': 'test-prep-dev@khanacademy.org',
-    'content-platform': 'content-platform-analytics@khanacademy.org',
-    'mpp': 'mpp@khanacademy.org',
-    'districts': 'coached-perf-reports@khanacademy.org',
-    'frontend-infra': 'fe-infrastructure-blackhole@khanacademy.org',
-    'architecture': 'infrastructure-blackhole@khanacademy.org',
+
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
 # TODO(amos): Maybe validate this against the loaded data.
@@ -45,10 +53,6 @@ def email(id):
 
 def title(id):
     return _load_data()['teams'][id]['readable_name']
-
-
-def slack_channel(id):
-    return _load_data()['teams'][id]['slack_channel']
 
 
 # From dev/ownership.py
