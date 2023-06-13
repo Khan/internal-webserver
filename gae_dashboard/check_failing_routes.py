@@ -27,6 +27,10 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     '/_ah/start.*',  # Logs show this as having null status
     'api_main:/api/v1/exercises',  # Removed API
     'main:/login/clever',  # Old clever integrations that districts removed
+
+    # TODO: https://khanacademy.atlassian.net/browse/INFRA-9293, remove these
+    '/graphql/isActivityAccessibleForProfiles',
+    '/graphql/isSatStudent',
 ))
 
 BAD_ROUTES_RE = [
