@@ -117,3 +117,5 @@ done | sort -t'>' -k2r | gzip -9 > html/index.html
 echo "Uploading html to gcs"
 # We let gzip know that all the files we're uploading are compressed.
 gsutil -m -h Content-encoding:gzip rsync -j html html/ gs://ka-jenkins-perf/
+
+echo "View perf data at https://storage.googleapis.com/ka-jenkins-perf/index.html"
