@@ -55,7 +55,7 @@ BAD_ROUTES_RE = [
     re.compile(r'/graphql/[console|graphql-playground|v1| [POST]'),
     re.compile(r'/graphql/schema\.\w+ [POST]'),
     # HEAD requests are expected to fail
-    re.compile(r'^/graphql/.* [HEAD]$'),
+    re.compile(r'/graphql/.* \[HEAD\]'),
 ]
 
 
