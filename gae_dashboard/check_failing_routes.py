@@ -52,7 +52,7 @@ BAD_ROUTES_RE = [
     # They cause falsepos with low traffic (e.g. old mobile) route
     re.compile(r'^/_gateway-proxy/.*'),
     # Spamy routes
-    re.compile(r'^/graphql/[console|graphql-playground|v1| \[POST\]$'),
+    re.compile(r'^/graphql/(console|graphql-playground|v1) \[POST\]$'),
     re.compile(r'^/graphql/schema\.\w+ \[POST\]$'),
     # HEAD requests are expected to fail
     re.compile(r'^/graphql/.* \[HEAD\]$'),
