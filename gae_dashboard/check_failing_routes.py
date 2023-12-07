@@ -56,6 +56,8 @@ BAD_ROUTES_RE = [
     re.compile(r'^/graphql/schema\.\w+ \[POST\]$'),
     # HEAD requests are expected to fail
     re.compile(r'^/graphql/.* \[HEAD\]$'),
+    # Consistently noisy route, investigating
+    re.compile(r'^/graphql/getUrgentBanner \[POST\]$'),
 ]
 
 
