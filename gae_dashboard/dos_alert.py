@@ -134,6 +134,8 @@ DOS_SAFELIST_URL_REGEX = {
     # being rate-limited but we can't see that from the fastly logs - so don't
     # alert on it.
     r'(/api/internal)?/graphql/LoginWithPasswordMutation.*': None,
+    # The bigbingo conversion endpoint gets a lot of traffic
+    r'/api/internal/_analytics/publish_event.*': None,
     # Fastly SYNTH routes - minimal impact and we use these internally.
     r'/_fastly/.*': 100,
     r'/_api/static_version.*': 100,
