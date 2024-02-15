@@ -288,7 +288,11 @@ def dos_detect(end):
     for ip, rows in ip_groups:
         alerted_ip = False
         for row in rows:
-            to_alert = False
+            # We want to alert for this IP/URL combination by default. If the
+            # url matches one in the safelist, this value may be set to false.
+            # However, if it does not match anything in the safelist, we 
+            # should set off an alert.
+            to_alert = True
             # If a matching url is found, check for adjusted/overriden max
             # requests for that particular route
             # TODO(drosile): maybe refactor this to be cleaner?
