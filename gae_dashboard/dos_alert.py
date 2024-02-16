@@ -102,8 +102,10 @@ See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
 # Dictionary with override values for certain routes to support more traffic
-# without alerting. A value of "None" will use the default number, MAX_REQS_SEC
-# Note that overrides won't work if set below the minimum (default) threshold
+# without alerting. A value of "None" will set off an alert for any number of 
+# requests for that route. Routes that do not match any regex here will 
+# trigger an alert if they receive more than MAX_REQS_SEC.
+# Note that overrides won't work if set below the MAX_REQS_SEC threshold.
 DOS_SAFELIST_URL_REGEX = {
     # Mobile team will fix in 6.9.0
     # TODO: remove after 2020401
@@ -134,6 +136,8 @@ DOS_SAFELIST_URL_REGEX = {
     # being rate-limited but we can't see that from the fastly logs - so don't
     # alert on it.
     r'(/api/internal)?/graphql/LoginWithPasswordMutation.*': None,
+    # The bigbingo conversion endpoint gets a lot of traffic
+    r'/api/internal/_analytics/publish_event.*': None,
     # Fastly SYNTH routes - minimal impact and we use these internally.
     r'/_fastly/.*': 100,
     r'/_api/static_version.*': 100,
@@ -288,7 +292,11 @@ def dos_detect(end):
     for ip, rows in ip_groups:
         alerted_ip = False
         for row in rows:
-            to_alert = False
+            # We want to alert for this IP/URL combination by default. If the
+            # url matches one in the safelist, this value may be set to false.
+            # However, if it does not match anything in the safelist, we 
+            # should set off an alert.
+            to_alert = True
             # If a matching url is found, check for adjusted/overriden max
             # requests for that particular route
             # TODO(drosile): maybe refactor this to be cleaner?
