@@ -123,7 +123,7 @@ def _get_sailthru_timezone_utc_offset():
             pytz.timezone(tz_string)).strftime('%z')
         # We have a string like -0300 or +0530, and we want a string
         # like -03:00 or +05:30.
-        assert re.match('^[+-]\d{4}$', tz_offset)
+        assert re.match(r'^[+-]\d{4}$', tz_offset)
         _sailthru_timezone_utc_offset = "%s:%s" % (
             tz_offset[0:3], tz_offset[3:5])
 
@@ -256,7 +256,7 @@ def _send_blast_details_to_bq(blast_id, temp_file,
                                         "%s %s" % (date, tz_utc_offset)
                                         for date in row_object[column_name]]
                                 else:
-                                    assert(row_object[column_name] is None)
+                                    assert row_object[column_name] is None
 
                         # Append the blast ID to each row.  This way
                         # we can join/union this blast table with

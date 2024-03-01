@@ -102,8 +102,8 @@ See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
 # Dictionary with override values for certain routes to support more traffic
-# without alerting. A value of "None" will set off an alert for any number of 
-# requests for that route. Routes that do not match any regex here will 
+# without alerting. A value of "None" will set off an alert for any number of
+# requests for that route. Routes that do not match any regex here will
 # trigger an alert if they receive more than MAX_REQS_SEC.
 # Note that overrides won't work if set below the MAX_REQS_SEC threshold.
 DOS_SAFELIST_URL_REGEX = {

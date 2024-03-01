@@ -211,5 +211,6 @@ def main():
     # parameters
     send_uptime_email(datetime.datetime.utcnow().date())
 
+
 if __name__ == '__main__':
     main()

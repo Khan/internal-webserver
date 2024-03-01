@@ -38,8 +38,8 @@ BAD_ROUTES_RE = [
     # expected to fail.
     re.compile(
         r'^api_main:/api/internal/(_mt/)?graphql'
-        '(/persist_(across_publish|across_deploy|until_publish))?'
-        '(/<path_opname>)?( \[(POST|HEAD)\])?$',
+        r'(/persist_(across_publish|across_deploy|until_publish))?'
+        r'(/<path_opname>)?( \[(POST|HEAD)\])?$',
     ),
     # For new gateway, it is okay not to include query name.
     # However these are from 3rd party scripts that we don't care if error,

@@ -585,8 +585,8 @@ def email_client_api_usage(date, dry_run=False):
     """Emails a report of API usage, segmented by client and build version."""
     yyyymmdd = date.strftime("%Y%m%d")
 
-    ios_user_agent_regex = '^Khan%20Academy\.(.*)/(.*) CFNetwork/([.0-9]*)' \
-                           ' Darwin/([.0-9]*)$'
+    ios_user_agent_regex = (r'^Khan%20Academy\.(.*)/(.*) CFNetwork/([.0-9]*)'
+                            r' Darwin/([.0-9]*)$')
 
     # We group all non-ios user agents into a single bucket to keep this
     # report down to a reasonable size.

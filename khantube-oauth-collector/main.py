@@ -39,16 +39,15 @@ app = flask.Flask(__name__)
 
 @app.route("/")
 def request_permission():
-    oauth_link = ('https://accounts.google.com/o/oauth2/auth?%s' %
-        urllib.parse.urlencode({
-            'scope': ' '.join(OAUTH_SCOPES),
-            'redirect_uri': flask.url_for('oauth2callback', _external=True),
-            'response_type': 'code',
-            'client_id': secrets.khantube_client_id,
-            'access_type': 'offline',
-            'approval_prompt': 'force'
-        }))
-
+    params = urllib.parse.urlencode({
+        'scope': ' '.join(OAUTH_SCOPES),
+        'redirect_uri': flask.url_for('oauth2callback', _external=True),
+        'response_type': 'code',
+        'client_id': secrets.khantube_client_id,
+        'access_type': 'offline',
+        'approval_prompt': 'force'
+    })
+    oauth_link = 'https://accounts.google.com/o/oauth2/auth?%s' % params
     return ('In order to give Khan Academy permission to upload captions to '
             'your youtube account <a href="%s">click here<a/>' % oauth_link)
 
@@ -122,4 +121,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

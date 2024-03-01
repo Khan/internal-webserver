@@ -30,7 +30,7 @@ def call_bq(subcommand_list, project, return_output=True,
                 return None
             try:
                 return json.loads(output)
-            except ValueError as e:
+            except ValueError:
                 print('Unexpected output from BQ call: %s' % output)
                 raise
         else:
@@ -180,7 +180,8 @@ def query_bigquery(sql_query, gdrive=False, retries=2, job_name=None,
             job_name = None     # to indicate the job has finished
             break
         except subprocess.CalledProcessError as why:
-            print("-- Running query failed with retcode %d --" % why.returncode)
+            print("-- Running query failed with retcode %d --"
+                  % why.returncode)
             error_msg = why.output
         finally:
             if job_name:

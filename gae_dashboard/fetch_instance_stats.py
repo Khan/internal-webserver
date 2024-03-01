@@ -37,7 +37,7 @@ def _instance_is_failed(serial_port_output, unhealthy_count_threshold):
     # that the full serial port output history isn't sorted
     serial_port_output = serial_port_output[-1000:]
     timestamp_re = re.compile(r'TIME=(\d+)')
-    serial_port_output.sort(key=lambda l: timestamp_re.findall(l),
+    serial_port_output.sort(key=lambda line: timestamp_re.findall(line),
                             reverse=True)
 
     num_consecutive_unhealthy = 0
@@ -145,8 +145,8 @@ def main(project_id, dry_run):
         unhealthy_count_threshold = 5
 
         num_failed_instances = len(
-            [l for l in serial_port_output_lines
-             if _instance_is_failed(l, unhealthy_count_threshold)])
+            [line for line in serial_port_output_lines
+             if _instance_is_failed(line, unhealthy_count_threshold)])
 
         if dry_run:
             print('module=%s, num_failed_instances=%s'
