@@ -1,13 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Periodically checks blocked requests which indicates either
 an attack or a problem with the WAF rules.
 """
 
+import argparse
 import datetime
+
 import alertlib
 import bq_util
-import argparse
+
 
 BQ_PROJECT = "khanacademy.org:deductive-jet-827"
 FASTLY_DATASET = "fastly"
