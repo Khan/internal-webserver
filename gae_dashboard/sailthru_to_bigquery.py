@@ -212,7 +212,7 @@ def _send_blast_details_to_bq(blast_id, temp_file,
 
     with _CPU_LOCK:
         try:
-            with open(temp_file, "wb") as f:
+            with open(temp_file, "w") as f:
                 with contextlib.closing(
                         urllib.request.urlopen(filename_url)) as csvdata:
                     # Take the csv data from the Sailthru API and
@@ -466,7 +466,9 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
                 with contextlib.closing(open_url) as csvdata:
                     # Take the csv data from the Sailthru API and
                     # convert it to JSON.
-                    reader = csv.reader(csvdata, delimiter=',', quotechar='"')
+                    reader = csv.reader(
+                        codecs.iterdecode(csvdata, 'utf-8'),
+                        delimiter=',', quotechar='"')
                     headers = next(reader)
                     headers = [
                         normalized_headers[hdr]
