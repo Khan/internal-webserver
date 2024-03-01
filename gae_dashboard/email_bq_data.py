@@ -11,13 +11,13 @@ Here's an example of an analysis we could do here:
 """
 
 import argparse
-import cgi
 import collections
 import datetime
 import email
 import email.mime.text
 import email.utils
 import hashlib
+import html
 import smtplib
 import subprocess
 import textwrap
@@ -211,7 +211,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
                         # HTML-like characters, so escape those.
                         # We also need to escape %'s, since all of `body`
                         # will be subject to string-interpolation in a bit.
-                        col = cgi.escape(col)
+                        col = html.escape(col)
                         col = col.replace('%', '%%')
                     body.append('<td style="%s">%s</td>' % (style, col))
                 body.append('</tr>')
