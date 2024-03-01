@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Email various analyses -- hard-coded into this file -- from bigquery.
 

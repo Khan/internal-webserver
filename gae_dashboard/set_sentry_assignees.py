@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Set assignees for Sentry issues
 
@@ -8,7 +8,6 @@ similar to this script, but doesn't actually set the assignee unfortunatley.
 
 This script should be run periodically. It will look for unassigned issues
 and assign them to initiatives based on the URLs of issue events.
-
 """
 import collections
 import os.path

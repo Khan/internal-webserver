@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """Make sure all Khan github repos include 'interns' and 'full-time' teams.
 
@@ -13,7 +13,8 @@ import os
 import re
 import sys
 import time
-import urllib.request, urllib.error, urllib.parse
+import urllib.error
+import urllib.request
 
 
 def _get_with_retries(url, github_token=None, max_tries=3):
@@ -24,8 +25,9 @@ def _get_with_retries(url, github_token=None, max_tries=3):
         #   https://developer.github.com/v3/auth/#via-oauth-tokens
         # This is the best way to set the user, according to
         #   http://stackoverflow.com/questions/2407126/python-urllib2-basic-auth-problem
-        encoded_password = base64.standard_b64encode('%s:x-oauth-basic'
-                                                     % github_token)
+        encoded_password = base64.standard_b64encode(
+            ('%s:x-oauth-basic' % github_token).encode('utf-8')
+        ).decode('utf-8')
         request.add_unredirected_header('Authorization',
                                         'Basic %s' % encoded_password)
 

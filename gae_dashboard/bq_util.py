@@ -1,9 +1,9 @@
 """Utilities for interacting with BigQuery."""
 
-import pickle
 import datetime
 import json
 import os
+import pickle
 import random
 import sys
 import subprocess
@@ -76,7 +76,7 @@ def get_daily_data(report, yyyymmdd):
     if not os.path.exists(filename):
         return None
     else:
-        with open(filename) as f:
+        with open(filename, 'rb') as f:
             return pickle.load(f)
 
 
@@ -91,7 +91,7 @@ def save_daily_data(data, report, yyyymmdd):
     filename = _get_data_filename(report, yyyymmdd)
     if not os.path.isdir(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
-    with open(filename, 'w') as f:
+    with open(filename, 'wb') as f:
         pickle.dump(data, f, protocol=2)
 
 

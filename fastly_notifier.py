@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """A script to notify, on slack, when fastly config changes happen.
 
@@ -17,8 +17,6 @@ every time they use the UI, we write a simple script that asks fastly if the
 version of the service has changed recently, and posts to slack if so.  It is
 meant to be run every minute or so, via cron.
 """
-
-
 import collections
 import json
 import http.client
@@ -49,7 +47,7 @@ def get_service_info(api_key):
     body = resp.read()
     if resp.status != 200:
         raise http.client.HTTPException("Error talking to %s: response %s (%s)"
-                                    % (_FASTLY_HOST, resp.status, body))
+                                        % (_FASTLY_HOST, resp.status, body))
     data = json.loads(body)
 
     retval = {}

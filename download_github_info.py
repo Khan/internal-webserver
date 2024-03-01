@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Get info about github repositories and emit it in csv form.
 
@@ -21,7 +21,8 @@ import optparse
 import os
 import re
 import sys
-import urllib.request, urllib.error, urllib.parse
+import urllib.error
+import urllib.request
 
 
 _GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_.-]+)', re.I)

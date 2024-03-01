@@ -3,7 +3,6 @@
 Cloud Monitoring monitors and alerts based on timeseries data for App
 Engine and Compute Engine.
 """
-
 import calendar
 import json
 import http.client

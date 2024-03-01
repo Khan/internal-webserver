@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Send GCE Instance Metrics from the Cloud Compute API to Cloud Monitoring.
 
@@ -149,8 +149,8 @@ def main(project_id, dry_run):
              if _instance_is_failed(l, unhealthy_count_threshold)])
 
         if dry_run:
-            print(('module=%s, num_failed_instances=%s'
-                   % (module_id, num_failed_instances)))
+            print('module=%s, num_failed_instances=%s'
+                  % (module_id, num_failed_instances))
             continue
 
         # Send metric to Stackdriver.

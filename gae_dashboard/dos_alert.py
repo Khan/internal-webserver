@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Check request logs to look for an in progress DoS attack.
 
 This script does a very simplistic check for DoS attack and notifies us via
@@ -18,7 +18,7 @@ sure whether this is due to a bug or by design, but I don't think it's a DoS.
 
 import re
 import datetime
-from itertools import groupby
+import itertools
 
 import alertlib
 import bq_util
@@ -285,7 +285,7 @@ def dos_detect(end):
         return
 
     # Group by IPs to reduce duplicate alerts during a DDoS attack
-    ip_groups = groupby(results, key=lambda row: row['ip'])
+    ip_groups = itertools.groupby(results, key=lambda row: row['ip'])
 
     msg = DOS_ALERT_INTRO
     any_alerts_seen = False
@@ -294,7 +294,7 @@ def dos_detect(end):
         for row in rows:
             # We want to alert for this IP/URL combination by default. If the
             # url matches one in the safelist, this value may be set to false.
-            # However, if it does not match anything in the safelist, we 
+            # However, if it does not match anything in the safelist, we
             # should set off an alert.
             to_alert = True
             # If a matching url is found, check for adjusted/overriden max
@@ -302,7 +302,7 @@ def dos_detect(end):
             # TODO(drosile): maybe refactor this to be cleaner?
             alerting_url_regexes = [
                     filter_regex for filter_regex
-                    in list(DOS_SAFELIST_URL_REGEX.keys())
+                    in DOS_SAFELIST_URL_REGEX.keys()
                     if re.match(filter_regex, row['url'])]
             if alerting_url_regexes:
                 # Note that if more than one route regex matches, the value for

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Check for routes that never return ok response codes
 
 Notifies slack and alerta when routes are found that have responses, but no 2xx

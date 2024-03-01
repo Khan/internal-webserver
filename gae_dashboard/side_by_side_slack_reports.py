@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 A script to pipe side-by-side testing results from bigquery to slack daily.
 
@@ -15,6 +15,7 @@ import alertlib
 import bq_util
 
 import initiatives
+
 
 COUNTS_BY_OPERATION = """
 #standardSQL
@@ -58,7 +59,7 @@ def group_by_team(results):
 
 def send_to_slack(results_by_team, date):
     date_str = date.strftime("%Y%m%d")
-    for team, results in list(results_by_team.items()):
+    for team, results in results_by_team.items():
         intro = "*{team}* results for {date}\n".format(
             team=initiatives.title(team), date=date_str)
         intro += "Click on any operation name below for more details:\n"

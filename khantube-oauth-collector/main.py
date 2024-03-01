@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
-# pep8-disable:E128
+#!/usr/bin/env python3
 """
 Flask app to collect oauth refresh tokens which will for upload captions.
 
@@ -21,10 +19,10 @@ import email.MIMEText
 import optparse
 import os
 import smtplib
-import urllib.request, urllib.parse, urllib.error
 import tempfile
-import flask
+import urllib.parse
 
+import flask
 import oauth2client.client
 
 import secrets
@@ -120,6 +118,7 @@ def main():
         if port == -1:
             port = 80
         app.run(host='0.0.0.0', port=port)
+
 
 if __name__ == "__main__":
     main()
