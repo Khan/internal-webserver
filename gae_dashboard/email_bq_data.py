@@ -139,7 +139,7 @@ def _render_sparkline(data, width=100, height=20):
     }
     gnuplot_proc = subprocess.Popen(['gnuplot'], stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
-    png, _ = gnuplot_proc.communicate(gnuplot_script)
+    png, _ = gnuplot_proc.communicate(gnuplot_script.encode('utf-8'))
     return png
 
 
