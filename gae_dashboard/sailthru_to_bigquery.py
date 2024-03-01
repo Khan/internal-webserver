@@ -330,7 +330,7 @@ def _send_campaign_report(status, start_date, end_date, temp_file, verbose,
     all_blasts_length = len(blasts_info_json)
 
     try:
-        with open(temp_file, "wb") as json_file:
+        with open(temp_file, "w") as json_file:
             for i in range(all_blasts_length):
                 # Get the date a blast was started.
                 if blasts_info_json[i].get('start_time'):
