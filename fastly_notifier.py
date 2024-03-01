@@ -24,7 +24,7 @@ import logging
 import os
 import time
 
-import alertlib
+from gae_dashboard import alertlib
 
 
 _FASTLY_HOST = 'api.fastly.com'
