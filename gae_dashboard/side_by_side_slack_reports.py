@@ -58,7 +58,7 @@ def group_by_team(results):
 
 def send_to_slack(results_by_team, date):
     date_str = date.strftime("%Y%m%d")
-    for team, results in results_by_team.items():
+    for team, results in list(results_by_team.items()):
         intro = "*{team}* results for {date}\n".format(
             team=initiatives.title(team), date=date_str)
         intro += "Click on any operation name below for more details:\n"

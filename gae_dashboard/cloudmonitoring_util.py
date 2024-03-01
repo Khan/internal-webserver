@@ -6,7 +6,7 @@ Engine and Compute Engine.
 
 import calendar
 import json
-import httplib
+import http.client
 import logging
 import os
 import re
@@ -35,10 +35,10 @@ def _call_with_retries(fn, num_retries=9):
     """Run fn (a network command) up to 9 times for non-fatal errors."""
     import apiclient.errors
     import oauth2client.client
-    for i in xrange(num_retries + 1):     # the last time, we re-raise
+    for i in range(num_retries + 1):     # the last time, we re-raise
         try:
             return fn()
-        except (socket.error, httplib.HTTPException,
+        except (socket.error, http.client.HTTPException,
                 oauth2client.client.Error):
             if i == num_retries:
                 raise

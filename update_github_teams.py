@@ -13,12 +13,12 @@ import os
 import re
 import sys
 import time
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 
 def _get_with_retries(url, github_token=None, max_tries=3):
     """If specified, basic_auth is a (username, password) pair."""
-    request = urllib2.Request(url)
+    request = urllib.request.Request(url)
     if github_token:
         # Use the token-based basic-oauth scheme described at
         #   https://developer.github.com/v3/auth/#via-oauth-tokens
@@ -29,12 +29,12 @@ def _get_with_retries(url, github_token=None, max_tries=3):
         request.add_unredirected_header('Authorization',
                                         'Basic %s' % encoded_password)
 
-    for i in xrange(max_tries):
+    for i in range(max_tries):
         try:
-            return urllib2.urlopen(request)
-        except urllib2.URLError, why:
+            return urllib.request.urlopen(request)
+        except urllib.error.URLError as why:
             if i == max_tries - 1:   # are not going to retry again
-                print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
+                print('FATAL ERROR: Fetching %s failed: %s' % (url, why))
                 raise
             time.sleep(i * i)     # quadratic backoff
 
@@ -50,7 +50,7 @@ def _get_full(github_path, github_token=None, max_tries=3, verbose=False):
 
     while url:
         if verbose:
-            print 'Fetching url %s' % url
+            print('Fetching url %s' % url)
         response = _get_with_retries(url, github_token)
         if retval is None:
             retval = json.load(response)
@@ -73,9 +73,9 @@ def _put(github_path, github_token=None, max_tries=3, verbose=False):
     # http://stackoverflow.com/questions/111945/is-there-any-way-to-do-http-put-in-python
     url = 'https://api.github.com%s' % github_path
     if verbose:
-        print 'PUT-ing url %s' % url
-    opener = urllib2.build_opener(urllib2.HTTPSHandler)
-    request = urllib2.Request(url)
+        print('PUT-ing url %s' % url)
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler)
+    request = urllib.request.Request(url)
     request.get_method = lambda: 'PUT'
 
     request.add_header('Content-Length', '0')
@@ -130,9 +130,9 @@ def main(status_file, dry_run, verbose):
         for (team_name, team_id, team_repos) in team_info:
             if repo not in team_repos:
                 if dry_run:
-                    print 'Would add the %s team to %s' % (team_name, repo)
+                    print('Would add the %s team to %s' % (team_name, repo))
                 else:
-                    print 'Adding the %s team to %s' % (team_name, repo)
+                    print('Adding the %s team to %s' % (team_name, repo))
                     _put('/teams/%s/repos/%s' % (team_id, repo),
                          github_token=github_token, verbose=verbose)
 

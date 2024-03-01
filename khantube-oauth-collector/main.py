@@ -21,7 +21,7 @@ import email.MIMEText
 import optparse
 import os
 import smtplib
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import tempfile
 import flask
 
@@ -42,7 +42,7 @@ app = flask.Flask(__name__)
 @app.route("/")
 def request_permission():
     oauth_link = ('https://accounts.google.com/o/oauth2/auth?%s' %
-        urllib.urlencode({
+        urllib.parse.urlencode({
             'scope': ' '.join(OAUTH_SCOPES),
             'redirect_uri': flask.url_for('oauth2callback', _external=True),
             'response_type': 'code',
@@ -73,7 +73,7 @@ def oauth2callback():
                                        suffix='.%s' % email_address)
     credentials_file = os.path.join(credentials_dir, 'credentials')
     with open(credentials_file, 'wb') as f:
-        print >>f, refresh_token
+        print(refresh_token, file=f)
 
     # Send off an email altering us that a new oauth refresh token is waiting
     # to be added.

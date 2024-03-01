@@ -100,7 +100,7 @@ def _get_instances_matching_name_from_response(instances_list_response,
     minimized.
     """
     gce_instances = []
-    for zone_name, zone in instances_list_response['items'].iteritems():
+    for zone_name, zone in instances_list_response['items'].items():
         zone_name = zone_name.replace('zones/', '')
         for instance in zone.get('instances', {}):
             if name_substring in instance['name']:
@@ -130,7 +130,7 @@ def main(project_id, dry_run):
     # that module in GCE instance names.
     module_id_to_name_substring = {'react-render': 'gae-react--render',
                                    'vm': 'gae-vm-'}
-    for module_id, name_substring in module_id_to_name_substring.iteritems():
+    for module_id, name_substring in module_id_to_name_substring.items():
         instances = _get_instances_matching_name_from_response(
             instance_list_response, name_substring)
 
@@ -149,8 +149,8 @@ def main(project_id, dry_run):
              if _instance_is_failed(l, unhealthy_count_threshold)])
 
         if dry_run:
-            print ('module=%s, num_failed_instances=%s'
-                   % (module_id, num_failed_instances))
+            print(('module=%s, num_failed_instances=%s'
+                   % (module_id, num_failed_instances)))
             continue
 
         # Send metric to Stackdriver.

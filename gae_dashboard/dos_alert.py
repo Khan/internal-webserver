@@ -92,7 +92,7 @@ DOS_ALERT_IP_INTRO_TEMPLATE = """\n\
 *Reqs in last 5 minutes:*
 """
 DOS_ALERT_IP_COUNT_TEMPLATE = (
-    u" \u2022 {count} requests to _{url}_ with UA `{user_agent}`\n")
+    " \u2022 {count} requests to _{url}_ with UA `{user_agent}`\n")
 
 DOS_ALERT_FOOTER = """\
 Consider blocking IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
@@ -302,7 +302,7 @@ def dos_detect(end):
             # TODO(drosile): maybe refactor this to be cleaner?
             alerting_url_regexes = [
                     filter_regex for filter_regex
-                    in DOS_SAFELIST_URL_REGEX.keys()
+                    in list(DOS_SAFELIST_URL_REGEX.keys())
                     if re.match(filter_regex, row['url'])]
             if alerting_url_regexes:
                 # Note that if more than one route regex matches, the value for

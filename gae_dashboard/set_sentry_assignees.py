@@ -13,7 +13,7 @@ and assign them to initiatives based on the URLs of issue events.
 import collections
 import os.path
 import re
-import urlparse
+import urllib.parse
 
 import requests
 
@@ -83,7 +83,7 @@ def get_unassigned_issue_ids():
 def get_issue_urls(issue_id):
     "Return a sequence of (url path, count) tuples for the issue."
     urls = sentry_request('/issues/{}/tags/url/'.format(issue_id))
-    return [(urlparse.urlparse(url['value']).path, url['count'])
+    return [(urllib.parse.urlparse(url['value']).path, url['count'])
             for url in urls['topValues']]
 
 
@@ -127,15 +127,15 @@ def main():
             issue_urls = get_issue_urls(issue_id)
         except requests.exceptions.HTTPError:
             # Not sure why this sometimes happens.
-            print 'Could not fetch issue {}'.format(issue_id)
+            print('Could not fetch issue {}'.format(issue_id))
             continue
         try:
             initiative = best_initiative(issue_urls)
             set_issue_assignee(issue_id, initiative, ids)
         except KeyError as e:
-            print 'Cannot find initiative for {}: {}'.format(issue_id, e)
+            print('Cannot find initiative for {}: {}'.format(issue_id, e))
 
-    print 'Set assignees for {} issues.'.format(len(unassigned_issue_ids))
+    print('Set assignees for {} issues.'.format(len(unassigned_issue_ids)))
 
 
 if __name__ == '__main__':

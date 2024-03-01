@@ -36,9 +36,9 @@ _GOOGLE_PROJECT_ID = 'khan-academy'    # used when sending to stackdriver
 
 def _is_number(s):
     """Return True if s is a numeric type or 'looks like' a number."""
-    if isinstance(s, (int, long, float)):
+    if isinstance(s, (int, float)):
         return True
-    if isinstance(s, basestring):
+    if isinstance(s, str):
         return s.strip('01234567890.-') == ''
     return False
 
@@ -67,7 +67,7 @@ def _by_initiative(data, key='url_route', by_package=False):
             teams = [teams]
         for team in teams:
             rows[team].append(row)
-    return rows.items()
+    return list(rows.items())
 
 
 def _convert_table_rows_to_lists(table, order):
@@ -82,8 +82,8 @@ def _convert_table_rows_to_lists(table, order):
     """
     retval = []
     for row in table:
-        row_contents = row.items()
-        row_contents.sort(key=lambda (k, v): order.index(k))
+        row_contents = list(row.items())
+        row_contents.sort(key=lambda k_v: order.index(k_v[0]))
         retval.append([v for (k, v) in row_contents])
 
     retval.insert(0, list(order))
@@ -167,7 +167,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
         tables = {'': tables}
 
     images = []
-    for heading, table in sorted(tables.iteritems()):
+    for heading, table in sorted(tables.items()):
         if heading:
             body.append('<h3>%s</h3>' % heading)
         if table and table[0]:
@@ -188,7 +188,7 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
                 for col in row:
                     style = 'padding: 3px 5px 3px 8px;'
                     # If the column isn't a string, convert it to one.
-                    if isinstance(col, (int, long)):
+                    if isinstance(col, int):
                         style += 'text-align: right;'
                     elif isinstance(col, float):
                         style += 'text-align: right;'
@@ -228,9 +228,9 @@ def _send_email(tables, graph, to, cc=None, subject='bq data', preamble=None,
     if cc:
         msg['Cc'] = ', '.join(cc)
     if dry_run:
-        print "WOULD EMAIL:"
-        print msg.as_string()
-        print "--------------------------------------------------"
+        print("WOULD EMAIL:")
+        print(msg.as_string())
+        print("--------------------------------------------------")
     else:
         s = smtplib.SMTP('localhost')
         s.sendmail('toby-admin+bq-cron@khanacademy.org', to, msg.as_string())
@@ -296,9 +296,9 @@ def _send_table_to_stackdriver(table, metric_name, metric_label_name,
                                   time_t))
 
     if dry_run:
-        print "WOULD SEND TO STACKDRIVER:"
-        print stackdriver_input
-        print "------------------------------------------------"
+        print("WOULD SEND TO STACKDRIVER:")
+        print(stackdriver_input)
+        print("------------------------------------------------")
     else:
         cloudmonitoring_util.send_timeseries_to_cloudmonitoring(
             _GOOGLE_PROJECT_ID, stackdriver_input)
@@ -390,7 +390,7 @@ def email_instance_hours(date, dry_run=False):
     """Email instance hours report for the given datetime.date object."""
     yyyymmdd = date.strftime("%Y%m%d")
     cost_fn = '\n'.join("WHEN module_id == '%s' THEN latency * %s" % kv
-                        for kv in _MODULE_CPU_COUNT.iteritems())
+                        for kv in _MODULE_CPU_COUNT.items())
     query = """\
 SELECT COUNT(1) as count_,
 elog_url_route as url_route,
@@ -682,9 +682,9 @@ ORDER BY
         row['last 2 weeks'] = sparkline_data
 
         # If the logline is just a number, bq will report it as an int (sigh).
-        if not isinstance(row['firstword'], basestring):
+        if not isinstance(row['firstword'], str):
             row['firstword'] = str(row['firstword'])
-        if not isinstance(row['sample_logline'], basestring):
+        if not isinstance(row['sample_logline'], str):
             row['sample_logline'] = str(row['sample_logline'])
 
         # While we're here, truncate the sample-logline, since it can get
@@ -722,7 +722,7 @@ def main():
                         default=_DEFAULT_DAY.strftime("%Y%m%d"),
                         help=('Date to get reports for, specified as YYYYMMDD '
                               '(default "%(default)s")'))
-    reports = [k for k, v in globals().iteritems() if
+    reports = [k for k, v in globals().items() if
                k.startswith('email') and hasattr(v, '__call__')]
     parser.add_argument('--report', metavar='NAME', required=False,
                         help='The function name of a specific report to run.  '
@@ -735,19 +735,19 @@ def main():
 
     if args.report:
         report_method = globals()[args.report]
-        print 'Emailing %s info' % args.report
+        print('Emailing %s info' % args.report)
         report_method(date, dry_run=args.dry_run)
     else:
-        print 'Emailing instance hour info'
+        print('Emailing instance hour info')
         email_instance_hours(date, dry_run=args.dry_run)
 
-        print 'Emailing out-of-memory info'
+        print('Emailing out-of-memory info')
         email_out_of_memory_errors(date, dry_run=args.dry_run)
 
-        print 'Emailing client API usage info'
+        print('Emailing client API usage info')
         email_client_api_usage(date, dry_run=args.dry_run)
 
-        print 'Emailing app-log sizes'
+        print('Emailing app-log sizes')
         email_applog_sizes(date, dry_run=args.dry_run)
 
 

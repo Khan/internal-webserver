@@ -103,7 +103,7 @@ def average_uptime_for_period(start_dt, end_dt, sec_per_chunk, down_threshold):
     assert delta.microseconds == 0
     assert delta.days > 0
     uptimes = []
-    for day in xrange(delta.days):
+    for day in range(delta.days):
         uptimes.append(get_uptime_for_day(start_dt + datetime.timedelta(day),
                                           sec_per_chunk, down_threshold))
     return float(sum(uptimes)) / len(uptimes)

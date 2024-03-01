@@ -51,7 +51,7 @@ import shutil
 import tempfile
 import threading
 import time
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 import bq_util
 import pytz
@@ -87,7 +87,7 @@ class SailthruAPIException(Exception):
 
     def log_message(self):
         stapi_error = self.response.get_error()
-        return u"Sailthru API returned {}, error code {}: {}".format(
+        return "Sailthru API returned {}, error code {}: {}".format(
             self.response.get_status_code(),
             stapi_error.get_error_code(),
             stapi_error.get_message())
@@ -95,8 +95,8 @@ class SailthruAPIException(Exception):
 
 def _post(arg, **kwargs):
     if kwargs.get('verbose'):
-        print "Calling sailthru's blast_query for blast_id = %s" % kwargs.get(
-            'blast_id')
+        print("Calling sailthru's blast_query for blast_id = %s" % kwargs.get(
+            'blast_id'))
     client = _get_client()
     response = client.api_post(arg, kwargs)
     if not response.is_ok():
@@ -184,23 +184,23 @@ def _send_blast_details_to_bq(blast_id, temp_file,
     job_id = response_1.get_body().get('job_id')
 
     if job_id is None:
-        print ("WARNING: For the blast_query job with blast_id = %s, "
+        print(("WARNING: For the blast_query job with blast_id = %s, "
                "the job_id returned from Sailthru's job=blast_query is "
-               "None" % blast_id)
+               "None" % blast_id))
         return
 
     if verbose:
-        print ("For the blast_query job with blast_id = %s, calling "
+        print(("For the blast_query job with blast_id = %s, calling "
                "sailthru's job status API for job_id = %s" % (blast_id,
-                                                              job_id))
+                                                              job_id)))
     response_2 = _get('job', job_id=job_id)
 
     while response_2.get_body().get('status') != "completed":
         if verbose:
-            print ("For the blast_query job with blast_id = %s, polled "
+            print(("For the blast_query job with blast_id = %s, polled "
                    "sailthru's job status API for job_id = %s " %
-                   (blast_id, job_id))
-            print "Will poll again in 5 seconds."
+                   (blast_id, job_id)))
+            print("Will poll again in 5 seconds.")
         time.sleep(5)
         response_2 = _get('job', job_id=job_id)
         if response_2.get_body().get('status') == "expired":
@@ -209,14 +209,14 @@ def _send_blast_details_to_bq(blast_id, temp_file,
     filename_url = response_2.get_body().get('export_url')
 
     if verbose:
-        print ("For the blast_query job with blast_id = %s, creating a jsonl "
-               "file from the sailthru data" % blast_id)
+        print(("For the blast_query job with blast_id = %s, creating a jsonl "
+               "file from the sailthru data" % blast_id))
 
     with _CPU_LOCK:
         try:
             with open(temp_file, "wb") as f:
                 with contextlib.closing(
-                        urllib.urlopen(filename_url)) as csvdata:
+                        urllib.request.urlopen(filename_url)) as csvdata:
                     # Take the csv data from the Sailthru API and
                     # convert it to JSON. bq can read columns in
                     # REPEATED mode from JSON files, but not from
@@ -224,7 +224,7 @@ def _send_blast_details_to_bq(blast_id, temp_file,
                     # items.
                     reader = csv.reader(csvdata, delimiter=',', quotechar='"')
 
-                    headers = reader.next()
+                    headers = next(reader)
 
                     # Correct confusing header names.
                     headers = [
@@ -277,14 +277,14 @@ def _send_blast_details_to_bq(blast_id, temp_file,
             # (TODO: Update schema to port dates in TIMESTAMP format in bq)
 
             if dry_run:
-                print ("DRY RUN: if this was for real, for the blast_query "
+                print(("DRY RUN: if this was for real, for the blast_query "
                        "job with blast_id = %s, we would write data at path "
                        "'%s' to bq table '%s'"
-                       % (blast_id, temp_file, table_name))
+                       % (blast_id, temp_file, table_name)))
             else:
                 if verbose:
-                    print ("For the blast_query job with blast_id = %s, "
-                           "writing jsonl file to bigquery" % blast_id)
+                    print(("For the blast_query job with blast_id = %s, "
+                           "writing jsonl file to bigquery" % blast_id))
                 bq_util.call_bq(['load',
                                  '--source_format=NEWLINE_DELIMITED_JSON',
                                  '--replace', table_name,
@@ -347,18 +347,18 @@ def _send_campaign_report(status, start_date, end_date, temp_file, verbose,
                     if i != len(blasts_info_json) - 1:
                         json_file.write("\n")
                 else:
-                    print ("No start_time for %s" %
-                           blasts_info_json[i]['name'])
+                    print(("No start_time for %s" %
+                           blasts_info_json[i]['name']))
 
         table_name = "sailthru_blasts.campaigns"
 
         if dry_run:
-            print ("DRY RUN: if this was for real, we would write data at path"
-                   " '%s' to bq table '%s'" % (temp_file, table_name))
+            print(("DRY RUN: if this was for real, we would write data at path"
+                   " '%s' to bq table '%s'" % (temp_file, table_name)))
         else:
             if verbose:
-                print ("Writing json file with %s lines to bigquery table %s"
-                       % (all_blasts_length, table_name))
+                print(("Writing json file with %s lines to bigquery table %s"
+                       % (all_blasts_length, table_name)))
             bq_util.call_bq(['load', '--source_format=NEWLINE_DELIMITED_JSON',
                              '--replace', table_name,
                              temp_file,
@@ -424,27 +424,27 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
     job_id = response_1.get_body().get('job_id')
 
     if job_id is None:
-        print (
+        print((
             "WARNING: For the export_list_data job with list = %s, "
             "the job_id returned from Sailthru's job=export_list_data is "
-            "None" % list_name)
+            "None" % list_name))
         return
 
     if verbose:
-        print (
+        print((
             "For the export_list_data job with list = %s, calling "
             "sailthru's job status API for job_id = %s" % (
                 list_name,
-                job_id))
+                job_id)))
     response_2 = _get('job', job_id=job_id)
 
     while response_2.get_body().get('status') != "completed":
         if verbose:
-            print (
+            print((
                 "For the export_list_data job with list_name = %s, polled "
                 "sailthru's job status API for job_id = %s " %
-                (list_name, job_id))
-            print "Will poll again in 5 seconds."
+                (list_name, job_id)))
+            print("Will poll again in 5 seconds.")
         time.sleep(5)
         response_2 = _get('job', job_id=job_id)
         if response_2.get_body().get('status') == "expired":
@@ -452,24 +452,24 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
 
     filename_url = response_2.get_body().get('export_url')
 
-    print filename_url
+    print(filename_url)
 
     if verbose:
-        print (
+        print((
             "For the export_list_data job with list_name = %s, "
             "creating a jsonl "
-            "file from the sailthru data" % list_name)
+            "file from the sailthru data" % list_name))
 
     with _CPU_LOCK:
         try:
             with open(temp_file, "wb") as f:
-                open_url = urllib.urlopen(filename_url)
+                open_url = urllib.request.urlopen(filename_url)
                 with contextlib.closing(open_url) as csvdata:
                     # Take the csv data from the Sailthru API and
                     # convert it to JSON.
                     reader = csv.reader(csvdata, delimiter=',', quotechar='"')
 
-                    headers = reader.next()
+                    headers = next(reader)
                     headers = [
                         normalized_headers[hdr]
                         if hdr in normalized_headers
@@ -491,16 +491,16 @@ def _send_list_data_to_bq(list_name, temp_file, verbose, dry_run, keep_temp):
                         f.write("%s\n" % (json.dumps(row_object)))
 
             if dry_run:
-                print (
+                print((
                     "DRY RUN: if this was for real, for the export_list_data "
                     "job with list = %s, we would write data at path "
                     "'%s' to bq table '%s'"
-                    % (list_name, temp_file, bq_table_name))
+                    % (list_name, temp_file, bq_table_name)))
             else:
                 if verbose:
-                    print (
+                    print((
                         "For the export_list_data job with list = %s, "
-                        "writing jsonl file to bigquery" % list_name)
+                        "writing jsonl file to bigquery" % list_name))
 
                 bq_util.call_bq([
                     'load',
@@ -574,7 +574,7 @@ if __name__ == "__main__":
 
     if args.verbose:
         # Log the path of temp directory for debugging
-        print "temp_dir is %s" % temp_dir
+        print("temp_dir is %s" % temp_dir)
 
     if args.subparser_name == 'blast':
         temp_file = os.path.join(temp_dir, "blast_export.jsonl")
@@ -644,6 +644,6 @@ if __name__ == "__main__":
         pool.join()
 
     if args.keep_temp:
-        print "Not removing temp_dir %s" % (temp_dir)
+        print("Not removing temp_dir %s" % (temp_dir))
     else:
         shutil.rmtree(temp_dir)

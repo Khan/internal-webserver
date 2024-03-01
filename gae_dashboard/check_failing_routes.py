@@ -131,11 +131,11 @@ def check(date, dry_run=False):
         row['owners'] = initiatives.route_owners(route)
     if dry_run:
         if not route_data:
-            print 'No routes with no 2xx requests for {}'.format(
-                date.strftime('%x'))
+            print('No routes with no 2xx requests for {}'.format(
+                date.strftime('%x')))
         else:
-            print 'Routes with no 2xx requests for {}:\n{}'.format(
-                date.strftime('%x'), '\n'.join(_errors(route_data)))
+            print('Routes with no 2xx requests for {}:\n{}'.format(
+                date.strftime('%x'), '\n'.join(_errors(route_data))))
         return
 
     if route_data:
