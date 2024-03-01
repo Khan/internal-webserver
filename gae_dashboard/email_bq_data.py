@@ -14,8 +14,9 @@ import argparse
 import collections
 import datetime
 import email
+import email.mime.image
+import email.mime.multipart
 import email.mime.text
-import email.utils
 import hashlib
 import html
 import smtplib
@@ -316,21 +317,21 @@ def _embed_images_to_mime(html, images):
         # For consistency, we should still do a trivial string format to
         # unescape the % signs.  But there's no point jumping through all the
         # hoops of making the multipart MIME.
-        return email.MIMEText.MIMEText(html % (), 'html', 'utf-8')
+        return email.mime.text.MIMEText(html % (), 'html', 'utf-8')
     image_tag_template = '<img src="cid:%s" alt=""/>'
     image_tags = []
     image_mimes = []
     for image in images:
         image_id = "%s@khanacademy.org" % hashlib.sha1(image).hexdigest()
         image_tags.append(image_tag_template % image_id)
-        image_mime = email.MIMEImage.MIMEImage(image)
+        image_mime = email.mime.image.MIMEImage(image)
         image_mime.add_header('Content-ID', '<%s>' % image_id)
         # Cause the images to only render inline, not as attachments
         # (hopefully; this seems to be a bit buggy in Gmail)
         image_mime.add_header('Content-Disposition', 'inline')
         image_mimes.append(image_mime)
-    msg_root = email.MIMEMultipart.MIMEMultipart('related')
-    msg_body = email.MIMEText.MIMEText(
+    msg_root = email.mime.multipart.MIMEMultipart('related')
+    msg_body = email.mime.text.MIMEText(
         html % tuple(image_tags), 'html', 'utf-8'
     )
     msg_root.attach(msg_body)
