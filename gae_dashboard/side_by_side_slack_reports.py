@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 A script to pipe side-by-side testing results from bigquery to slack daily.
 
@@ -15,6 +15,7 @@ import alertlib
 import bq_util
 
 import initiatives
+
 
 COUNTS_BY_OPERATION = """
 #standardSQL

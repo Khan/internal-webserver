@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Send GCE Instance Metrics from the Cloud Compute API to Cloud Monitoring.
 
@@ -37,7 +37,7 @@ def _instance_is_failed(serial_port_output, unhealthy_count_threshold):
     # that the full serial port output history isn't sorted
     serial_port_output = serial_port_output[-1000:]
     timestamp_re = re.compile(r'TIME=(\d+)')
-    serial_port_output.sort(key=lambda l: timestamp_re.findall(l),
+    serial_port_output.sort(key=lambda line: timestamp_re.findall(line),
                             reverse=True)
 
     num_consecutive_unhealthy = 0
@@ -100,7 +100,7 @@ def _get_instances_matching_name_from_response(instances_list_response,
     minimized.
     """
     gce_instances = []
-    for zone_name, zone in instances_list_response['items'].iteritems():
+    for zone_name, zone in instances_list_response['items'].items():
         zone_name = zone_name.replace('zones/', '')
         for instance in zone.get('instances', {}):
             if name_substring in instance['name']:
@@ -130,7 +130,7 @@ def main(project_id, dry_run):
     # that module in GCE instance names.
     module_id_to_name_substring = {'react-render': 'gae-react--render',
                                    'vm': 'gae-vm-'}
-    for module_id, name_substring in module_id_to_name_substring.iteritems():
+    for module_id, name_substring in module_id_to_name_substring.items():
         instances = _get_instances_matching_name_from_response(
             instance_list_response, name_substring)
 
@@ -145,12 +145,12 @@ def main(project_id, dry_run):
         unhealthy_count_threshold = 5
 
         num_failed_instances = len(
-            [l for l in serial_port_output_lines
-             if _instance_is_failed(l, unhealthy_count_threshold)])
+            [line for line in serial_port_output_lines
+             if _instance_is_failed(line, unhealthy_count_threshold)])
 
         if dry_run:
-            print ('module=%s, num_failed_instances=%s'
-                   % (module_id, num_failed_instances))
+            print('module=%s, num_failed_instances=%s'
+                  % (module_id, num_failed_instances))
             continue
 
         # Send metric to Stackdriver.

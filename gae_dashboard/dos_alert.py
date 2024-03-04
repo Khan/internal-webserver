@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Check request logs to look for an in progress DoS attack.
 
 This script does a very simplistic check for DoS attack and notifies us via
@@ -18,7 +18,7 @@ sure whether this is due to a bug or by design, but I don't think it's a DoS.
 
 import re
 import datetime
-from itertools import groupby
+import itertools
 
 import alertlib
 import bq_util
@@ -92,7 +92,7 @@ DOS_ALERT_IP_INTRO_TEMPLATE = """\n\
 *Reqs in last 5 minutes:*
 """
 DOS_ALERT_IP_COUNT_TEMPLATE = (
-    u" \u2022 {count} requests to _{url}_ with UA `{user_agent}`\n")
+    " \u2022 {count} requests to _{url}_ with UA `{user_agent}`\n")
 
 DOS_ALERT_FOOTER = """\
 Consider blocking IP using <https://manage.fastly.com/configure/services/2gbXxdf2yULJQiG4ZbnMVG/|Fastly>
@@ -102,8 +102,8 @@ See requests in bq in fastly.khanacademy_dot_org_logs_YYYYMMDD table
 """
 
 # Dictionary with override values for certain routes to support more traffic
-# without alerting. A value of "None" will set off an alert for any number of 
-# requests for that route. Routes that do not match any regex here will 
+# without alerting. A value of "None" will set off an alert for any number of
+# requests for that route. Routes that do not match any regex here will
 # trigger an alert if they receive more than MAX_REQS_SEC.
 # Note that overrides won't work if set below the MAX_REQS_SEC threshold.
 DOS_SAFELIST_URL_REGEX = {
@@ -285,7 +285,7 @@ def dos_detect(end):
         return
 
     # Group by IPs to reduce duplicate alerts during a DDoS attack
-    ip_groups = groupby(results, key=lambda row: row['ip'])
+    ip_groups = itertools.groupby(results, key=lambda row: row['ip'])
 
     msg = DOS_ALERT_INTRO
     any_alerts_seen = False
@@ -294,7 +294,7 @@ def dos_detect(end):
         for row in rows:
             # We want to alert for this IP/URL combination by default. If the
             # url matches one in the safelist, this value may be set to false.
-            # However, if it does not match anything in the safelist, we 
+            # However, if it does not match anything in the safelist, we
             # should set off an alert.
             to_alert = True
             # If a matching url is found, check for adjusted/overriden max

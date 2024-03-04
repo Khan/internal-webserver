@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Read a UDP packet on a given port and log it to a logfile."""
 

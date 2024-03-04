@@ -3,10 +3,8 @@
 Cloud Monitoring monitors and alerts based on timeseries data for App
 Engine and Compute Engine.
 """
-
 import calendar
-import json
-import httplib
+import http.client
 import logging
 import os
 import re
@@ -35,10 +33,10 @@ def _call_with_retries(fn, num_retries=9):
     """Run fn (a network command) up to 9 times for non-fatal errors."""
     import apiclient.errors
     import oauth2client.client
-    for i in xrange(num_retries + 1):     # the last time, we re-raise
+    for i in range(num_retries + 1):     # the last time, we re-raise
         try:
             return fn()
-        except (socket.error, httplib.HTTPException,
+        except (socket.error, http.client.HTTPException,
                 oauth2client.client.Error):
             if i == num_retries:
                 raise
@@ -57,21 +55,19 @@ def _call_with_retries(fn, num_retries=9):
 def get_cloud_service(service_name, version_number, scope=None):
     import apiclient.discovery
     import httplib2
-    import oauth2client.client
+    import oauth2client.service_account
 
     scope = 'https://www.googleapis.com/auth/%s' % (
         scope if scope is not None else service_name)
 
-    # Load the private key that we need to get data from Cloud compute.
-    # This will (properly) raise an exception if this file
-    # isn't installed (it's acquired from the Cloud Platform Console).
-    with open(os.path.expanduser('~/cloudmonitoring_secret.json')) as f:
-        json_key = json.load(f)
-
     def get_service():
-        credentials = oauth2client.client.SignedJwtAssertionCredentials(
-            json_key['client_email'], json_key['private_key'],
-            scope)
+        # Load the private key that we need to get data from Cloud compute.
+        # This will (properly) raise an exception if this file
+        # isn't installed (it's acquired from the Cloud Platform Console).
+        credentials = (oauth2client.service_account.ServiceAccountCredentials.
+                       from_json_keyfile_name(
+                           os.path.expanduser('~/cloudmonitoring_secret.json'),
+                           scopes=[scope]))
         http = credentials.authorize(httplib2.Http())
         return apiclient.discovery.build(serviceName=service_name,
                                          version=version_number, http=http)

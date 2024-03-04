@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Check for routes that never return ok response codes
 
 Notifies slack and alerta when routes are found that have responses, but no 2xx
@@ -38,8 +38,8 @@ BAD_ROUTES_RE = [
     # expected to fail.
     re.compile(
         r'^api_main:/api/internal/(_mt/)?graphql'
-        '(/persist_(across_publish|across_deploy|until_publish))?'
-        '(/<path_opname>)?( \[(POST|HEAD)\])?$',
+        r'(/persist_(across_publish|across_deploy|until_publish))?'
+        r'(/<path_opname>)?( \[(POST|HEAD)\])?$',
     ),
     # For new gateway, it is okay not to include query name.
     # However these are from 3rd party scripts that we don't care if error,
@@ -131,11 +131,11 @@ def check(date, dry_run=False):
         row['owners'] = initiatives.route_owners(route)
     if dry_run:
         if not route_data:
-            print 'No routes with no 2xx requests for {}'.format(
-                date.strftime('%x'))
+            print('No routes with no 2xx requests for {}'.format(
+                date.strftime('%x')))
         else:
-            print 'Routes with no 2xx requests for {}:\n{}'.format(
-                date.strftime('%x'), '\n'.join(_errors(route_data)))
+            print('Routes with no 2xx requests for {}:\n{}'.format(
+                date.strftime('%x'), '\n'.join(_errors(route_data))))
         return
 
     if route_data:

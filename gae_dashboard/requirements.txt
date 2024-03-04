@@ -1,11 +1,5 @@
-GChartWrapper==0.8
-oauth2client==1.2
-google-api-python-client==1.2
-google-compute-engine==2.8.12
-pytz==2014.9
-boto==2.42.0
-Jinja2==2.9.5
-requests==2.20.0
-matplotlib==2.0.0
-numpy==1.15.4
-git+https://github.com/Khan/sailthru-python-client@c973e63f6#egg=sailthru-api-client
+oauth2client==4.1.3
+google-api-python-client==2.114.0
+pytz==2023.3.post1
+requests==2.31.0
+sailthru-api-client @ git+https://github.com/Khan/sailthru-python-client@c973e63f6

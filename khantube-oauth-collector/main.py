@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# TODO(colin): fix these lint errors (http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes)
-# pep8-disable:E128
+#!/usr/bin/env python3
 """
 Flask app to collect oauth refresh tokens which will for upload captions.
 
@@ -21,10 +19,10 @@ import email.MIMEText
 import optparse
 import os
 import smtplib
-import urllib
 import tempfile
-import flask
+import urllib.parse
 
+import flask
 import oauth2client.client
 
 import secrets
@@ -41,16 +39,15 @@ app = flask.Flask(__name__)
 
 @app.route("/")
 def request_permission():
-    oauth_link = ('https://accounts.google.com/o/oauth2/auth?%s' %
-        urllib.urlencode({
-            'scope': ' '.join(OAUTH_SCOPES),
-            'redirect_uri': flask.url_for('oauth2callback', _external=True),
-            'response_type': 'code',
-            'client_id': secrets.khantube_client_id,
-            'access_type': 'offline',
-            'approval_prompt': 'force'
-        }))
-
+    params = urllib.parse.urlencode({
+        'scope': ' '.join(OAUTH_SCOPES),
+        'redirect_uri': flask.url_for('oauth2callback', _external=True),
+        'response_type': 'code',
+        'client_id': secrets.khantube_client_id,
+        'access_type': 'offline',
+        'approval_prompt': 'force'
+    })
+    oauth_link = 'https://accounts.google.com/o/oauth2/auth?%s' % params
     return ('In order to give Khan Academy permission to upload captions to '
             'your youtube account <a href="%s">click here<a/>' % oauth_link)
 
@@ -73,7 +70,7 @@ def oauth2callback():
                                        suffix='.%s' % email_address)
     credentials_file = os.path.join(credentials_dir, 'credentials')
     with open(credentials_file, 'wb') as f:
-        print >>f, refresh_token
+        print(refresh_token, file=f)
 
     # Send off an email altering us that a new oauth refresh token is waiting
     # to be added.
@@ -121,6 +118,6 @@ def main():
             port = 80
         app.run(host='0.0.0.0', port=port)
 
+
 if __name__ == "__main__":
     main()
-

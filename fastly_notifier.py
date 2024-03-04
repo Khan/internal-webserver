@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """A script to notify, on slack, when fastly config changes happen.
 
@@ -17,16 +17,14 @@ every time they use the UI, we write a simple script that asks fastly if the
 version of the service has changed recently, and posts to slack if so.  It is
 meant to be run every minute or so, via cron.
 """
-from __future__ import absolute_import
-
 import collections
 import json
-import httplib
+import http.client
 import logging
 import os
 import time
 
-import alertlib
+from gae_dashboard import alertlib
 
 
 _FASTLY_HOST = 'api.fastly.com'
@@ -43,13 +41,13 @@ ServiceInfo = collections.namedtuple("ServiceInfo",
 
 def get_service_info(api_key):
     """Return a dict from service-name to ServiceInfo."""
-    conn = httplib.HTTPSConnection(_FASTLY_HOST)
+    conn = http.client.HTTPSConnection(_FASTLY_HOST)
     conn.request("GET", "/service", headers={'Fastly-Key': api_key})
     resp = conn.getresponse()
     body = resp.read()
     if resp.status != 200:
-        raise httplib.HTTPException("Error talking to %s: response %s (%s)"
-                                    % (_FASTLY_HOST, resp.status, body))
+        raise http.client.HTTPException("Error talking to %s: response %s (%s)"
+                                        % (_FASTLY_HOST, resp.status, body))
     data = json.loads(body)
 
     retval = {}
@@ -75,7 +73,7 @@ def get_modification_messages(service_info, last_service_info, history_file):
             '*Fastly service `%s` has been deleted*.\nLast seen at %s.'
             % (service, time.ctime(os.path.getmtime(history_file))))
 
-    for (service, info) in service_info.iteritems():
+    for (service, info) in service_info.items():
         # json stores data as a list, not a tuple, so we have to convert.
         if list(info) != last_service_info.get(service):
             messages.append(

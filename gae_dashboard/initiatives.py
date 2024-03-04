@@ -8,7 +8,7 @@ import os.path
 import re
 import subprocess
 import time
-import urlparse
+import urllib.parse
 
 # TODO(amos): Maybe eventully move these email addresses to
 # dev.ownership._TEAMS. The issue is that some of these aren't general purpose
@@ -35,7 +35,7 @@ TEAM_EMAIL = {
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
 # TODO(amos): Maybe validate this against the loaded data.
-TEAM_IDS = TEAM_EMAIL.keys()
+TEAM_IDS = list(TEAM_EMAIL.keys())
 
 DATA_FILE = 'ownership_data.json'
 DAY = 60 * 60 * 24
@@ -127,7 +127,7 @@ def file_owner(path):
 def url_owner(url):
     "Owning team id."
     data = _load_data()['urls']
-    return _owner_by_regexps(data, urlparse.urlsplit(url).path)
+    return _owner_by_regexps(data, urllib.parse.urlsplit(url).path)
 
 
 def route_owners(route):

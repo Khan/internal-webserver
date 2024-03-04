@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Get info about github repositories and emit it in csv form.
 
@@ -21,7 +21,8 @@ import optparse
 import os
 import re
 import sys
-import urllib2
+import urllib.error
+import urllib.request
 
 
 _GITHUB_REPO = re.compile(r'github.com[/:](Khan/[\w_.-]+)', re.I)
@@ -35,7 +36,7 @@ def _parse_time(datetime_string):
 
 def _get_with_retries(url, basic_auth=None, max_tries=3):
     """If specified, basic_auth is a (username, password) pair."""
-    request = urllib2.Request(url)
+    request = urllib.request.Request(url)
     if basic_auth:
         # This is the best way to set the user, according to
         # http://stackoverflow.com/questions/2407126/python-urllib2-basic-auth-problem
@@ -43,16 +44,16 @@ def _get_with_retries(url, basic_auth=None, max_tries=3):
         request.add_unredirected_header('Authorization',
                                         'Basic %s' % encoded_password)
 
-    for i in xrange(max_tries):
+    for i in range(max_tries):
         try:
-            return urllib2.urlopen(request)
-        except urllib2.URLError as why:
+            return urllib.request.urlopen(request)
+        except urllib.error.URLError as why:
             # For HTTP rc of 4xx, retrying won't help
             if i == max_tries - 1 or getattr(why, 'code', 500) < 500:
                 if getattr(why, 'code', 500) not in (404, 409):
                     # 404's are expected sometimes, so don't print.
                     # Same is true for 409.
-                    print 'FATAL ERROR: Fetching %s failed: %s' % (url, why)
+                    print('FATAL ERROR: Fetching %s failed: %s' % (url, why))
                 raise
 
 
@@ -66,7 +67,7 @@ def _get_repos(github_token, max_repos, verbose):
     # The results may span several pages, requiring several fetches.
     while github_api_url and len(github_repo_info) < max_repos:
         if verbose:
-            print 'Fetching url %s' % github_api_url
+            print('Fetching url %s' % github_api_url)
         # Use the token-based basic-oauth scheme described at
         #   https://developer.github.com/v3/auth/#via-oauth-tokens
         response = _get_with_retries(github_api_url,
@@ -84,10 +85,10 @@ def _get_commit_info(repo, github_token, verbose):
     github_api_url = (
         'https://api.github.com/repos/%s/commits?per_page=100' % repo)
     if verbose:
-        print 'Fetching url %s' % github_api_url
+        print('Fetching url %s' % github_api_url)
     try:
         r = _get_with_retries(github_api_url, (github_token, 'x-oauth-basic'))
-    except urllib2.HTTPError as why:
+    except urllib.error.HTTPError as why:
         if why.code == 409:            # empty repo
             return []
         raise
@@ -99,10 +100,10 @@ def _get_file_contents(repo, path, github_token, verbose):
     github_api_url = (
         'https://api.github.com/repos/%s/contents/%s' % (repo, path))
     if verbose:
-        print 'Fetching url %s' % github_api_url
+        print('Fetching url %s' % github_api_url)
     try:
         r = _get_with_retries(github_api_url, (github_token, 'x-oauth-basic'))
-    except urllib2.HTTPError as why:
+    except urllib.error.HTTPError as why:
         if why.code == 404:            # no .gitmodules
             return ''
         raise
@@ -187,18 +188,18 @@ def summarize_repo_info(github_token, max_repos, verbose):
               'your username', 'comments']
     summaries = {}
 
-    print "Getting list of repos...",
+    print("Getting list of repos...", end=' ')
     repo_info = _get_repos(github_token, max_repos, verbose)
-    print "done"
+    print("done")
 
-    print "Filtering out unarchived repos"
+    print("Filtering out unarchived repos")
     repo_info = [ri for ri in repo_info if not ri['archived']]
 
     # a list of all repos some other repo depends on, e.g. as a submodule
     dependent_repo_ids = {}
     for (i, repo) in enumerate(repo_info):
-        print ("Getting info for %s (%d of %d)..."
-               % (repo['full_name'], i + 1, len(repo_info))),
+        print(("Getting info for %s (%d of %d)..."
+               % (repo['full_name'], i + 1, len(repo_info))), end=' ')
         repo_name = repo['full_name']
         repo_id = repo_name.lower()  # I think github urls are case-insensitive
         commit_info = _get_commit_info(repo_name, github_token, verbose)
@@ -229,12 +230,12 @@ def summarize_repo_info(github_token, max_repos, verbose):
             dependent_repo_id = dependent_repo.lower()
             dependent_repo_ids.setdefault(dependent_repo_id, set()).add(
                 repo_name)
-        print "done"
+        print("done")
 
     # If a repo is used as a submodule for another repo, or is listed in
     # another repo's package.json, don't archive it; it's still active.
     # TODO(csilvers): maybe make sure the submodule-includer is active first?
-    for (repo_id, depending_repos) in dependent_repo_ids.iteritems():
+    for (repo_id, depending_repos) in dependent_repo_ids.items():
         if repo_id in summaries:
             if len(depending_repos) == 1:
                 reason = '%s uses it' % list(depending_repos)[0]
@@ -247,13 +248,13 @@ def summarize_repo_info(github_token, max_repos, verbose):
     # upstream directly.
 
     # We'll sort the repos by last_push_author for ease of reference.
-    rows = summaries.values()
+    rows = list(summaries.values())
     rows.sort(key=lambda d: (d['last push author'], d['last push']))
 
     return (header, rows)
 
 
-def main(outfile, max_repos=sys.maxint, verbose=False):
+def main(outfile, max_repos=sys.maxsize, verbose=False):
     with open(os.path.expanduser('~/github.repo_token')) as f:
         github_token = f.read().strip()
 
@@ -269,7 +270,7 @@ if __name__ == '__main__':
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('-v', '--verbose', action='store_true',
                       help='More verbose output')
-    parser.add_option('-m', '--max-repos', type=int, default=sys.maxint,
+    parser.add_option('-m', '--max-repos', type=int, default=sys.maxsize,
                       help=('If set, limit downloaded repos to this many '
                             '(useful for testing)'))
     parser.add_option('-f', '--filename', default='github_info.csv',
