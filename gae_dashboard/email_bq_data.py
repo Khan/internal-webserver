@@ -346,12 +346,9 @@ def _embed_images_to_mime(html, images):
 # 1) Our machines use an instance_class more powerful than F1, so
 # we pay a multiple of the cost.  This is based on the chart at
 #   https://cloud.google.com/appengine/pricing#standard_instance_pricing
-# 2) Our modules do not have perfect scheduling, so their utilization
-# is typically less than 1.  We pay for that unused time, so I spread
-# it out over each request.  On the other hand, some of our modules
-# are multithreaded, and can handle multiple requests simultaneously.
-# In that case, adding up all the latencies *over*estimates the cost.
-# Looking at the average utilization handles that case as well.
+# 2) Our modules are typically multithreaded, and can handle multiple
+#   requests simultaneously.  So, adding up all the latencies overestimates
+#   the cost.  Looking at the average utilization handles that case.
 # We calculate the utilization by periodically running (in bigquery):
 """
 SELECT module_id,
@@ -361,7 +358,7 @@ SELECT module_id,
     -- min(start_time): when the instance was created
     -- max(end_time): when the instance died
     -- util_weight: to give more weight to longer-lived instances
-    SELECT IFNULL(module_id, 'default') AS module_id,
+    SELECT module_id,
            sum(latency - pending_time) / (max(end_time) - min(start_time))
              as utilization,
            max(end_time) - min(start_time) as util_weight
@@ -373,17 +370,62 @@ SELECT module_id,
 WHERE utilization > 0.1
 GROUP BY module_id
 """
-# Utilization was last updated 2018-09-27 using log data averages from
-# 2018-09-20 to 2018-09-26.
-# Instance classes were last updated 2019-08-29.
+# From https://cloud.google.com/appengine/pricing#standard_instance_pricing
+_COSTS = {
+    'F1': 0.05,
+    'F2': 0.1,
+    'F4': 0.2,
+    'F4_1G': 0.3,
+    'F16_highmem': 1.2,   # just a guess, the page doesn't say
+}
+
+# Instance classes were last updated 2024-03-04 via `git grep instance_class:`
+_INSTANCE_CLASSES = {
+    'analytics': 'F4_1G',
+    'assignments': 'F2',
+    'content-editing': 'F4_1G',
+    'content': 'F16_highmem',
+    'graphql-gateway': 'F4',
+    'progress': 'F4_1G',
+    'queryplanner': 'F2',
+    'render-gateway': 'F4',
+    'search': 'F4_1G',
+    'users': 'F2',
+    'not-otherwise-specified': 'F1',
+}
+
+# Utilization was last updated 2024-03-04 using log data from 2024-02-29.
+_UTILIZATION = {
+    "admin": 0.399,
+    "analytics": 1.523,
+    "assignments": 0.549,
+    "campaigns": 0.21,
+    "coaches": 0.537,
+    "content": 1.076,
+    "content-editing": 0.623,
+    "content-library": 0.597,
+    "discussions": 0.266,
+    "districts": 1.003,
+    "emails": 0.278,
+    "gateway-proxy": 1.056,
+    "graphql-gateway": 1.1,
+    "notifications": 0.287,
+    "programs": 0.273,
+    "progress": 0.579,
+    "progress-reports": 0.372,
+    "queryplanner": 0.429,
+    "recommendations": 0.678,
+    "render-gateway": 0.229,
+    "rest-gateway": 0.178,
+    "rewards": 0.519,
+    "search": 0.825,
+    "test-prep": 0.532,
+    "users": 0.611,
+}
+
 _MODULE_CPU_COUNT = {
-    'default': 4 / 0.347,
-    'es': 6 / 0.296,
-    'i18n': 6 / 0.306,
-    'frontend-highmem': 6 / 0.258,
-    'batch': 4 / 0.681,
-    'highmem': 8 / 0.183,
-    'multithreaded': 6 / 0.464,
+    s: _COSTS[_INSTANCE_CLASSES.get(s, 'F1')] / _UTILIZATION[s]
+    for s in _UTILIZATION
 }
 
 
