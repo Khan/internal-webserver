@@ -83,7 +83,10 @@ def _refresh_data(path):
         if os.path.getmtime(path) > time.time() - DAY:
             # File has already been updated today, don't refresh
             return
-    subprocess.check_call([os.path.expanduser(GS_PATH), 'cp', GS_DATA, path])
+    gs_path = os.path.expanduser(GS_PATH)
+    if not os.path.exists(gs_path):
+        gs_path = 'gsutil'   # just hope it's on the path
+    subprocess.check_call([gs_path, 'cp', GS_DATA, path])
 
 
 def _load_data():
