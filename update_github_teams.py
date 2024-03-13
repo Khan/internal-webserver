@@ -82,8 +82,9 @@ def _put(github_path, github_token=None, max_tries=3, verbose=False):
 
     request.add_header('Content-Length', '0')
     if github_token:
-        encoded_password = base64.standard_b64encode('%s:x-oauth-basic'
-                                                     % github_token)
+        encoded_password = base64.standard_b64encode(
+            ('%s:x-oauth-basic' % github_token).encode('utf-8')
+        ).decode('utf-8')
         request.add_unredirected_header('Authorization',
                                         'Basic %s' % encoded_password)
 
