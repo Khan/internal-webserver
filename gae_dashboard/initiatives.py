@@ -25,6 +25,10 @@ TEAM_EMAIL = {
     'guided-learning': 'independent-learning-blackhole@khanacademy.org',
     'infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'learning-components': 'independent-learning-blackhole@khanacademy.org',
+    'learning-experience-literacy': (
+        'independent-learning-blackhole@khanacademy.org'),
+    'learning-experience-math-and-science': (
+        'independent-learning-blackhole@khanacademy.org'),
     'mpp': 'mpp@khanacademy.org',
 
     # DEPRECATED NAMES -- will be removed soon.
