@@ -28,7 +28,7 @@ TEAM_EMAIL = {
     'lems': 'independent-learning-blackhole@khanacademy.org',
     'mpp': 'mpp@khanacademy.org',
 
-    # DEPRECATED NAMES -- will be removed soon.
+    # DEPRECATED NAMES -- will be removed by May 1, 2024.
     'classroom': 'coached-perf-reports@khanacademy.org',
     'content-library': 'independent-learning-blackhole@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
