@@ -17,7 +17,6 @@ import urllib.parse
 TEAM_EMAIL = {
     'architecture': 'infrastructure-blackhole@khanacademy.org',
     'teacher-experience': 'coached-perf-reports@khanacademy.org',
-    'content-library': 'independent-learning-blackhole@khanacademy.org',
     'content-platform': 'content-platform-analytics@khanacademy.org',
     'data-infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'districts': 'coached-perf-reports@khanacademy.org',
@@ -25,16 +24,15 @@ TEAM_EMAIL = {
     'guided-learning': 'independent-learning-blackhole@khanacademy.org',
     'infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'learning-components': 'independent-learning-blackhole@khanacademy.org',
-    'learning-experience-literacy': (
-        'independent-learning-blackhole@khanacademy.org'),
-    'learning-experience-math-and-science': (
-        'independent-learning-blackhole@khanacademy.org'),
+    'literacy': 'literacy-devs@khanacademy.org',
+    'lems': 'independent-learning-blackhole@khanacademy.org',
     'mpp': 'mpp@khanacademy.org',
 
     # DEPRECATED NAMES -- will be removed soon.
     'classroom': 'coached-perf-reports@khanacademy.org',
+    'content-library': 'independent-learning-blackhole@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
-    'test-prep': 'test-prep-dev@khanacademy.org',
+    'test-prep': 'literacy-devs@khanacademy.org',
 
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
