@@ -33,7 +33,6 @@ TEAM_EMAIL = {
     'content-library': 'independent-learning-blackhole@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
     'test-prep': 'literacy-devs@khanacademy.org',
-    'content-library': 'independent-learning-blackhole@khanacademy.org',
     'learning-experience-literacy': 'literacy-devs@khanacademy.org',
     'learning-experience-math-and-science': (
         'independent-learning-blackhole@khanacademy.org'),
