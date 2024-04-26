@@ -14,26 +14,27 @@ import urllib.parse
 # dev.ownership._TEAMS. The issue is that some of these aren't general purpose
 # email addresses, rather they are the ones that teams want the bq cron
 # reporter emails to go to.
+# To refresh the list of possible team values, run (in webapp):
+#    cat dev/ownership_data.json | jq -r '.files[][1]' | sort -u
 TEAM_EMAIL = {
     'architecture': 'infrastructure-blackhole@khanacademy.org',
-    'teacher-experience': 'coached-perf-reports@khanacademy.org',
     'content-platform': 'content-platform-analytics@khanacademy.org',
     'data-infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'districts': 'coached-perf-reports@khanacademy.org',
     'frontend-infra': 'fe-infrastructure-blackhole@khanacademy.org',
     'infrastructure': 'infrastructure-blackhole@khanacademy.org',
-    'learning-components': 'independent-learning-blackhole@khanacademy.org',
-    'literacy': 'literacy-devs@khanacademy.org',
-    'lems': 'independent-learning-blackhole@khanacademy.org',
-    'mpp': 'mpp@khanacademy.org',
-    'tutor-platform': 'independent-learning-blackhole@khanacademy.org',
     'khanmigo-core-platform': 'independent-learning-blackhole@khanacademy.org',
+    'lems': 'independent-learning-blackhole@khanacademy.org',
+    'literacy': 'literacy-devs@khanacademy.org',
+    'pg': 'mpp@khanacademy.org',   # product-growth
+    'teacher-experience': 'coached-perf-reports@khanacademy.org',
+    'tutor-platform': 'independent-learning-blackhole@khanacademy.org',
 
     # DEPRECATED NAMES -- will be removed by May 1, 2024.
     'classroom': 'coached-perf-reports@khanacademy.org',
     'content-library': 'independent-learning-blackhole@khanacademy.org',
-    'guided-learning': 'independent-learning-blackhole@khanacademy.org',
     'learning-platform': 'independent-learning-blackhole@khanacademy.org',
+    'mpp': 'mpp@khanacademy.org',
     'test-prep': 'literacy-devs@khanacademy.org',
     'learning-experience-literacy': 'literacy-devs@khanacademy.org',
     'learning-experience-math-and-science': (
