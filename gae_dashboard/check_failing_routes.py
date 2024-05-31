@@ -31,6 +31,10 @@ ROUTES_EXPECTED_TO_FAIL = frozenset((
     # TODO: https://khanacademy.atlassian.net/browse/INFRA-9293, remove these
     '/graphql/isActivityAccessibleForProfiles',
     '/graphql/isSatStudent',
+
+    # TODO: https://khanacademy.atlassian.net/browse/INFRA-10181
+    # investigate where these are coming from
+    '/graphql/authcookiemutation',
 ))
 
 BAD_ROUTES_RE = [
