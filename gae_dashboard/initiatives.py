@@ -18,6 +18,7 @@ import urllib.parse
 #    cat dev/ownership_data.json | jq -r '.files[][1]' | sort -u
 TEAM_EMAIL = {
     'architecture': 'infrastructure-blackhole@khanacademy.org',
+    'assessments': 'assessments-eng@khanacademy.org',
     'content-platform': 'content-platform-analytics@khanacademy.org',
     'data-infrastructure': 'infrastructure-blackhole@khanacademy.org',
     'districts': 'coached-perf-reports@khanacademy.org',
