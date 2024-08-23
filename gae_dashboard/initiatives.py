@@ -31,16 +31,6 @@ TEAM_EMAIL = {
     'teacher-experience': 'coached-perf-reports@khanacademy.org',
     'tutor-platform': 'independent-learning-blackhole@khanacademy.org',
 
-    # DEPRECATED NAMES -- will be removed by May 1, 2024.
-    'classroom': 'coached-perf-reports@khanacademy.org',
-    'content-library': 'independent-learning-blackhole@khanacademy.org',
-    'learning-platform': 'independent-learning-blackhole@khanacademy.org',
-    'mpp': 'mpp@khanacademy.org',
-    'test-prep': 'literacy-devs@khanacademy.org',
-    'learning-experience-literacy': 'literacy-devs@khanacademy.org',
-    'learning-experience-math-and-science': (
-        'independent-learning-blackhole@khanacademy.org'),
-
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
 # TODO(amos): Maybe validate this against the loaded data.
