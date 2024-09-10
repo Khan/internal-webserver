@@ -30,7 +30,7 @@ TEAM_EMAIL = {
     'pg': 'mpp@khanacademy.org',   # product-growth
     'teacher-experience': 'coached-perf-reports@khanacademy.org',
     'tutor-platform': 'independent-learning-blackhole@khanacademy.org',
-
+    'security': 'security-blackhole@khanacademy.org',
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
 # TODO(amos): Maybe validate this against the loaded data.
