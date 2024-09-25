@@ -28,9 +28,9 @@ TEAM_EMAIL = {
     'lems': 'independent-learning-blackhole@khanacademy.org',
     'literacy': 'literacy-devs@khanacademy.org',
     'pg': 'mpp@khanacademy.org',   # product-growth
+    'security': 'security-blackhole@khanacademy.org',
     'teacher-experience': 'coached-perf-reports@khanacademy.org',
     'tutor-platform': 'independent-learning-blackhole@khanacademy.org',
-
     'unknown': 'infrastructure-blackhole@khanacademy.org',
 }
 # TODO(amos): Maybe validate this against the loaded data.
